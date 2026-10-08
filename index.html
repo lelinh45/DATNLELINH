@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Data Integrity - Enterprise SaaS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/keccak256@1.0.6/keccak256.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/merkletreejs@latest/merkletree.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6; 
+        }
+        ::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="bg-[#0b0f19] h-screen overflow-hidden text-gray-200 font-sans">
+    
+    <!-- MÀN HÌNH ĐĂNG NHẬP -->
+    <div id="login-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#050810]">
+        <div class="bg-gray-900/60 p-10 rounded-2xl border border-gray-800 shadow-2xl backdrop-blur-md text-center max-w-md w-full relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-600 rounded-full blur-[60px] opacity-20"></div>
+            
+            <div class="bg-blue-600 w-16 h-16 rounded-2xl shadow-[0_0_20px_rgba(37,99,235,0.6)] flex items-center justify-center mx-auto mb-6 relative z-10">
+                <i class="fa-solid fa-shield-halved text-white text-3xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-white tracking-wide mb-2 relative z-10">Data<span class="text-blue-500">Integrity</span></h1>
+            <p class="text-gray-400 text-sm mb-8 relative z-10">Hệ thống Quản trị & Giám định Dữ liệu Phân tán.</p>
+            
+            <button id="btn-login-wallet" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-bold text-base shadow-[0_4px_15px_rgba(37,99,235,0.4)] transition flex items-center justify-center gap-3 relative z-10">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-6 h-6" alt="MetaMask">
+                Đăng nhập bằng Ví Web3
+            </button>
+            <p class="text-gray-600 text-[11px] mt-6 relative z-10 uppercase tracking-widest font-bold">Yêu cầu xác thực chữ ký để truy cập</p>
+            
+            <div class="mt-4 flex justify-center">
+                <a href="https://metamask.io/download/" target="_blank" rel="noopener noreferrer" 
+                class="group flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-400 transition-all duration-300">
+                    <span>Chưa có ví bảo mật?</span>
+                    <span class="underline font-semibold group-hover:text-blue-300">Cài đặt MetaMask ngay</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-0.5 opacity-70 group-hover:opacity-100 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- KHU VỰC APP CHÍNH -->
+    <div id="app-container" class="hidden w-full h-full">
+        <!-- Sidebar -->
+        <aside class="w-64 min-h-screen bg-slate-950 text-slate-300 flex flex-col border-r border-slate-800 font-sans shrink-0">
+          <div class="flex items-center gap-3 px-6 py-8">
+            <div class="bg-blue-600 p-2 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.5)]">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+            </div>
+            <span class="text-xl font-bold text-white tracking-wide">Data<span class="text-blue-500">Integrity</span></span>
+          </div>
+
+          <!-- Core Menu -->
+          <div class="px-4 flex-1 overflow-y-auto">
+            <div class="flex items-center gap-2 text-xs font-bold text-blue-400 mb-4 px-3 py-2 bg-blue-900/20 border-l-2 border-blue-500 tracking-wider uppercase rounded-r-md shadow-sm">
+              <i class="fa-solid fa-clipboard-check text-blue-500"></i> Xác Thực & Kiểm Định
+            </div>
+            
+            <nav class="space-y-1 mb-8">
+              <a href="#" id="nav-upload" onclick="switchUI('tab-upload', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 bg-blue-500/10 text-blue-400 border-l-2 border-blue-500 rounded-r-md transition-colors">
+                <i class="fa-solid fa-cube w-5 text-center"></i>
+                <span class="font-medium text-sm">Đóng Dấu & IPFS</span>
+              </a>
+              <a href="#" id="nav-verify" onclick="switchUI('tab-verify', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors">
+                <i class="fa-solid fa-shield-halved w-5 text-center"></i>
+                <span class="font-medium text-sm">Xác Thực Toàn Vẹn</span>
+              </a>
+              <a href="#" id="nav-history" onclick="switchUI('tab-history', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors">
+                <i class="fa-solid fa-link w-5 text-center"></i>
+                <span class="font-medium text-sm">Truy Xuất Tài Liệu</span>
+              </a>
+              <a href="#" id="nav-revoked" onclick="switchUI('tab-revoked', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors">
+                <i class="fa-solid fa-file-circle-xmark w-5 text-center"></i>
+                <span class="font-medium text-sm">Danh Sách Hủy Bỏ</span>
+              </a>
+            </nav>
+
+            <div class="flex items-center gap-2 text-xs font-bold text-emerald-400 mb-4 px-3 py-2 bg-emerald-900/20 border-l-2 border-emerald-500 tracking-wider uppercase rounded-r-md shadow-sm">
+              <i class="fa-solid fa-server text-emerald-500"></i> Quản Trị Hệ Thống
+            </div>
+            
+            <nav class="space-y-1">
+              <a href="#" id="nav-roles" onclick="switchUI('tab-roles', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors">
+                <i class="fa-solid fa-users-gear w-5 text-center"></i>
+                <span class="font-medium text-sm">Quản Lý Quyền Ví</span>
+              </a>
+              <a href="#" id="nav-apikeys" onclick="switchUI('tab-apikeys', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors">
+                <i class="fa-solid fa-key w-5 text-center"></i>
+                <span class="font-medium text-sm">Quản Lý API Keys</span>
+              </a>
+              <a href="#" id="nav-rpc" onclick="switchUI('tab-rpc', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors">
+                <i class="fa-solid fa-network-wired w-5 text-center"></i>
+                <span class="font-medium text-sm">Cấu Hình Node RPC</span>
+              </a>
+              <a href="#" id="nav-template" onclick="switchUI('tab-template', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors">
+                <i class="fa-solid fa-file-pdf w-5 text-center"></i>
+                <span class="font-medium text-sm">Mẫu Chứng Nhận</span>
+              </a>
+              <a href="#" id="nav-settings" onclick="switchUI('tab-settings', this)" class="menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors">
+                <i class="fa-solid fa-gear w-5 text-center"></i>
+                <span class="font-medium text-sm">Cài Đặt Chung</span>
+              </a>
+            </nav>
+          </div>
+
+          <div class="mt-auto border-t border-slate-800 p-4 bg-slate-900/50">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white font-bold shadow-md">
+                HL
+              </div>
+              <div class="flex flex-col overflow-hidden">
+                <span class="text-sm font-bold text-white truncate">Admin LLinh</span>
+                <span class="text-xs text-blue-400 font-mono flex items-center gap-1 mt-0.5">
+                  <span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span>
+                  <span id="sidebar-wallet">0x...</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CỘT PHẢI: KHU VỰC THAO TÁC CHÍNH -->
+        <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+            
+            <header class="h-16 flex items-center justify-between px-6 bg-[#0b0f19] border-b border-gray-800 shrink-0">
+                <h2 id="page-title" class="text-lg font-bold text-white">Mã Hóa & Lưu Trữ Phi Tập Trung</h2>
+                <div id="wallet-section" class="flex items-center gap-3">
+                    <!-- KHỐI ĐỒNG HỒ (Đã chỉnh kích thước và giao diện đồng bộ với System Online) -->
+                    <span class="bg-gray-800/60 text-gray-200 border border-gray-700 text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-sm tracking-wide">
+                        <i class="fa-regular fa-clock mr-2 text-blue-400"></i> <span id="real-time-clock">--:--:--</span>
+                    </span>
+                    
+                    <!-- SYSTEM ONLINE -->
+                    <span class="bg-emerald-900/30 text-emerald-400 border border-emerald-800 text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-sm tracking-wide">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2"></span> System Online
+                    </span>
+
+                    <!-- NÚT KẾT NỐI VÍ (Sẽ tự động ẩn đi sau khi đăng nhập) -->
+                    <button id="btn-connect" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-1.5 rounded-full text-sm font-bold transition shadow-[0_0_10px_rgba(37,99,235,0.4)]">
+                        <i class="fa-brands fa-ethereum me-2"></i> Kết nối Ví
+                    </button>
+                    
+                    <!-- Đã xóa bỏ hoàn toàn dòng code hiển thị địa chỉ ví ở góc phải -->
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-6 relative">
+                <!-- Dashboard Stats -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div onclick="document.getElementById('nav-history').click()" class="bg-panel border border-gray-800 p-4 rounded-xl relative overflow-hidden cursor-pointer hover:bg-gray-800/50 hover:border-blue-500/50 transition duration-200 group">
+                        <div class="absolute right-0 top-0 h-full w-1 bg-blue-500 group-hover:shadow-[0_0_10px_#3b82f6]"></div>
+                        <p class="text-xs text-gray-500 font-bold mb-1 group-hover:text-blue-400 transition">TỔNG TÀI LIỆU (ON-CHAIN)</p>
+                        <h4 class="text-2xl font-bold text-white mt-2"><span id="stat-total-docs">--</span> <span class="text-sm text-gray-500 font-normal">file</span></h4>
+                        <i class="fa-solid fa-arrow-up-right-from-square absolute top-4 right-4 text-gray-700 group-hover:text-blue-500 transition opacity-0 group-hover:opacity-100"></i>
+                    </div>
+                    <div onclick="document.getElementById('nav-roles').click()" class="bg-panel border border-gray-800 p-4 rounded-xl relative overflow-hidden cursor-pointer hover:bg-gray-800/50 hover:border-emerald-500/50 transition duration-200 group">
+                        <div class="absolute right-0 top-0 h-full w-1 bg-emerald-500 group-hover:shadow-[0_0_10px_#10b981]"></div>
+                        <p class="text-xs text-gray-500 font-bold mb-1 group-hover:text-emerald-400 transition">VÍ ĐƯỢC ỦY QUYỀN UPLOAD</p>
+                        <h4 class="text-2xl font-bold text-white mt-2"><span id="stat-total-issuers">--</span> <span class="text-sm text-gray-500 font-normal">ví</span></h4>
+                        <i class="fa-solid fa-arrow-up-right-from-square absolute top-4 right-4 text-gray-700 group-hover:text-emerald-500 transition opacity-0 group-hover:opacity-100"></i>
+                    </div>
+                    <div class="bg-panel border border-gray-800 p-4 rounded-xl relative overflow-hidden">
+                        <div class="absolute right-0 top-0 h-full w-1 bg-purple-500"></div>
+                        <p class="text-xs text-gray-500 font-bold mb-1">CHI PHÍ LƯU TRỮ IPFS</p>
+                        <h4 class="text-2xl font-bold text-white mt-2">$<span id="stat-ipfs-cost">0.00</span> <span class="text-sm text-emerald-400 font-normal">(Tiết kiệm)</span></h4>
+                    </div>
+                    <div class="bg-panel border border-gray-800 p-4 rounded-xl relative overflow-hidden">
+                        <div class="absolute right-0 top-0 h-full w-1 bg-cyan-500"></div>
+                        <p class="text-xs text-gray-500 font-bold mb-1">THỜI GIAN ĐÁP ỨNG BLOCKCHAIN</p>
+                        <h4 class="text-2xl font-bold text-white mt-2"><span id="stat-rpc-latency">--</span> <span class="text-sm text-gray-500 font-normal">ms</span></h4>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                    <!-- ============================================== -->
+                    <!-- CỘT TRÁI (Khu vực làm việc - Chiếm 7/12 màn hình)-->
+                    <!-- ============================================== -->
+                    <div class="lg:col-span-7 bg-panel p-6 rounded-xl border border-gray-800 flex flex-col min-h-[450px]">
+                        
+                        <!-- TAB 1: UPLOAD -->
+                        <div id="tab-upload" class="flex-1 flex flex-col">
+                            <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Khởi tạo Dấu vân tay số (Băm dữ liệu)</label>
+                            
+                            <!-- Đã thêm sự kiện onclick vào DropZone để mở File Input -->
+                            <div id="uploadDropZone" onclick="if(event.target.id !== 'uploadFile' && !event.target.closest('button')) document.getElementById('uploadFile').click()" class="border-2 border-dashed border-gray-600 bg-[#0b0f19] hover:bg-[#1f2937] hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition-all duration-300 relative group flex flex-col items-center justify-center flex-1 min-h-[220px] mb-4">
+                                <!-- Đã thêm sự kiện onchange -->
+                                <input type="file" id="uploadFile" class="hidden" multiple onchange="if(window.UI) window.UI.updateFileName('uploadFile')">
+                                
+                                <div id="uploadEmptyState" class="flex flex-col items-center w-full my-auto">
+                                    <div class="w-16 h-16 bg-blue-900/30 text-blue-400 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
+                                    </div>
+                                    <h3 class="text-base font-bold text-white mb-2">Kéo thả hàng loạt tài liệu vào đây</h3>
+                                    <p class="text-sm text-gray-400">hoặc <span class="text-blue-400 underline">chọn nhiều tệp</span> từ thiết bị</p>
+                                    <p class="text-[11px] text-gray-500 mt-3 font-mono">Hỗ trợ: PDF, DOCX, PNG, JPG, TXT (Max 50MB/file)</p>
+                                </div>
+
+                                <div id="uploadFilledState" class="hidden flex-col w-full h-full animate-fadeIn">
+                                    <div class="flex justify-between items-center w-full pb-2 mb-2 border-b border-gray-800">
+                                        <span class="text-sm font-bold text-gray-300">Đã chọn: <span id="uploadFileCount" class="text-blue-400 font-bold text-lg">0</span> tài liệu</span>
+                                        <button type="button" onclick="document.getElementById('uploadFile').click(); event.stopPropagation();" class="text-xs bg-blue-900/30 text-blue-400 px-3 py-1.5 rounded hover:bg-blue-900/60 transition"><i class="fa-solid fa-plus mr-1"></i> Thêm tệp</button>
+                                    </div>
+                                    <div id="uploadFileList" class="w-full flex-1 max-h-[160px] overflow-y-auto space-y-2 pr-2 custom-scrollbar" onclick="event.stopPropagation()">
+                                        <!-- Dữ liệu JS sẽ đổ vào đây -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button id="btn-execute-upload" class="w-full mt-auto bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-lg font-bold text-base shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition">
+                                Xác Nhận & Lưu Dữ Liệu <i class="fa-solid fa-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+
+                        <!-- TAB 2: VERIFY -->
+                        <div id="tab-verify" class="flex-1 flex flex-col hidden">
+                            <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Mã định danh tài liệu</label>
+                            <input type="text" id="verifyDocId" class="w-full bg-[#0b0f19] border border-gray-800 rounded-lg p-3 text-gray-200 focus:outline-none focus:border-blue-500 mb-5" placeholder="Nhập mã truy xuất (VD: file.pdf_170000000)">
+                            
+                            <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Tệp tin cần kiểm chứng</label>
+                            
+                            <!-- Đã thêm sự kiện onclick vào DropZone để mở File Input -->
+                            <div id="verifyDropZone" onclick="if(event.target.id !== 'verifyFile' && !event.target.closest('button')) document.getElementById('verifyFile').click()" class="border-2 border-dashed border-gray-600 bg-[#0b0f19] hover:bg-[#1f2937] hover:border-emerald-500 rounded-xl p-8 text-center cursor-pointer transition-all duration-300 relative group flex flex-col items-center justify-center flex-1 min-h-[220px] mb-4">
+                                <!-- Đã thêm sự kiện onchange -->
+                                <input type="file" id="verifyFile" class="hidden" onchange="if(window.UI) window.UI.updateFileName('verifyFile')">
+                                
+                                <div id="verifyEmptyState" class="flex flex-col items-center w-full">
+                                    <div class="w-16 h-16 bg-emerald-900/30 text-emerald-400 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <i class="fa-solid fa-shield-halved text-3xl"></i>
+                                    </div>
+                                    <h3 class="text-base font-bold text-white mb-2">Chọn file nghi ngờ giả mạo</h3>
+                                    <p class="text-sm text-gray-400">hoặc kéo thả tệp trực tiếp vào đây để đối chiếu</p>
+                                </div>
+
+                                <div id="verifyFilledState" class="hidden flex-col items-center w-full animate-fadeIn">
+                                    <div class="w-16 h-16 bg-blue-900/30 text-blue-400 rounded-2xl flex items-center justify-center mb-3 shadow-lg border border-blue-900/50">
+                                        <i class="fa-solid fa-file-magnifying-glass text-3xl"></i>
+                                    </div>
+                                    <h3 id="verifyFileNameDisplay" class="text-sm font-bold text-blue-400 mb-1 truncate w-3/4 px-4 block">ten-file.pdf</h3>
+                                    <p id="verifyFileSizeDisplay" class="text-xs text-gray-400 mb-4 font-mono">2.5 MB</p>
+                                    <button type="button" class="px-4 py-1.5 bg-[#111827] hover:bg-gray-800 text-gray-300 rounded-lg text-xs transition-colors border border-gray-700 shadow flex items-center justify-center pointer-events-none">
+                                        <i class="fa-solid fa-rotate mr-2"></i> Nhấn để đổi tệp khác
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <button id="btn-execute-verify" class="w-full mt-auto bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-lg font-bold text-base shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition">
+                                Chạy Thuật Toán Đối Chiếu <i class="fa-solid fa-microchip ms-2"></i>
+                            </button>
+                        </div>
+
+                        <!-- TAB 3: HISTORY -->
+                        <div id="tab-history" class="flex-1 flex flex-col hidden">
+                            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider">Sổ Cái Lịch Sử & Truy Xuất Nguồn Gốc</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" id="search-history-input" onkeyup="filterHistoryTable()" placeholder="🔍 Tìm kiếm nhanh ID / Ví..." class="bg-[#0b0f19] border border-gray-800 rounded-md px-3 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500 w-52">
+                                    <button id="btn-refresh-history" class="text-blue-400 hover:text-blue-300 text-sm font-bold transition bg-blue-900/20 px-3 py-1 rounded-md whitespace-nowrap">
+                                        <i class="fa-solid fa-arrows-rotate me-1"></i> Làm mới
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="bg-[#0b0f19] border border-gray-800 rounded-xl flex-1 overflow-hidden flex flex-col relative">
+                                <div class="overflow-x-auto flex-1 overflow-y-auto custom-scrollbar pb-2">
+                                    <table class="w-full table-fixed text-sm text-left text-gray-400">
+                                        <thead class="text-xs text-gray-500 uppercase bg-[#111827] border-b border-gray-800 sticky top-0 z-10">
+                                            <tr>
+                                                <th class="px-4 py-3 font-semibold text-center w-12">STT</th>
+                                                <th class="px-4 py-3 font-semibold w-[25%]">ID TÀI LIỆU & THAO TÁC</th>
+                                                <th class="px-4 py-3 font-semibold w-[25%]">NGUỒN GỐC (VÍ TẠO)</th>
+                                                <th class="px-4 py-3 font-semibold w-[30%]">MÃ BĂM & IPFS</th>
+                                                <th class="px-4 py-3 font-semibold text-center w-[15%]">TRẠNG THÁI</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="history-table-body">
+                                            <tr><td colspan="4" class="px-4 py-10 text-center text-gray-600">Đang chờ quét mạng lưới...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 4: KHO LƯU TRỮ THU HỒI -->
+                        <div id="tab-revoked" class="flex-1 flex flex-col hidden">
+                            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider">Hồ Sơ Tài Liệu Vô Hiệu Hóa & Truy Xuất Gốc</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" id="search-revoked-input" onkeyup="filterRevokedTable()" placeholder="🔍 Tìm kiếm nhanh ID / Ví..." class="bg-[#0b0f19] border border-gray-800 rounded-md px-3 py-1 text-xs text-gray-200 focus:outline-none focus:border-red-500 w-52">
+                                    <button id="btn-refresh-revoked" class="text-red-400 hover:text-red-300 text-sm font-bold transition bg-red-900/20 px-3 py-1 rounded-md whitespace-nowrap">
+                                        <i class="fa-solid fa-arrows-rotate me-1"></i> Làm mới
+                                    </button>
+                                </div>
+                            </div>
+                           <div class="bg-[#0b0f19] border border-red-900/30 rounded-xl flex-1 overflow-hidden flex flex-col relative">
+                                <!-- Thay h-[350px] bằng flex-1 -->
+                                <div class="overflow-x-auto flex-1 overflow-y-auto custom-scrollbar pb-2">
+                                    <table class="w-full table-fixed text-sm text-left text-gray-400">
+                                        <thead class="text-xs text-red-400 uppercase bg-[#111827] border-b border-red-900/30 sticky top-0">
+                                            <tr>
+                                                <th scope="col" class="px-4 py-3 font-semibold text-center w-12">STT</th>
+                                                <th scope="col" class="px-4 py-3 font-semibold">ID Tài Liệu</th>
+                                                <th scope="col" class="px-4 py-3 font-semibold">Nguồn Gốc (Người Tạo & Thời Gian)</th>
+                                                <th scope="col" class="px-4 py-3 font-semibold">Thông Tin Thu Hồi (Lý Do & Người Hủy)</th>
+                                                <th scope="col" class="px-4 py-3 font-semibold text-center">Trạng Thái</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="revoked-table-body">
+                                            <tr><td colspan="4" class="px-4 py-10 text-center text-gray-600">Đang chờ quét mạng lưới...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 5: QUẢN LÝ QUYỀN VÍ -->
+                        <div id="tab-roles" class="flex-1 flex flex-col hidden">
+                            <div class="flex flex-col sm:flex-row justify-between items-center mb-5 gap-3">
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider">Hệ thống Phân Quyền Quản Trị & Đóng Dấu (Admin Only)</label>
+                            </div>
+                            
+                            <!-- KHU VỰC CẤP QUYỀN RBAC MỚI -->
+                            <div id="admin-role-form" class="bg-[#0b0f19] p-5 rounded-xl border border-gray-800 shadow-sm mb-6 grid grid-cols-1 xl:grid-cols-12 gap-4 items-end transition-all duration-300">
+                                <div class="xl:col-span-4">
+                                    <label class="block text-xs text-gray-500 mb-2 truncate">Địa chỉ ví nhân viên (0x...)</label>
+                                    <input type="text" id="newRoleAddress" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" placeholder="Nhập địa chỉ ví cần cấp quyền...">
+                                </div>
+                                <div class="xl:col-span-3">
+                                    <label class="block text-xs text-gray-500 mb-2 truncate">Tên nhân (Biệt danh)</label>
+                                    <input type="text" id="newRoleAlias" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" placeholder="VD: User1, Kế toán...">
+                                </div>
+                                <div class="xl:col-span-3">
+                                    <label class="block text-xs text-gray-500 mb-2 truncate">Cấp độ phân quyền</label>
+                                    <select id="newRoleLevel" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-gray-300 focus:outline-none focus:border-blue-500 appearance-none transition-colors">
+                                        <option value="1">Quyền Nhập Liệu</option>
+                                        <option value="2">Quyền Quản Lý</option>
+                                        <option value="0" class="text-red-400">Khóa (Tước quyền)</option>
+                                    </select>
+                                </div>
+                                <div class="xl:col-span-2">
+                                    <button onclick="handleAssignRole()" id="btn-grant-role" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-3 rounded-lg text-sm font-bold transition-all duration-200 shadow-[0_4px_15px_rgba(16,185,129,0.2)] flex justify-center items-center whitespace-nowrap">
+                                        <i class="fa-solid fa-user-shield me-2"></i> Thực thi
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- BẢNG DANH SÁCH VÀ THANH CÔNG CỤ -->
+                            <div class="relative flex-1 flex flex-col min-h-0">                             
+                                <div class="bg-[#0b0f19] border border-gray-800 rounded-xl flex-1 flex flex-col relative overflow-hidden">
+                                   <!-- Khoảng đệm pb-24 -->
+                                    <div class="flex-1 overflow-y-auto custom-scrollbar pb-24">
+                                        <table class="w-full text-sm text-left text-gray-400 relative">
+                                            <thead class="text-xs text-gray-500 uppercase bg-[#111827] border-b border-gray-800 sticky top-0 z-10">
+                                                <tr>
+                                                    <th class="px-4 py-3 w-[5%] text-center"><input type="checkbox" id="selectAll" onclick="toggleAllCheckboxes(this)" class="rounded bg-gray-900 border-gray-700 text-blue-500 cursor-pointer"></th>
+                                                    <th class="px-4 py-3 font-semibold w-[20%]">Tài khoản Ví</th>
+                                                    <th class="px-4 py-3 font-semibold cursor-pointer hover:text-blue-400 transition group w-[40%] whitespace-nowrap" onclick="sortWalletTable('storageUsed')">
+                                                        Dung lượng & File <i class="fa-solid fa-sort ml-1 opacity-50 group-hover:opacity-100"></i>
+                                                    </th>
+                                                    <th class="px-4 py-3 font-semibold cursor-pointer hover:text-blue-400 transition group w-[25%] whitespace-nowrap" onclick="sortWalletTable('lastActive')">
+                                                        Hoạt động & Bảo mật <i class="fa-solid fa-sort ml-1 opacity-50 group-hover:opacity-100"></i>
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="wallet-roles-table-body">
+                                                <!-- JS sẽ nhồi dữ liệu vào đây -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- THANH CÔNG CỤ -->
+                                <div id="batch-action-bar" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-blue-900/95 backdrop-blur-md border border-blue-500/50 px-4 py-3 rounded-2xl flex flex-col sm:flex-row justify-center items-center gap-4 z-[100] translate-y-[150%] opacity-0 pointer-events-none transition-all duration-300 shadow-[0_10px_40px_rgba(37,99,235,0.4)] w-[95%] md:w-max max-w-full">
+                                    <span class="text-sm font-bold text-white whitespace-nowrap"><span id="selected-count">0</span> ví đang chọn</span>
+                                    <div class="flex flex-wrap justify-center gap-2">
+                                        <button onclick="window.unlockSelectedWallets()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-lg flex items-center">
+                                            <i class="fa-solid fa-unlock mr-2"></i> Mở khóa
+                                        </button>
+                                        <button onclick="window.lockSelectedWallets()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-lg flex items-center">
+                                            <i class="fa-solid fa-ban mr-2"></i> Khóa ví
+                                        </button>
+                                        <button onclick="window.sendBulkNotification()" class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition border border-gray-600 flex items-center">
+                                            <i class="fa-regular fa-bell mr-2"></i> Thông báo
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 6: API KEYS -->
+                        <div id="tab-apikeys" class="flex-1 flex flex-col hidden">
+                            <div class="flex justify-between items-center mb-5">
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider">Quản lý Access Token cho Đối tác (B2B)</label>
+                                <button id="btn-generate-api" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-md">
+                                    <i class="fa-solid fa-plus mr-1"></i> Tạo API Key mới
+                                </button>
+                            </div>
+                            <div class="bg-[#0b0f19] border border-gray-800 rounded-xl flex-1 overflow-y-auto custom-scrollbar flex flex-col relative">
+                                <table class="w-full table-fixed text-sm text-left text-gray-400">
+                                    <thead class="text-xs text-gray-500 uppercase bg-[#111827] border-b border-gray-800 sticky top-0 z-10">
+                                        <tr>
+                                            <th class="px-4 py-3 font-semibold">Tên ứng dụng</th>
+                                            <th class="px-4 py-3 font-semibold">Token (Bảo mật)</th>
+                                            <th class="px-4 py-3 font-semibold">Ngày tạo</th>
+                                            <th class="px-4 py-3 font-semibold text-center">Trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="api-keys-table-body">
+                                        <tr><td colspan="4" class="px-4 py-10 text-center text-gray-600">Chưa có API Key nào được khởi tạo.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB 7: RPC NODE -->
+                        <div id="tab-rpc" class="flex-1 flex flex-col hidden">
+                            <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Kết nối mạng lưới chuỗi khối (Blockchain Node)</label>
+                            <div class="space-y-4 flex-1">
+                                <div>
+                                    <label class="block text-sm text-gray-300 mb-2">RPC Endpoint URL</label>
+                                    <input type="text" id="rpc-url-input" class="w-full bg-[#0b0f19] border border-gray-800 rounded-lg p-3 text-blue-400 font-mono text-sm focus:outline-none focus:border-blue-500" value="http://127.0.0.1:8545">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-300 mb-2">Chain ID</label>
+                                    <input type="text" id="chain-id-input" class="w-full bg-[#0b0f19] border border-gray-800 rounded-lg p-3 text-gray-200 font-mono text-sm focus:outline-none focus:border-blue-500" value="31337">
+                                </div>
+                            </div>
+                            <button id="btn-save-rpc" class="w-full mt-5 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold text-sm shadow-md transition">
+                                <i class="fa-solid fa-floppy-disk mr-2"></i> Lưu cấu hình mạng
+                            </button>
+                        </div>
+
+                        <!-- TAB 8: TEMPLATE CHỨNG NHẬN -->
+                        <div id="tab-template" class="flex-1 flex flex-col hidden">
+                            <label class="block text-xs font-bold text-gray-400 mb-4 uppercase tracking-wider">Tùy chọn hiển thị phôi PDF</label>
+                            <div class="grid grid-cols-2 gap-4 flex-1">
+                                <div id="tpl-standard" onclick="selectTemplate('standard')" class="border-2 border-blue-600 bg-blue-900/10 rounded-xl p-4 cursor-pointer relative transition duration-200">
+                                    <div id="icon-standard" class="absolute top-2 right-2 text-blue-500"><i class="fa-solid fa-circle-check"></i></div>
+                                    <h6 class="text-white font-bold mb-2">Mẫu Tiêu Chuẩn (Standard)</h6>
+                                    <p class="text-xs text-gray-400">Hiển thị đầy đủ thông tin băm, ID, ví xác nhận và mã QR code truyền thống.</p>
+                                </div>
+                                <div id="tpl-minimal" onclick="selectTemplate('minimal')" class="border-2 border-gray-800 bg-[#0b0f19] rounded-xl p-4 cursor-pointer hover:border-gray-600 transition duration-200 relative">
+                                    <div id="icon-minimal" class="absolute top-2 right-2 text-blue-500 hidden"><i class="fa-solid fa-circle-check"></i></div>
+                                    <h6 class="text-white font-bold mb-2">Mẫu Tối Giản (Minimalist)</h6>
+                                    <p class="text-xs text-gray-400">Chỉ hiển thị con dấu xác nhận On-chain và mã QR quét nhanh.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 9: SETTINGS -->
+                        <div id="tab-settings" class="flex-1 flex flex-col hidden">
+                            <label class="block text-xs font-bold text-gray-400 mb-4 uppercase tracking-wider">Thiết lập bảo mật & Cảnh báo</label>
+                            <div class="space-y-4 flex-1">
+                                <div class="flex items-center justify-between bg-[#0b0f19] p-4 rounded-lg border border-gray-800">
+                                    <div>
+                                        <h6 class="text-gray-200 font-bold text-sm">Chế độ tự động đồng bộ (Auto-Sync)</h6>
+                                        <p class="text-xs text-gray-500 mt-1">Tự động làm mới Sổ cái giao dịch sau mỗi 10 giây.</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" checked class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+                            </div>
+                            <button id="btn-save-settings" class="w-full mt-5 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold text-sm shadow-md transition">
+                                <i class="fa-solid fa-check mr-2"></i> Cập nhật hệ thống
+                            </button>
+                        </div>
+
+                    </div>
+
+                    <!-- ============================================== -->
+                    <!-- CỘT PHẢI (Terminal & Progress - Chiếm 5/12 màn hình)-->
+                    <!-- ============================================== -->
+                    <div class="lg:col-span-5 bg-panel p-6 rounded-xl border border-gray-800 flex flex-col h-[450px]">
+                        <div class="flex justify-between items-center mb-4 shrink-0">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider"><i class="fa-solid fa-microchip me-2"></i> Tiến trình Blockchain</h3>
+                            <span id="status-badge" class="bg-gray-800 text-gray-300 border border-gray-700 text-[10px] px-2 py-0.5 rounded font-bold">STANDBY</span>
+                        </div>
+                        
+                        <div class="bg-[#0b0f19] border border-gray-800 rounded-lg p-4 mb-4 shrink-0">
+                            <div class="flex justify-between text-xs font-bold text-gray-400 mb-2">
+                                <span id="progress-text">Hệ thống đang rảnh</span>
+                                <span id="progress-percent" class="text-blue-400">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-800 rounded-full h-1.5">
+                                <div id="progress-bar" class="bg-blue-500 h-1.5 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all duration-300 ease-out" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Khung Terminal (Đã đưa trở lại vào trong Cột Phải) -->
+                        <div id="consoleBox" class="bg-[#0b0f19] border border-gray-800 rounded-lg p-4 flex-1 min-h-0 overflow-y-auto terminal-text text-xs leading-relaxed custom-scrollbar">
+                            <div class="text-gray-500 mb-1">> Khởi chạy hệ thống Data Integrity V2.0...</div>
+                            <div class="text-gray-500 mb-1">> Sẵn sàng nhận lệnh...</div>
+                        </div>
+                    </div>
+               </div>
+            
+            <!-- Floating Action Bar (Thanh công cụ hàng loạt) -->
+            <div id="batch-action-bar" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-900/95 backdrop-blur-md border border-blue-500/50 px-6 py-3 rounded-full flex justify-between items-center gap-8 z-[100] translate-y-[200%] transition-transform duration-300 shadow-[0_10px_40px_rgba(37,99,235,0.4)]">
+                <span class="text-sm font-bold text-white"><span id="selected-count">0</span> ví đang chọn</span>
+                <div class="flex gap-2">
+                    <!-- ĐÃ BỔ SUNG: Nút Mở Khóa màu Xanh lá -->
+                    <button onclick="window.unlockSelectedWallets()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-full text-xs font-bold transition shadow-lg flex items-center">
+                        <i class="fa-solid fa-unlock mr-2"></i> Mở khóa
+                    </button>
+                    
+                    <button onclick="window.lockSelectedWallets()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded-full text-xs font-bold transition shadow-lg flex items-center">
+                        <i class="fa-solid fa-ban mr-2"></i> Khóa ví
+                    </button>
+                    <button class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-1.5 rounded-full text-xs font-bold transition border border-gray-600 flex items-center">
+                        <i class="fa-regular fa-bell mr-2"></i> Thông báo
+                    </button>
+                </div>
+            </div>
+
+            <!-- MODAL CHI TIẾT TÀI LIỆU CỦA VÍ -->
+            <div id="storage-modal-overlay" class="fixed inset-0 bg-black/80 z-[200] hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+                <div class="bg-[#0b0f19] border border-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col relative">
+                    <!-- Header Modal -->
+                    <div class="flex justify-between items-center p-5 border-b border-gray-800 bg-[#111827] rounded-t-xl">
+                        <h3 class="text-white font-bold text-lg"><i class="fa-solid fa-folder-open text-blue-500 mr-2"></i>Chi Tiết Tài Liệu Của Ví</h3>
+                        <button onclick="closeStorageModal()" class="text-gray-500 hover:text-red-400 transition text-xl"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <!-- Body Modal -->
+                    <div class="p-5 flex-1 overflow-hidden flex flex-col">
+                        <!-- Đã sửa thành flex-col để xếp dọc 2 dòng -->
+                        <div class="mb-4 flex flex-col gap-2">
+                            <!-- Dòng 1: Tên tài khoản ví -->
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-gray-400">Tài khoản:</span>
+                                <span id="storage-modal-role" class="text-xs font-bold"></span>
+                            </div>
+                            <!-- Dòng 2: Key ID -->
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-gray-400">Đang quét dữ liệu của Key ID:</span>
+                                <span id="storage-modal-wallet" class="inline-block truncate max-w-[200px] sm:max-w-[300px] text-blue-400 font-mono text-sm bg-gray-900 px-2 py-1 rounded border border-gray-800 align-bottom"></span>
+                            </div>
+                        </div>
+                        
+                        <!-- Bảng kết quả -->
+                        <div class="overflow-y-auto flex-1 border border-gray-800 rounded-lg">
+                            <table class="w-full text-sm text-left text-gray-400">
+                                <!-- Đã thêm z-10 vào dòng thead bên dưới -->
+                                <thead class="text-xs text-gray-500 uppercase bg-[#111827] border-b border-gray-800 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold w-12 text-center">STT</th>
+                                        <th class="px-4 py-3 font-semibold">ID Tài Liệu & Hash</th>
+                                        <th class="px-4 py-3 font-semibold text-left">Dung Lượng</th>
+                                        <th class="px-4 py-3 font-semibold">Thời Gian Up</th>
+                                        <th class="px-4 py-3 font-semibold text-center">Trạng Thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="storage-modal-tbody">
+                                    <tr><td colspan="5" class="px-4 py-10 text-center text-gray-600">Đang chờ dữ liệu...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- QUICK PREVIEW DRAWER (Ngăn kéo xem nhanh Hồ Sơ) -->
+            <div id="preview-drawer-overlay" class="fixed inset-0 bg-black/60 z-[150] hidden opacity-0 transition-opacity duration-300" onclick="toggleDrawer(false)"></div>
+            <div id="preview-drawer" class="fixed top-0 right-0 bottom-0 w-full max-w-sm bg-[#0b0f19] border-l border-gray-800 shadow-2xl z-[160] transform translate-x-full transition-transform duration-300 flex flex-col">
+                <div id="drawer-content" class="flex flex-col h-full">
+                    <!-- JS sẽ đổ chi tiết ví vào đây -->
+                </div>
+            </div>
+            
+                        <!-- MODAL KIỂM DUYỆT TÀI LIỆU TRÙNG LẶP / ĐÃ XÓA (CONFLICT RESOLUTION) -->
+                        <div id="conflict-modal-overlay" class="fixed inset-0 bg-black/85 z-[250] hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+                            <!-- Đã thu nhỏ max-w-5xl xuống max-w-4xl -->
+                            <div class="bg-[#0b0f19] border border-gray-800 rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-4xl max-h-[90vh] flex flex-col relative overflow-hidden">
+                                
+                                <!-- Header -->
+                                <div class="flex justify-between items-center p-5 border-b border-gray-800 bg-[#111827]">
+                                    <div>
+                                        <h3 class="text-white font-bold text-lg"><i class="fa-solid fa-code-compare text-yellow-500 mr-2"></i>Bộ Lọc Dữ Liệu Tải Lên</h3>
+                                        <p class="text-xs text-gray-400 mt-1">Phát hiện các tài liệu bị trùng lặp hoặc đã từng bị vô hiệu hóa trên hệ thống.</p>
+                                    </div>
+                                    <button onclick="cancelConflict()" class="text-gray-500 hover:text-red-400 transition text-xl"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+
+                                <!-- Body: Dùng Flexbox để các bảng nằm gọn gàng cạnh nhau -->
+                                <div class="p-6 flex-1 overflow-y-auto bg-[#050810] flex flex-col md:flex-row justify-center items-start gap-6 custom-scrollbar">
+                                    
+                                    <!-- BẢNG 1: TÀI LIỆU ĐÃ TỪNG BỊ XÓA (Thu nhỏ max-w: 380px) -->
+                                    <div id="section-revoked-conflict" class="hidden flex-col border border-red-900/30 rounded-xl bg-red-900/10 overflow-hidden w-full max-w-[380px] shadow-lg">
+                                        <div class="p-4 border-b border-red-900/30 bg-red-900/20 text-center">
+                                            <h4 class="text-red-400 font-bold text-sm uppercase tracking-wider mb-1"><i class="fa-solid fa-trash-can-arrow-up mr-2"></i>Đã từng thu hồi</h4>
+                                            <p class="text-[11px] text-red-300 mb-4 leading-relaxed px-2">Tài liệu này đã bị vô hiệu hóa trước đây. Bạn có muốn tải lên lại không?</p>
+                                            <div class="flex justify-center gap-2">
+                                                <button onclick="resolveConflict('revoked', false)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-1.5 rounded-lg text-xs font-bold transition border border-gray-600">Hủy bỏ</button>
+                                                <button onclick="resolveConflict('revoked', true)" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-lg"><i class="fa-solid fa-check mr-1"></i> Tải lại</button>
+                                            </div>
+                                        </div>
+                                        <div class="max-h-60 overflow-y-auto custom-scrollbar">
+                                            <table class="w-full text-sm text-left text-gray-400">
+                                                <thead class="text-[10px] text-gray-500 uppercase bg-[#111827] sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="px-3 py-2 w-10 text-center border-b border-gray-800"><input type="checkbox" id="selectAllRevoked" onclick="toggleConflictCheckboxes('revoked-conflict-tbody', this)" class="rounded bg-gray-900 border-gray-700 text-blue-500 cursor-pointer" checked></th>
+                                                        <th class="px-3 py-2 font-semibold border-b border-gray-800">Thông tin File</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="revoked-conflict-tbody"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <!-- BẢNG 2: TÀI LIỆU ĐANG TỒN TẠI (Thu nhỏ max-w: 380px) -->
+                                    <div id="section-active-conflict" class="hidden flex-col border border-yellow-900/30 rounded-xl bg-yellow-900/10 overflow-hidden w-full max-w-[380px] shadow-lg">
+                                        <div class="p-4 border-b border-yellow-900/30 bg-yellow-900/20 text-center">
+                                            <h4 class="text-yellow-400 font-bold text-sm uppercase tracking-wider mb-1"><i class="fa-solid fa-copy mr-2"></i>Bị Trùng Lặp</h4>
+                                            <p class="text-[11px] text-yellow-300 mb-4 leading-relaxed px-2">Bản gốc đang hoạt động trên hệ thống. Bạn có chắc chắn muốn ghi đè?</p>
+                                            <div class="flex justify-center gap-2">
+                                                <button onclick="resolveConflict('active', false)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-1.5 rounded-lg text-xs font-bold transition border border-gray-600">Hủy bỏ</button>
+                                                <button onclick="resolveConflict('active', true)" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-lg"><i class="fa-solid fa-check mr-1"></i> Ghi đè</button>
+                                            </div>
+                                        </div>
+                                        <div class="max-h-60 overflow-y-auto custom-scrollbar">
+                                            <table class="w-full text-sm text-left text-gray-400">
+                                                <thead class="text-[10px] text-gray-500 uppercase bg-[#111827] sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="px-3 py-2 w-10 text-center border-b border-gray-800"><input type="checkbox" id="selectAllActive" onclick="toggleConflictCheckboxes('active-conflict-tbody', this)" class="rounded bg-gray-900 border-gray-700 text-blue-500 cursor-pointer" checked></th>
+                                                        <th class="px-3 py-2 font-semibold border-b border-gray-800">Thông tin File</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="active-conflict-tbody"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BẢNG 2: TÀI LIỆU ĐANG TỒN TẠI (TRÙNG LẶP) -->
+                        <div id="section-active-conflict" class="hidden flex-col border border-yellow-900/30 rounded-xl bg-yellow-900/10 overflow-hidden">
+                            <div class="p-4 border-b border-yellow-900/30 flex justify-between items-center bg-yellow-900/20">
+                                <div>
+                                    <h4 class="text-yellow-400 font-bold text-sm uppercase tracking-wider"><i class="fa-solid fa-copy mr-2"></i>Tài Liệu Trùng Lặp</h4>
+                                    <p class="text-xs text-yellow-300 mt-0.5">Bản gốc đang hoạt động trên hệ thống. Bạn có muốn tải lên tạo phiên bản mới đè lên không?</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="resolveConflict('active', false)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-bold transition border border-gray-600">Hủy bảng này</button>
+                                    <button onclick="resolveConflict('active', true)" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-lg"><i class="fa-solid fa-check mr-1"></i> Chấp nhận đè file</button>
+                                </div>
+                            </div>
+                            <div class="max-h-60 overflow-y-auto">
+                                <table class="w-full text-sm text-left text-gray-400">
+                                    <thead class="text-[11px] text-gray-500 uppercase bg-[#111827] sticky top-0">
+                                        <tr>
+                                            <th class="px-4 py-2 w-10 text-center"><input type="checkbox" id="selectAllActive" onclick="toggleConflictCheckboxes('active-conflict-tbody', this)" class="rounded bg-gray-900 border-gray-700 text-blue-500 cursor-pointer" checked></th>
+                                            <th class="px-4 py-2 font-semibold">Tên File & Mã Gốc</th>
+                                            <th class="px-4 py-2 font-semibold text-right">Kích thước</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="active-conflict-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- TEMPLATE CHỨNG NHẬN SỐ ĐỂ XUẤT PDF -->
+    <div id="pdf-certificate-container" style="display: none;">
+        <div id="certificate-content" style="width: 750px; padding: 40px; background: #ffffff; color: #1e293b; font-family: 'Segoe UI', Arial, sans-serif; border: 12px double #1e3a8a; position: relative;">
+            <div style="text-align: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 20px; margin-bottom: 25px;">
+                <h1 style="color: #1e3a8a; font-size: 26px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Chứng Thư Toàn Vẹn Dữ Liệu Số</h1>
+                <p style="color: #64748b; font-size: 13px; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 2px;">Certificate of Blockchain Data Integrity</p>
+            </div>
+            <div style="margin-bottom: 25px;">
+                <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 0 0 15px 0;">Chứng thư này xác nhận rằng tệp tin dữ liệu số đã được băm mã hóa SHA-256 và khắc dấu kiểm toán trên sổ cái Blockchain với các thông số xác thực sau:</p>
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <tr><td style="padding: 8px 0; width: 170px; font-weight: bold; color: #475569;">Mã Định Danh (Doc ID):</td><td id="cert-doc-id" style="padding: 8px 0; font-family: monospace; color: #0f172a; font-weight: bold;">--</td></tr>
+                    <tr><td style="padding: 8px 0; font-weight: bold; color: #475569;">Dấu Vân Tay Số (Hash):</td><td id="cert-file-hash" style="padding: 8px 0; font-family: monospace; color: #1e3a8a; word-break: break-all;">--</td></tr>
+                    <tr><td style="padding: 8px 0; font-weight: bold; color: #475569;">Địa Chỉ IPFS CID:</td><td id="cert-ipfs-cid" style="padding: 8px 0; font-family: monospace; color: #0284c7; word-break: break-all;">--</td></tr>
+                    <tr><td style="padding: 8px 0; font-weight: bold; color: #475569;">Ví Ký Chứng Thực:</td><td id="cert-signer-wallet" style="padding: 8px 0; font-family: monospace; color: #334155;">--</td></tr>
+                    <tr><td style="padding: 8px 0; font-weight: bold; color: #475569;">Thời Gian Xác Lập:</td><td id="cert-timestamp" style="padding: 8px 0; color: #334155;">--</td></tr>
+                </table>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 20px; border-top: 1px dashed #cbd5e1;">
+                <div style="text-align: center;"><img id="cert-qr-img" src="" style="width: 110px; height: 110px; border: 1px solid #e2e8f0; padding: 4px; border-radius: 6px;"><p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0;">Quét mã tra cứu gốc</p></div>
+                <div style="text-align: center; width: 250px;"><div style="border: 2px solid #16a34a; color: #16a34a; font-weight: 800; font-size: 13px; padding: 6px 12px; border-radius: 4px; display: inline-block; text-transform: uppercase; margin-bottom: 8px;">✓ VERIFIED ON-CHAIN</div><p style="font-size: 12px; color: #475569; font-weight: bold; margin: 0;">HỆ THỐNG KIỂM TOÁN DỮ LIỆU</p><p style="font-size: 11px; color: #94a3b8; margin: 2px 0 0 0;">Blockchain Research Lab</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nạp Controller Module ES6 -->
+    <script type="module" src="assets/js/main.js"></script>
+    <script>
+    function switchUI(tabId, clickedElement) {
+        const allTabs = ['tab-upload', 'tab-verify', 'tab-history', 'tab-revoked', 'tab-roles', 'tab-apikeys', 'tab-rpc', 'tab-template', 'tab-settings'];
+        allTabs.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.classList.add('hidden');
+        });
+
+        const selectedTab = document.getElementById(tabId);
+        if(selectedTab) selectedTab.classList.remove('hidden');
+
+        const menuItems = document.querySelectorAll('.menu-item');
+        menuItems.forEach(item => {
+            item.className = 'menu-item flex items-center gap-3 px-3 py-2.5 text-gray-400 border-l-2 border-transparent hover:bg-slate-800/50 hover:text-white rounded-r-md transition-colors';
+        });
+
+        if (clickedElement) {
+            clickedElement.className = 'menu-item flex items-center gap-3 px-3 py-2.5 bg-blue-500/10 text-blue-400 border-l-2 border-blue-500 rounded-r-md transition-colors';
+            document.getElementById('page-title').innerText = clickedElement.innerText.trim();
+        }
+    }
+    </script>
+</body>
+</html>

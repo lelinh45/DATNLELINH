@@ -1,0 +1,16 @@
+/* Tùy chỉnh thanh cuộn */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0b0f19; }
+::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+/* Khu vực kéo thả file */
+.drop-zone { border: 2px dashed #374151; transition: all 0.2s ease; cursor: pointer; }
+.drop-zone:hover { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.05); }
+
+/* Chữ Console phong cách Hacker/Terminal */
+.terminal-text { font-family: 'Courier New', Courier, monospace; }
+
+/* Bảng màu SaaS Enterprise */
+body { background-color: #0b0f19; }
+.bg-panel { background-color: #111827; }
