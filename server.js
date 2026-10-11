@@ -240,6 +240,20 @@ if (!process.env.JWT_SECRET) {
     console.warn('⚠️  JWT_SECRET chưa được cấu hình trong .env — mọi API xác thực sẽ trả 500 cho tới khi cấu hình.');
 }
 
+// Quyền đọc "NGƯỜI XEM": rank on-chain = 0 (không ghi được gì trên chuỗi)
+// nhưng DB đánh dấu role NGƯỜI XEM → được xem danh sách, không được ghi API.
+const requireViewer = async (req, res, next) => {
+    try {
+        const rank = await getRoleRank(req.user.address);
+        if (rank !== null && rank >= 1) return next();
+        const w = await Wallet.findOne({ address: req.user.address }).select('role status').lean();
+        if (w && w.role === 'NGƯỜI XEM' && w.status === 'ACTIVE') return next();
+        return res.status(403).json({ success: false, message: 'Cần ít nhất quyền Người Xem' });
+    } catch (e) {
+        res.status(503).json({ success: false, message: 'Không kiểm tra được quyền lúc này' });
+    }
+};
+
 const ipfsMockStorage = new Map(); 
 
 // =====================================================================
@@ -505,7 +519,7 @@ app.get('/api/wallets/me', requireAuth, async (req, res) => {
 // Ví đã đăng nhập nhưng quyền on-chain vẫn là 0 — khay "chờ cấp quyền" của ADMIN
 app.get('/api/wallets/pending', requireAuth, requireRole('ADMIN'), async (req, res) => {
     try {
-        const wallets = await Wallet.find({ status: 'ACTIVE' })
+        const wallets = await Wallet.find({ status: 'ACTIVE', role: { $ne: 'NGƯỜI XEM' } })
             .select('address alias email phone requestedRole lastActive').lean();
         // DB role default 'NHẬP LIỆU' không đáng tin → phải check rank on-chain = 0
         const ranks = await Promise.all(wallets.map(w => getRoleRank(w.address).catch(() => null)));
@@ -516,7 +530,7 @@ app.get('/api/wallets/pending', requireAuth, requireRole('ADMIN'), async (req, r
 });
 
 // Danh sách ví toàn hệ thống — chỉ nhân sự đã được cấp quyền (rank >= 1) mới xem
-app.get('/api/wallets', requireAuth, requireRole('NHẬP LIỆU'), async (req, res) => {
+app.get('/api/wallets', requireAuth, requireViewer, async (req, res) => {
     try {
         const wallets = await Wallet.find({ status: { $ne: 'DELETED' } }).lean();
         // Dung lượng thật tính từ DB, không tin số client tự khai qua /wallets/sync
@@ -561,7 +575,7 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
         // requestedRole chỉ nhận 2 giá trị hợp lệ; rỗng → xóa yêu cầu
         if ('requestedRole' in update) {
             if (update.requestedRole === '' || update.requestedRole === null) update.requestedRole = null;
-            else if (!['NHẬP LIỆU', 'QUẢN LÝ'].includes(update.requestedRole)) delete update.requestedRole;
+            else if (!['NHẬP LIỆU', 'QUẢN LÝ', 'NGƯỜI XEM'].includes(update.requestedRole)) delete update.requestedRole;
         }
 
         const wantsAdminFields = Object.keys(updateData).some(k => ADMIN_FIELDS.includes(k));
@@ -642,7 +656,7 @@ function unwrapKey(blob) {
 
 // Danh mục tài liệu toàn hệ thống — chỉ nhân sự được cấp quyền mới đọc;
 // khách rank 0 có JWT nhưng gọi thẳng bằng DevTools cũng bị 403
-app.get('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, res) => {
+app.get('/api/batches', requireAuth, requireViewer, async (req, res) => {
     try {
         const batches = await Batch.find();
         res.json(batches);

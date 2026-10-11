@@ -40,6 +40,12 @@ nghĩa nếu không có khóa AES.
   nghị) → bấm Duyệt tự điền form phân quyền; khách tự mở full UI sau khi được
   cấp quyền mà không cần login lại. Backend chặn rank 0 ở mọi API cần quyền —
   UI chỉ là lớp trải nghiệm.
+- **Vai trò NGƯỜI XEM (chỉ đọc)** — rank on-chain vẫn 0 nên contract tự chặn
+  mọi giao dịch ghi; MongoDB gắn cờ `NGƯỜI XEM` để backend mở quyền đọc
+  (`GET /batches`, `GET /wallets` qua middleware `requireViewer`). Viewer thấy
+  Truy Xuất / Xác Thực / DS Hủy Bỏ, tải được tài liệu công khai — không upload,
+  không thu hồi, không quản trị. Cấp từ form phân quyền: ví rank 0 sẵn thì chỉ
+  ghi DB (không tốn gas), ví đang có quyền thì ký `assignRole(0)` tước trước.
 - **Upload có chọn lọc** — mã hóa AES-256 tại trình duyệt, tự chọn Riêng tư
   (mình + Admin) hay Công khai (mọi ví đăng nhập). Khóa AES được ủy thác cho server,
   bọc thêm một lớp AES-256-GCM trước khi vào MongoDB.

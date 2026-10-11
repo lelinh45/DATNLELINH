@@ -137,3 +137,59 @@ test('index.html: không còn duplicate id', () => {
 test('Schema chính: files[] có encKey', () => {
     assert.ok(batchModel.includes('encKey'), 'Batch model phải có encKey');
 });
+
+// =====================================================================
+// VAI TRÒ NGƯỜI XEM — rank 0 on-chain + cờ DB, chỉ đọc không ghi
+// =====================================================================
+const walletModel = read('models/Wallet.js');
+
+test('Viewer: Wallet model enum chấp nhận NGƯỜI XEM (role + requestedRole)', () => {
+    assert.ok(walletModel.includes("'NGƯỜI XEM'"), 'role enum phải có NGƯỜI XEM');
+    const reqLine = walletModel.split('\n').find(l => l.includes('requestedRole'));
+    assert.ok(reqLine.includes("'NGƯỜI XEM'"), 'requestedRole enum phải có NGƯỜI XEM');
+});
+
+test('Viewer: requireViewer cho rank>=1 hoặc DB role NGƯỜI XEM + ACTIVE', () => {
+    const start = serverJs.indexOf('const requireViewer');
+    assert.ok(start > 0, 'server.js phải có middleware requireViewer');
+    const body = serverJs.slice(start, start + 1200);
+    assert.ok(body.includes("w.role === 'NGƯỜI XEM'"), 'requireViewer phải check role NGƯỜI XEM trong DB');
+    assert.ok(body.includes("w.status === 'ACTIVE'"), 'viewer bị khóa/xóa không được đọc');
+    assert.ok(body.includes('rank >= 1'), 'rank >= 1 vẫn pass requireViewer');
+});
+
+test('Viewer: chỉ gắn vào GET đọc — không nới lỏng API ghi', () => {
+    assert.ok(serverJs.includes("app.get('/api/wallets', requireAuth, requireViewer"), 'GET /wallets phải cho viewer');
+    assert.ok(serverJs.includes("app.get('/api/batches', requireAuth, requireViewer"), 'GET /batches phải cho viewer');
+    assert.ok(serverJs.includes("app.post('/api/upload', requireAuth, requireRole('NHẬP LIỆU')"), 'upload vẫn yêu cầu rank>=1');
+    assert.ok(!/app\.post\([^)]*requireViewer/.test(serverJs), 'requireViewer không được gắn vào bất kỳ POST nào');
+});
+
+test('Viewer: khay chờ duyệt loại trừ ví NGƯỜI XEM', () => {
+    const start = serverJs.indexOf("/api/wallets/pending");
+    const body = serverJs.slice(start, start + 800);
+    assert.ok(body.includes("$ne: 'NGƯỜI XEM'"), 'pending phải lọc bỏ NGƯỜI XEM');
+});
+
+test('Viewer: sync whitelist chấp nhận requestedRole NGƯỜI XEM', () => {
+    assert.ok(serverJs.includes("'NHẬP LIỆU', 'QUẢN LÝ', 'NGƯỜI XEM'"), 'requestedRole whitelist thiếu NGƯỜI XEM');
+});
+
+test('Viewer UI: nav không có upload/quản trị; login phân nhánh theo DB role', () => {
+    const navLine = mainJs.split('\n').find(l => l.includes('VIEWER_VISIBLE_NAV'));
+    assert.ok(navLine, 'main.js phải định nghĩa VIEWER_VISIBLE_NAV');
+    assert.ok(!navLine.includes('nav-upload') && !navLine.includes('nav-roles'), 'viewer không được thấy upload/quản trị');
+    assert.ok(navLine.includes('nav-history'), 'viewer phải thấy Truy Xuất');
+    assert.ok(mainJs.includes('applyViewerMode'), 'phải có applyViewerMode');
+    assert.ok(mainJs.includes("me.role === 'NGƯỜI XEM'"), 'login phải phân nhánh viewer theo DB role');
+    assert.ok(indexHtml.includes('id="viewer-banner"'), 'index.html phải có banner viewer');
+    assert.ok(indexHtml.includes('value="viewer"'), 'form cấp quyền phải có option viewer');
+});
+
+test('Viewer: auto-sync không đè NGƯỜI XEM thành BỊ KHÓA; assign xử lý rank 0', () => {
+    const syncBlock = mainJs.slice(mainJs.indexOf('ĐỐI CHIẾU QUYỀN THỰC TẾ'), mainJs.indexOf('ĐỐI CHIẾU QUYỀN THỰC TẾ') + 2500);
+    assert.ok(syncBlock.includes("isViewer") && syncBlock.includes("'NGƯỜI XEM'"), 'auto-sync phải giữ NGƯỜI XEM khi rank 0');
+    const assignBlock = mainJs.slice(mainJs.indexOf('window.handleAssignRole'), mainJs.indexOf('window.handleAssignRole') + 5500);
+    assert.ok(assignBlock.includes("rawLevel === 'viewer'"), 'handleAssignRole phải nhận option viewer');
+    assert.ok(assignBlock.includes("assignRole(address, roleLevel)"), 'ví đang có quyền chain vẫn phải ký tx tước');
+});

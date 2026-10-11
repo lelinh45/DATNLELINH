@@ -216,6 +216,16 @@
                         </p>
                     </div>
                 </div>
+                <!-- Banner chế độ Người Xem — chỉ đọc -->
+                <div id="viewer-banner" class="hidden mb-4 bg-sky-900/20 border border-sky-700/50 rounded-xl p-4 flex items-start gap-3">
+                    <i class="fa-solid fa-eye text-sky-400 text-lg mt-0.5"></i>
+                    <div class="flex-1">
+                        <p class="text-sky-300 font-bold text-sm">Chế độ Người Xem</p>
+                        <p class="text-sky-200/70 text-xs mt-1 leading-relaxed">
+                            Ví của bạn được cấp quyền <b>chỉ đọc</b>: xem danh sách tài liệu, xác thực và tải về tài liệu công khai — không thể upload hay thao tác quản trị.
+                        </p>
+                    </div>
+                </div>
                 <!-- Dashboard Stats -->
                 <div id="dashboard-stats" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <div onclick="document.getElementById('nav-history').click()" class="bg-panel border border-gray-800 px-4 py-2.5 rounded-xl relative overflow-hidden cursor-pointer hover:bg-gray-800/50 hover:border-blue-500/50 transition duration-200 group">
@@ -410,6 +420,7 @@
                                     <select id="newRoleLevel" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-gray-300 focus:outline-none focus:border-blue-500 appearance-none transition-colors">
                                         <option value="1">Quyền Nhập Liệu</option>
                                         <option value="2">Quyền Quản Lý</option>
+                                        <option value="viewer">Quyền Người Xem (chỉ đọc)</option>
                                     </select>
                                 </div>
                                 <div class="xl:col-span-2">
@@ -549,6 +560,7 @@
                                             <option value="">— Quyền bạn muốn được cấp (gợi ý cho Admin) —</option>
                                             <option value="NHẬP LIỆU">Nhân viên Nhập Liệu</option>
                                             <option value="QUẢN LÝ">Quản Lý</option>
+                                            <option value="NGƯỜI XEM">Người Xem (chỉ đọc)</option>
                                         </select>
                                     </div>
                                     <div class="flex items-center gap-3 mt-3">

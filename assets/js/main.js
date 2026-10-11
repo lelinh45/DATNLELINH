@@ -521,8 +521,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const rank = Number(rc);
                     const roleTxt = { 1: 'Nhập Liệu', 2: 'Quản Lý', 3: 'ADMIN' }[rank];
-                    msg = rank === 0 ? `Chưa được cấp quyền — ${name}${want}` : `Đang là ${roleTxt} — ${name}${want}`;
-                    cls = rank === 0 ? 'text-amber-400' : 'text-emerald-400';
+                    const dbViewer = w && w.role === 'NGƯỜI XEM';
+                    msg = rank === 0
+                        ? (dbViewer ? `Đang là Người Xem (chỉ đọc) — ${name}${want}` : `Chưa được cấp quyền — ${name}${want}`)
+                        : `Đang là ${roleTxt} — ${name}${want}`;
+                    cls = rank === 0 && !dbViewer ? 'text-amber-400' : 'text-emerald-400';
                 }
                 if (roleHint) {
                     roleHint.textContent = 'ⓘ ' + msg;
@@ -683,6 +686,7 @@ function waitForDeviceApproval(account) {
 // chỉ thấy tab Xác Thực — poll mở khóa ngay khi Admin assignRole xong
 // =====================================================================
 const GUEST_VISIBLE_NAV = ['nav-verify', 'nav-settings'];
+const VIEWER_VISIBLE_NAV = ['nav-verify', 'nav-history', 'nav-revoked', 'nav-settings'];
 let guestUnlockTimer = null;
 
 function applyGuestMode(account) {
@@ -706,6 +710,24 @@ function applyGuestMode(account) {
     switchUI('tab-verify', document.getElementById('nav-verify'));
 }
 
+// Chế độ NGƯỜI XEM: rank on-chain = 0 nhưng DB gán role NGƯỜI XEM →
+// được xem Truy Xuất + DS Hủy Bỏ + Xác Thực, vẫn không thấy upload/quản trị
+function applyViewerMode(account) {
+    document.querySelectorAll('aside .menu-item').forEach(el => {
+        el.style.display = VIEWER_VISIBLE_NAV.includes(el.id) ? '' : 'none';
+    });
+    const adminHeader = document.getElementById('nav-admin-header');
+    const adminNav = document.getElementById('nav-admin-nav');
+    if (adminHeader) adminHeader.style.display = 'none';
+    if (adminNav) adminNav.style.display = 'none';
+    const stats = document.getElementById('dashboard-stats');
+    if (stats) stats.style.display = '';
+
+    document.getElementById('pending-approval-banner')?.classList.add('hidden');
+    document.getElementById('viewer-banner')?.classList.remove('hidden');
+    switchUI('tab-history', document.getElementById('nav-history'));
+}
+
 function exitGuestMode() {
     if (guestUnlockTimer) { clearInterval(guestUnlockTimer); guestUnlockTimer = null; }
     document.querySelectorAll('aside .menu-item').forEach(el => { el.style.display = ''; });
@@ -716,6 +738,7 @@ function exitGuestMode() {
     const stats = document.getElementById('dashboard-stats');
     if (stats) stats.style.display = '';
     document.getElementById('pending-approval-banner')?.classList.add('hidden');
+    document.getElementById('viewer-banner')?.classList.add('hidden');
 }
 
 // Kiểm tra quyền on-chain của ví: trả 0-3, null khi RPC lỗi (fail-open để
@@ -823,8 +846,19 @@ async function connectWallet() {
         // khi nào Admin assignRole xong thì tự mở full UI (poll 15s)
         const myRank = await getMyRoleRank(account);
         if (myRank === 0) {
-            applyGuestMode(account);
-            startGuestUnlockPoll(account);
+            // Rank 0 nhưng DB gán NGƯỜI XEM → chế độ chỉ đọc (không phải khách chờ duyệt)
+            let isViewer = false;
+            try {
+                const me = await ApiService.getMyWallet();
+                isViewer = me && me.role === 'NGƯỜI XEM';
+            } catch (e) {}
+            if (isViewer) {
+                applyViewerMode(account);
+                startGuestUnlockPoll(account);
+            } else {
+                applyGuestMode(account);
+                startGuestUnlockPoll(account);
+            }
         } else {
             exitGuestMode();
         }
@@ -1980,8 +2014,11 @@ window.loadWalletRoles = async function() {
                 const rRaw = await web3.getUserRole(w.address);
                 if (rRaw === null || rRaw === undefined) continue; // RPC lỗi → giữ nguyên, không sync role đoán được
                 const rCode = Number(rRaw);
-                const realRole = (rCode === 99 || rCode === 3) ? 'ADMIN' : rCode === 2 ? 'QUẢN LÝ' : rCode === 1 ? 'NHẬP LIỆU' : 'BỊ KHÓA';
-                const realStatus = rCode === 0 ? 'REVOKED' : 'ACTIVE';
+                // Ví NGƯỜI XEM giữ rank 0 trên chain — không để sync đè thành BỊ KHÓA
+                const isViewer = rCode === 0 && w.role === 'NGƯỜI XEM';
+                const realRole = isViewer ? 'NGƯỜI XEM'
+                    : (rCode === 99 || rCode === 3) ? 'ADMIN' : rCode === 2 ? 'QUẢN LÝ' : rCode === 1 ? 'NHẬP LIỆU' : 'BỊ KHÓA';
+                const realStatus = isViewer ? 'ACTIVE' : rCode === 0 ? 'REVOKED' : 'ACTIVE';
                 
                 // Cập nhật lại quyền nếu Blockchain báo khác với Database
                 if(w.role !== realRole || w.status !== realStatus) {
@@ -2189,40 +2226,61 @@ window.handleAssignRole = async function() {
     if (isProcessing) return;
     const address = document.getElementById('newRoleAddress')?.value.trim();
     const alias = document.getElementById('newRoleAlias')?.value.trim(); // Lấy tên nhân viên
-    const roleLevel = parseInt(document.getElementById('newRoleLevel')?.value);
-    
+    const rawLevel = document.getElementById('newRoleLevel')?.value;
+    // 'viewer' = quyền chỉ đọc: rank on-chain giữ 0, DB đánh dấu NGƯỜI XEM
+    const isViewer = rawLevel === 'viewer';
+    const roleLevel = isViewer ? 0 : parseInt(rawLevel);
+
     if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
         return Swal.fire({ title: 'Lỗi định dạng', text: 'Địa chỉ ví không hợp lệ!', icon: 'warning', background: '#111827', color: '#fff' });
     }
 
     // Kiểm tra quyền hiện tại trên chain trước khi mở MetaMask —
     // tránh ký giao dịch vô nghĩa (khóa ví chưa có quyền, cấp lại đúng quyền cũ)
+    let currentRank = null;
     try {
         const currentRole = await web3.getUserRole(address);
         if (currentRole === 99) {
             return Swal.fire({ title: 'Không thể thực hiện', text: 'Đây là ví Admin gốc của hệ thống — Smart Contract không cho phép thay đổi quyền của nó.', icon: 'warning', background: '#111827', color: '#fff' });
         }
         if (currentRole !== null && currentRole !== undefined) {
-            const currentRank = Number(currentRole);
-            if (roleLevel === 0 && currentRank === 0) {
+            currentRank = Number(currentRole);
+            if (!isViewer && roleLevel === 0 && currentRank === 0) {
                 return Swal.fire({ title: 'Không cần khóa', text: 'Ví này chưa từng được cấp quyền nên không có gì để tước. Khóa chỉ áp dụng cho ví đang có quyền.', icon: 'info', background: '#111827', color: '#fff' });
             }
-            if (roleLevel === currentRank) {
+            if (!isViewer && roleLevel === currentRank) {
                 const names = { 1: 'Nhập Liệu', 2: 'Quản Lý', 3: 'Admin' };
                 return Swal.fire({ title: 'Quyền trùng lặp', text: `Ví này đang giữ sẵn quyền ${esc(names[currentRank])} rồi, không cần cấp lại.`, icon: 'info', background: '#111827', color: '#fff' });
             }
         }
     } catch (e) { /* RPC lỗi thì bỏ qua pre-check, để contract tự chặn */ }
 
+    // Viewer: ví chưa có quyền chain + DB đã là NGƯỜI XEM → trùng lặp
+    if (isViewer && currentRank === 0) {
+        try {
+            const wallets = await ApiService.getAllWallets();
+            const w = wallets.find(x => (x.address || '').toLowerCase() === address.toLowerCase());
+            if (w && w.role === 'NGƯỜI XEM' && w.status === 'ACTIVE') {
+                return Swal.fire({ title: 'Quyền trùng lặp', text: 'Ví này đang là Người Xem rồi, không cần cấp lại.', icon: 'info', background: '#111827', color: '#fff' });
+            }
+        } catch (e) {}
+    }
+
     isProcessing = true;
     try {
-        UI.updateProgress(50, "Đang gửi giao dịch phân quyền lên mạng Sepolia...", "PROCESSING");
-        await web3.assignRole(address, roleLevel);
-        const roleName = roleLevel === 3 ? 'ADMIN' : roleLevel === 2 ? 'QUẢN LÝ' : roleLevel === 1 ? 'NHẬP LIỆU' : 'BỊ KHÓA';
-        
+        // Viewer chỉ cần ghi DB khi ví chưa có quyền chain; ví đang có quyền
+        // vẫn phải ký assignRole(0) để tước quyền on-chain trước
+        const needTx = !isViewer || (currentRank === null || currentRank > 0);
+        if (needTx) {
+            UI.updateProgress(50, "Đang gửi giao dịch phân quyền lên mạng Sepolia...", "PROCESSING");
+            await web3.assignRole(address, roleLevel);
+        }
+        const roleName = isViewer ? 'NGƯỜI XEM'
+            : roleLevel === 3 ? 'ADMIN' : roleLevel === 2 ? 'QUẢN LÝ' : roleLevel === 1 ? 'NHẬP LIỆU' : 'BỊ KHÓA';
+
         // Truyền alias vào DB
-        await ApiService.syncWalletData(address, { role: roleName, status: roleLevel === 0 ? 'REVOKED' : 'ACTIVE', alias: alias });
-        
+        await ApiService.syncWalletData(address, { role: roleName, status: roleLevel === 0 && !isViewer ? 'REVOKED' : 'ACTIVE', alias: alias });
+
         Swal.fire({ title: 'Thành công', text: `Ví đã được cấp quyền: ${esc(roleName)}`, icon: 'success', background: '#111827', color: '#fff' });
         refreshPendingBadge(); // ví vừa duyệt biến mất khỏi khay chờ
 
@@ -2285,8 +2343,8 @@ window.openChangeRole = async function(address, currentRole) {
             Chọn cấp độ mới cho ví <b class="font-mono text-blue-400">${esc(address.substring(0,8))}...</b>:
         `,
         input: 'select',
-        inputOptions: { '1': 'Quyền Nhập Liệu (Upload)', '2': 'Quyền Quản Lý (Upload + Thu hồi)' },
-        inputValue: currentRole === 'QUẢN LÝ' ? '2' : '1',
+        inputOptions: { '1': 'Quyền Nhập Liệu (Upload)', '2': 'Quyền Quản Lý (Upload + Thu hồi)', 'viewer': 'Quyền Người Xem (chỉ đọc)' },
+        inputValue: currentRole === 'QUẢN LÝ' ? '2' : currentRole === 'NGƯỜI XEM' ? 'viewer' : '1',
         showCancelButton: true, confirmButtonText: 'Lưu thay đổi', cancelButtonText: 'Hủy',
         background: '#111827', color: '#fff', confirmButtonColor: '#10b981'
     });
@@ -2296,8 +2354,12 @@ window.openChangeRole = async function(address, currentRole) {
         isProcessing = true;
         try {
             UI.updateProgress(50, "Đang cập nhật quyền trên Blockchain...", "PROCESSING");
-            await web3.assignRole(address, parseInt(newRole));
-            const roleName = newRole === '2' ? 'QUẢN LÝ' : 'NHẬP LIỆU';
+            // Viewer: chỉ ký assignRole(0) khi ví đang giữ quyền chain; rank 0 sẵn thì bỏ qua tx
+            const rc = await web3.getUserRole(address);
+            if (newRole !== 'viewer' || (rc === null || Number(rc) > 0)) {
+                await web3.assignRole(address, newRole === 'viewer' ? 0 : parseInt(newRole));
+            }
+            const roleName = newRole === 'viewer' ? 'NGƯỜI XEM' : newRole === '2' ? 'QUẢN LÝ' : 'NHẬP LIỆU';
             await ApiService.syncWalletData(address, { role: roleName, status: 'ACTIVE' });
             
             UI.updateProgress(100, "Đã đổi quyền thành công!", "SUCCESS");

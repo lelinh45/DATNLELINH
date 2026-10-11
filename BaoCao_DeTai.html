@@ -515,13 +515,21 @@
     <ol>
         <li>Ví mới ký challenge → server tạo bản ghi Wallet, bắn thông báo "ví mới vừa đăng nhập lần đầu" tới chuông của mọi ví <b>ADMIN</b>.</li>
         <li>Frontend đọc quyền on-chain = 0 → chỉ mở 2 tab <b>Xác Thực</b> (khách vẫn kiểm chứng được tài liệu — endpoint verify là công khai) và <b>Cài Đặt Chung</b>; hiện banner "Ví đang chờ Admin cấp quyền" kèm địa chỉ ví để gửi cho quản trị viên.</li>
-        <li>Trong Cài Đặt, khách khai <b>tên/alias</b>, email, SĐT và <b>quyền mong muốn</b> (<span class="mono">requestedRole</span> ∈ {NHẬP LIỆU, QUẢN LÝ}) — thông tin này lưu vào Wallet để admin nhận diện đúng người thay vì nhìn chuỗi <span class="mono">0x...</span> trần.</li>
+        <li>Trong Cài Đặt, khách khai <b>tên/alias</b>, email, SĐT và <b>quyền mong muốn</b> (<span class="mono">requestedRole</span> ∈ {NHẬP LIỆU, QUẢN LÝ, NGƯỜI XEM}) — thông tin này lưu vào Wallet để admin nhận diện đúng người thay vì nhìn chuỗi <span class="mono">0x...</span> trần.</li>
         <li>Phía admin, cạnh chuông thông báo có <b>khay "ví chờ duyệt"</b> (icon riêng + badge đếm, poll 30s) — liệt kê ví có <span class="mono">status: ACTIVE</span> nhưng rank on-chain = 0 qua endpoint <span class="mono">GET /api/wallets/pending</span> (chỉ ADMIN). Mỗi mục hiện alias, địa chỉ có nút copy, email/SĐT, quyền đề nghị và thời điểm hoạt động cuối.</li>
         <li>Admin bấm <b>Duyệt</b> → hệ thống tự điền địa chỉ + alias + quyền đề nghị vào form phân quyền; admin chỉnh quyền nếu cần rồi ký <span class="mono">assignRole</span> một lần. Khi gõ tay địa chỉ ví vào form, một dòng trạng thái tra cứu trực tiếp (debounce 0.5s) hiển thị quyền hiện tại on-chain, tên đăng ký và quyền đề nghị của ví đó.</li>
         <li>Phía khách, frontend poll quyền on-chain mỗi 15 giây — giao dịch duyệt xác nhận là UI tự mở toàn bộ chức năng <b>mà không cần đăng nhập lại</b>.</li>
     </ol>
     <p class="caption">Hình 2.5. Luồng đăng ký ví mới → chế độ khách → khay chờ duyệt của Admin</p>
     <p>Điểm then chốt của thiết kế: phán quyết "có quyền hay chưa" đọc <b>trực tiếp từ contract</b> (<span class="mono">userRoles(address)</span>), không dựa vào trường <span class="mono">role</span> trong MongoDB — trường này có giá trị mặc định nên không phân biệt được "đã cấp" với "chưa cấp". MongoDB chỉ giữ vai trò hồ sơ phụ (tên, liên hệ, quyền mong muốn), còn backend vẫn chặn mọi API cần quyền ở tầng middleware — chế độ khách ở UI chỉ là lớp trải nghiệm, kẻ cố tình gọi API bằng DevTools cũng bị 403.</p>
+    <h3>2.4.5. Vai trò NGƯỜI XEM — chỉ đọc, không ghi</h3>
+    <p>Ngoài ba tầng on-chain, hệ thống bổ sung vai trò <b>NGƯỜI XEM</b> theo mô hình lai: quyền on-chain của ví vẫn là 0 — nghĩa là contract <i>bản thân nó</i> đã chặn mọi giao dịch ghi (upload, thu hồi, phân quyền đều revert) — còn MongoDB đánh dấu <span class="mono">role = NGƯỜI XEM</span> để backend mở quyền <b>đọc</b>. Thiết kế này không đòi deploy lại contract và rất an toàn: kẻ sửa được MongoDB lẫn frontend cũng không ghi được gì lên chuỗi, vì ký giao dịch với rank 0 contract tự từ chối.</p>
+    <ul>
+        <li><b>Backend:</b> middleware <span class="mono">requireViewer</span> cho phép rank ≥ 1 <i>hoặc</i> ví có <span class="mono">role=NGƯỜI XEM, status=ACTIVE</span>; chỉ gắn vào <span class="mono">GET /api/batches</span> và <span class="mono">GET /api/wallets</span>. Mọi API ghi (upload, tạo batch, thu hồi, API key) vẫn dùng <span class="mono">requireRole</span> đọc rank on-chain nên viewer bị 403; email/SĐT vẫn bị che vì caller rank = 0.</li>
+        <li><b>Frontend:</b> ví viewer đăng nhập → chế độ chỉ đọc với 4 tab Xác Thực / Truy Xuất / DS Hủy Bỏ / Cài Đặt và banner "Chế độ Người Xem"; không thấy upload hay quản trị.</li>
+        <li><b>Vòng đời:</b> admin cấp "Quyền Người Xem" từ form phân quyền — ví chưa có quyền chain thì chỉ ghi MongoDB, không cần ký giao dịch (tiết kiệm gas); ví đang có quyền cao hơn thì vẫn ký <span class="mono">assignRole(0)</span> để tước quyền on-chain trước. Khóa một viewer cũng đổi role thành BỊ KHÓA → mất cả quyền đọc.</li>
+        <li><b>Phân biệt với khách:</b> cả hai đều rank 0, nhưng khách là "chưa được cấp gì" còn viewer là "được cấp quyền đọc" — khay chờ duyệt của admin lọc bỏ viewer, và viewer tự thoát khỏi chế độ khách ngay khi DB cập nhật role.</li>
+    </ul>
 
     <h2>2.5. Thiết kế cơ sở dữ liệu MongoDB</h2>
     <table>
@@ -601,7 +609,7 @@
         <tr><th>Endpoint</th><th>Quyền</th><th>Chức năng</th></tr>
         <tr><td><span class="mono">POST /api/upload</span></td><td>NHẬP LIỆU+</td><td>Nhận ciphertext, kiểm tra quota, pin IPFS, trả CID + QR</td></tr>
         <tr><td><span class="mono">POST /api/verify</span></td><td>Công khai + rate limit</td><td>Băm file nộp, so hash on-chain, trả kết quả + diff + AI report</td></tr>
-        <tr><td><span class="mono">GET/POST /api/batches</span></td><td>JWT / NHẬP LIỆU+</td><td>Lưu và đọc metadata lô tài liệu</td></tr>
+        <tr><td><span class="mono">GET/POST /api/batches</span></td><td>GET: NGƯỜI XEM+ / POST: NHẬP LIỆU+</td><td>Lưu và đọc metadata lô tài liệu</td></tr>
         <tr><td><span class="mono">GET /api/documents/:id/key</span></td><td>Theo visibility</td><td>Cấp khóa giải mã sau kiểm tra quyền</td></tr>
         <tr><td><span class="mono">GET /api/documents/:id/status</span></td><td>Công khai</td><td>Trạng thái thu hồi/visibility — thông tin đã public on-chain</td></tr>
         <tr><td><span class="mono">GET/POST /api/wallets*</span></td><td>JWT (+ADMIN cho role)</td><td>Quản lý ví; dung lượng tính lại từ DB, không tin client</td></tr>
@@ -838,7 +846,7 @@
         <tr><th style="width:32%">Endpoint</th><th>Mô tả</th></tr>
         <tr><td><span class="mono">POST /api/upload</span></td><td>JWT + NHẬP LIỆU+. Multipart field "document" (ciphertext, ≤25MB). Kiểm tra quota → pin IPFS. Trả {documentId, fileHash, ipfsCID, qrCode}. Hết quota → 403; lỗi Pinata → 500.</td></tr>
         <tr><td><span class="mono">POST /api/verify</span></td><td>Công khai, rate limit 10/5phút/IP. Multipart: file + documentId. Trả {isMatch, isRevoked, revocationReason, currentFileHash, originalHash, differences, imageDiff, aiReport, message}.</td></tr>
-        <tr><td><span class="mono">GET /api/batches</span></td><td>JWT + rank ≥ 1 (NHẬP LIỆU). Trả toàn bộ lô tài liệu (dùng để map docId → metadata, visibility); ví khách rank 0 → 403.</td></tr>
+        <tr><td><span class="mono">GET /api/batches</span></td><td>JWT + requireViewer (rank ≥ 1 hoặc DB role NGƯỜI XEM+ACTIVE). Trả toàn bộ lô tài liệu (dùng để map docId → metadata, visibility); ví khách rank 0 chưa được cấp → 403.</td></tr>
         <tr><td><span class="mono">POST /api/batches</span></td><td>JWT + NHẬP LIỆU+. Body {batchId, merkleRoot, ipfsCID, txHash, files[]}. Whitelist từng trường file; uploader lấy từ JWT.</td></tr>
         <tr><td><span class="mono">GET /api/documents/:docId/key</span></td><td>JWT. Trả khóa AES giải bọc nếu đủ quyền theo visibility. Không có khóa → 404; không đủ quyền → 403.</td></tr>
         <tr><td><span class="mono">GET /api/documents/:docId/status</span></td><td>Công khai. Trả {isRevoked, revocationReason, visibility, uploader} — dữ liệu đã public on-chain.</td></tr>
@@ -849,8 +857,8 @@
         <tr><th style="width:32%">Endpoint</th><th>Mô tả</th></tr>
         <tr><td><span class="mono">GET /api/wallets/me</span></td><td>JWT — mọi rank. Hồ sơ của chính ví đăng nhập (alias, email, phone, requestedRole).</td></tr>
         <tr><td><span class="mono">GET /api/wallets/pending</span></td><td>JWT + ADMIN. Danh sách ví status ACTIVE nhưng rank on-chain = 0 — khay "chờ cấp quyền".</td></tr>
-        <tr><td><span class="mono">GET /api/wallets</span></td><td>JWT + rank ≥ 1 (NHẬP LIỆU). Danh sách ví; storageUsed do server tính lại từ Batch — giá trị client tự khai bị bỏ qua; email/phone bị che với caller rank &lt; QUẢN LÝ.</td></tr>
-        <tr><td><span class="mono">POST /api/wallets/sync</span></td><td>JWT. Cập nhật ví: field tự sửa chỉ {alias, lastActive, requestedRole} — requestedRole chỉ nhận NHẬP LIỆU/QUẢN LÝ; {role, status, storageLimit} chỉ ADMIN và chỉ cho ví người khác.</td></tr>
+        <tr><td><span class="mono">GET /api/wallets</span></td><td>JWT + requireViewer. Danh sách ví; storageUsed do server tính lại từ Batch — giá trị client tự khai bị bỏ qua; email/phone bị che với caller rank &lt; QUẢN LÝ.</td></tr>
+        <tr><td><span class="mono">POST /api/wallets/sync</span></td><td>JWT. Cập nhật ví: field tự sửa chỉ {alias, lastActive, requestedRole} — requestedRole chỉ nhận NHẬP LIỆU/QUẢN LÝ/NGƯỜI XEM; {role, status, storageLimit} chỉ ADMIN và chỉ cho ví người khác.</td></tr>
         <tr><td><span class="mono">POST /api/wallets/email</span></td><td>JWT. Đăng ký/đổi email + SĐT chủ ví (email nhận OTP, SĐT làm liên hệ cảnh báo). Email hoặc SĐT sai định dạng → 400.</td></tr>
         <tr><td><span class="mono">POST /api/apikeys</span></td><td>JWT + ADMIN. Body {name}. Trả {key: "sk_live_..."} đúng một lần — server chỉ lưu hash.</td></tr>
         <tr><td><span class="mono">GET /api/apikeys</span></td><td>JWT + ADMIN. Danh sách key (không chứa plaintext): name, createdBy, revoked, lastUsedAt.</td></tr>
@@ -885,7 +893,7 @@
     <h2>B.2. Schema các collection (trường đáng chú ý)</h2>
     <table>
         <tr><th>Collection</th><th>Trường quan trọng và ràng buộc</th></tr>
-        <tr><td>Wallet</td><td>address unique lowercase; status ∈ {ACTIVE, LOCKED, DELETED}; requestedRole ∈ {NHẬP LIỆU, QUẢN LÝ, null}; storageLimit mặc định 1024MB; email định dạng RFC</td></tr>
+        <tr><td>Wallet</td><td>address unique lowercase; status ∈ {ACTIVE, REVOKED, DELETED}; role ∈ {ADMIN, QUẢN LÝ, NHẬP LIỆU, NGƯỜI XEM, BỊ KHÓA, ĐÃ XÓA}; requestedRole ∈ {NHẬP LIỆU, QUẢN LÝ, NGƯỜI XEM, null}; storageLimit mặc định 1024MB; email định dạng RFC</td></tr>
         <tr><td>Batch</td><td>batchId unique; uploader = địa chỉ JWT; files[].visibility ∈ {public, private} mặc định private; files[].encKey dạng "iv:ct:tag"</td></tr>
         <tr><td>DeviceSession</td><td>(address, deviceId) unique; status ∈ {pending, active, revoked}; otpHash "salt:scrypt"; otpExpires epoch ms; otpAttempts ≤ 5</td></tr>
         <tr><td>ApiKey</td><td>keyHash unique (sha256 của token); revoked bool; createdBy = địa chỉ ADMIN</td></tr>
