@@ -157,6 +157,7 @@ function initNotificationUI() {
         const willOpen = dd.classList.contains('hidden');
         dd.classList.toggle('hidden');
         if (willOpen) {
+            document.getElementById('pending-dropdown')?.classList.add('hidden');
             await renderNotifPanel();
             await ApiService.markNotificationsRead();
             refreshNotifBadge();
@@ -247,7 +248,10 @@ function initPendingWalletsUI() {
     btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         dd.classList.toggle('hidden');
-        if (!dd.classList.contains('hidden')) await renderPendingPanel();
+        if (!dd.classList.contains('hidden')) {
+            document.getElementById('notif-dropdown')?.classList.add('hidden');
+            await renderPendingPanel();
+        }
     });
     document.addEventListener('click', (e) => {
         if (!dd.classList.contains('hidden') && !dd.contains(e.target) && !btn.contains(e.target)) dd.classList.add('hidden');
