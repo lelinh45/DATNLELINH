@@ -33,8 +33,13 @@ nghĩa nếu không có khóa AES.
   challenge có nonce, ví ký, đổi lấy JWT 24h.
 - **Quản lý thiết bị** — đăng nhập trên máy lạ phải được duyệt từ máy đã đăng nhập
   (chuông thông báo 🔔 → Duyệt/Từ chối). OTP email chỉ mở khi ví **không còn thiết
-  bị nào hoạt động** — tránh OTP thành đường vòng khi email bị lộ. Ví lần đầu
-  đăng nhập sẽ báo cho mọi ví ADMIN để đặt tên và phân quyền.
+  bị nào hoạt động** — tránh OTP thành đường vòng khi email bị lộ.
+- **Ví mới → chế độ khách** — ví chưa được cấp quyền (rank on-chain 0) chỉ thấy
+  tab Xác Thực + Cài Đặt, khai tên/email/quyền mong muốn rồi chờ duyệt. Admin có
+  **khay "ví chờ duyệt"** cạnh chuông (badge đếm, alias, copy địa chỉ, quyền đề
+  nghị) → bấm Duyệt tự điền form phân quyền; khách tự mở full UI sau khi được
+  cấp quyền mà không cần login lại. Backend chặn rank 0 ở mọi API cần quyền —
+  UI chỉ là lớp trải nghiệm.
 - **Upload có chọn lọc** — mã hóa AES-256 tại trình duyệt, tự chọn Riêng tư
   (mình + Admin) hay Công khai (mọi ví đăng nhập). Khóa AES được ủy thác cho server,
   bọc thêm một lớp AES-256-GCM trước khi vào MongoDB.
@@ -140,6 +145,9 @@ models/                       — Wallet, Batch, DeviceSession, ApiKey,
 assets/js/                    — frontend: web3Service (MetaMask/contract),
                                 apiService (gọi backend), uiHandler, sanitize, main
 test/                         — 71 ca test tự động (node:test)
+scripts/migrate_to_atlas.js   — copy toàn bộ collection local → MongoDB Atlas
+render.yaml                   — Blueprint deploy Render (build, env, plan free)
+.npmrc                        — legacy-peer-deps (xung đột hardhat/toolbox)
 BaoCao_DeTai.html             — báo cáo đồ án đầy đủ, in được ra A4 / tải về Word
 ```
 

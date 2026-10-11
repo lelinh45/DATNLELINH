@@ -245,6 +245,7 @@
     <p class="no-indent">Bảng 3.2. Các endpoint API chính của backend</p>
     <p class="no-indent">Bảng 3.3. Bảng phân quyền người dùng on-chain</p>
     <p class="no-indent">Bảng 3.4. Các endpoint API dành cho tổ chức đối tác</p>
+    <p class="no-indent">Bảng 3.5. Hai phương án triển khai thử nghiệm của hệ thống</p>
     <p class="no-indent">Bảng 4.1. Kết quả kiểm thử chức năng chính</p>
     <p class="no-indent">Bảng 4.2. Ma trận mối đe dọa và biện pháp phòng chống</p>
     <br><br>
@@ -254,7 +255,8 @@
     <p class="no-indent">Hình 2.2. Luồng upload tài liệu (người dùng web)</p>
     <p class="no-indent">Hình 2.3. Luồng xác thực tài liệu</p>
     <p class="no-indent">Hình 2.4. Luồng đăng nhập và duyệt thiết bị</p>
-    <p class="no-indent">Hình 2.5. Mô hình ủy thác khóa (key escrow)</p>
+    <p class="no-indent">Hình 2.5. Luồng đăng ký ví mới → chế độ khách → khay chờ duyệt của Admin</p>
+    <p class="no-indent">Hình 2.6. Mô hình ủy thác khóa (key escrow)</p>
 </div>
 
 <!-- ==================== LỜI MỞ ĐẦU ==================== -->
@@ -508,10 +510,23 @@
     <p class="caption">Hình 2.4. Luồng đăng nhập và duyệt thiết bị</p>
     <p>Mô hình này bắt chước cách Telegram/Gmail xử lý "đăng nhập trên thiết bị mới" nhưng cài đặt lại trên nền xác thực ví: không có mật khẩu để lộ, thiết bị mới bắt buộc phải qua cửa phê duyệt thay vì tự do đăng nhập.</p>
 
+    <h3>2.4.4. Luồng đăng ký ví mới và phê duyệt quyền (chế độ khách)</h3>
+    <p>Ví hoàn toàn mới (chưa có trong hệ thống, quyền on-chain = 0) vẫn được đăng nhập và cấp JWT nhưng chỉ vào <b>chế độ khách</b> thay vì vào thẳng hệ thống:</p>
+    <ol>
+        <li>Ví mới ký challenge → server tạo bản ghi Wallet, bắn thông báo "ví mới vừa đăng nhập lần đầu" tới chuông của mọi ví <b>ADMIN</b>.</li>
+        <li>Frontend đọc quyền on-chain = 0 → chỉ mở 2 tab <b>Xác Thực</b> (khách vẫn kiểm chứng được tài liệu — endpoint verify là công khai) và <b>Cài Đặt Chung</b>; hiện banner "Ví đang chờ Admin cấp quyền" kèm địa chỉ ví để gửi cho quản trị viên.</li>
+        <li>Trong Cài Đặt, khách khai <b>tên/alias</b>, email, SĐT và <b>quyền mong muốn</b> (<span class="mono">requestedRole</span> ∈ {NHẬP LIỆU, QUẢN LÝ}) — thông tin này lưu vào Wallet để admin nhận diện đúng người thay vì nhìn chuỗi <span class="mono">0x...</span> trần.</li>
+        <li>Phía admin, cạnh chuông thông báo có <b>khay "ví chờ duyệt"</b> (icon riêng + badge đếm, poll 30s) — liệt kê ví có <span class="mono">status: ACTIVE</span> nhưng rank on-chain = 0 qua endpoint <span class="mono">GET /api/wallets/pending</span> (chỉ ADMIN). Mỗi mục hiện alias, địa chỉ có nút copy, email/SĐT, quyền đề nghị và thời điểm hoạt động cuối.</li>
+        <li>Admin bấm <b>Duyệt</b> → hệ thống tự điền địa chỉ + alias + quyền đề nghị vào form phân quyền; admin chỉnh quyền nếu cần rồi ký <span class="mono">assignRole</span> một lần. Khi gõ tay địa chỉ ví vào form, một dòng trạng thái tra cứu trực tiếp (debounce 0.5s) hiển thị quyền hiện tại on-chain, tên đăng ký và quyền đề nghị của ví đó.</li>
+        <li>Phía khách, frontend poll quyền on-chain mỗi 15 giây — giao dịch duyệt xác nhận là UI tự mở toàn bộ chức năng <b>mà không cần đăng nhập lại</b>.</li>
+    </ol>
+    <p class="caption">Hình 2.5. Luồng đăng ký ví mới → chế độ khách → khay chờ duyệt của Admin</p>
+    <p>Điểm then chốt của thiết kế: phán quyết "có quyền hay chưa" đọc <b>trực tiếp từ contract</b> (<span class="mono">userRoles(address)</span>), không dựa vào trường <span class="mono">role</span> trong MongoDB — trường này có giá trị mặc định nên không phân biệt được "đã cấp" với "chưa cấp". MongoDB chỉ giữ vai trò hồ sơ phụ (tên, liên hệ, quyền mong muốn), còn backend vẫn chặn mọi API cần quyền ở tầng middleware — chế độ khách ở UI chỉ là lớp trải nghiệm, kẻ cố tình gọi API bằng DevTools cũng bị 403.</p>
+
     <h2>2.5. Thiết kế cơ sở dữ liệu MongoDB</h2>
     <table>
         <tr><th>Collection</th><th>Các trường chính</th><th>Vai trò</th></tr>
-        <tr><td>Wallet</td><td>address, alias, role, status, email, phone, storageLimit, storageUsed</td><td>Hồ sơ ví: danh tính hiển thị, trạng thái khóa, email nhận OTP, SĐT liên hệ, hạn mức logic</td></tr>
+        <tr><td>Wallet</td><td>address, alias, role, status, email, phone, requestedRole, storageLimit, storageUsed</td><td>Hồ sơ ví: danh tính hiển thị, trạng thái khóa, email nhận OTP, SĐT liên hệ, quyền đề nghị khi chờ duyệt, hạn mức logic</td></tr>
         <tr><td>Batch</td><td>batchId, merkleRoot, ipfsCID, txHash, uploader, files[]</td><td>Lô tài liệu sau khi ghi on-chain; mảng files gồm docId, fileHash, ipfsCID, fileName, fileSize, qrCode, visibility, encKey</td></tr>
         <tr><td>DeviceSession</td><td>address, deviceId, deviceLabel, status, revoked, otpHash, otpExpires, otpAttempts, lastSeen</td><td>Phiên đăng nhập từng thiết bị: pending/active/revoked và vật liệu OTP</td></tr>
         <tr><td>ApiKey</td><td>name, keyHash, createdBy, revoked, lastUsedAt</td><td>API key đối tác — chỉ lưu hash</td></tr>
@@ -552,7 +567,7 @@
   Xin khóa                  unwrapKey()        Đủ quyền mới được giải bọc
   ─────────────────────────> kiểm tra uploader/role/visibility
   <───────────────────────── trả encKey (HTTPS) để giải mã client-side</pre>
-    <p class="caption">Hình 2.5. Mô hình ủy thác khóa (key escrow)</p>
+    <p class="caption">Hình 2.6. Mô hình ủy thác khóa (key escrow)</p>
     <p>Escrow giúp người dùng không bắt buộc nhớ mật khẩu của từng file — khóa được lưu an toàn và chỉ phát lại cho người đủ quyền. Đổi lại, nếu người dùng muốn tuyệt đối không tin server, hệ thống vẫn cho phép nhập mật khẩu AES thủ công để giải mã phía client (fallback) — tức escrow là tiện ích chứ không phải ràng buộc.</p>
 
     <h2>2.8. Kết luận Chương 2</h2>
@@ -663,7 +678,17 @@
         <li><b>Timing attack:</b> OTP verify qua timingSafeEqual; API key tra theo hash nên thời gian phản hồi đồng đều.</li>
     </ul>
 
-    <h2>3.9. Kết luận Chương 3</h2>
+    <h2>3.9. Triển khai thử nghiệm: tunnel tự động và chạy 24/7 trên cloud</h2>
+    <p>Hệ thống được thiết kế để người khác truy cập mà không cần cài backend: backend Express <b>phục vụ luôn frontend</b> trên cùng một cổng (chỉ serve <span class="mono">index.html</span> + thư mục <span class="mono">assets/</span>, không lộ <span class="mono">.env</span> hay mã nguồn), <span class="mono">config.js</span> tự nhận same-origin <span class="mono">/api</span> và CORS tự nhận domain truy cập, nên một cổng duy nhất là đủ cho mọi môi trường.</p>
+    <table>
+        <tr><th style="width:30%">Cách triển khai</th><th>Cơ chế và phạm vi áp dụng</th></tr>
+        <tr><td>Ngrok tunnel tự động</td><td>Khi chạy <span class="mono">node server.js</span>, server tự spawn <span class="mono">ngrok http &lt;port&gt;</span> và in link public ra console qua local API cổng 4040 — một lệnh duy nhất cho cả app và đường hầm. Biến <span class="mono">AUTO_TUNNEL=0</span> tắt, <span class="mono">NGROK_BIN</span> trỏ đường dẫn binary, <span class="mono">NGROK_DOMAIN</span> gắn static domain miễn phí để link cố định giữa các lần chạy. Bắt buộc HTTPS vì <span class="mono">crypto.subtle</span> chỉ hoạt động trong secure context.</td></tr>
+        <tr><td>Render + MongoDB Atlas (24/7)</td><td>Blueprint <span class="mono">render.yaml</span> mô tả sẵn web service (Node, plan free, <span class="mono">npm install --omit=dev</span>, <span class="mono">node server.js</span>, health check <span class="mono">/</span>); dữ liệu chuyển sang MongoDB Atlas M0. File nằm trên IPFS/Pinata, contract trên Sepolia nên server cloud là stateless hoàn toàn. <span class="mono">JWT_SECRET</span> và <span class="mono">MASTER_KEY</span> do Render sinh ngẫu nhiên; script <span class="mono">scripts/migrate_to_atlas.js</span> sao chép toàn bộ collection từ MongoDB local sang Atlas khi cần chuyển dữ liệu. Free plan ngủ sau ~15 phút không truy cập, request đầu tiên chờ 30-60 giây.</td></tr>
+    </table>
+    <p class="caption">Bảng 3.5. Hai phương án triển khai thử nghiệm của hệ thống</p>
+    <p>Điểm kỹ thuật đáng chú ý khi đưa lên cloud: <span class="mono">.npmrc</span> bật <span class="mono">legacy-peer-deps</span> để npm bỏ qua xung đột peer giữa <span class="mono">hardhat@3</span> và <span class="mono">hardhat-toolbox@6</span> (bộ công cụ chỉ dùng lúc deploy contract ở máy phát triển, không cần trên server chạy), và <span class="mono">AUTO_TUNNEL=0</span> được đặt sẵn trong blueprint vì môi trường cloud không cần tunnel.</p>
+
+    <h2>3.10. Kết luận Chương 3</h2>
     <p>Toàn bộ thiết kế ở Chương 2 đã được hiện thực thành hệ thống chạy thật: contract trên Sepolia với giao dịch tra được trên Etherscan, file mã hóa pin trên IPFS qua tài khoản Pinata thật, xác thực chữ ký ví với quản lý thiết bị đầy đủ, escrow khóa AES-256-GCM, API đối tác end-to-end, và các lớp phòng thủ cụ thể thay vì khẩu hiệu "bảo mật cao". Chương 4 trình bày kết quả kiểm thử và đánh giá trung thực hệ thống.</p>
 </div>
 <!-- ==================== CHƯƠNG 4 ==================== -->
@@ -813,7 +838,7 @@
         <tr><th style="width:32%">Endpoint</th><th>Mô tả</th></tr>
         <tr><td><span class="mono">POST /api/upload</span></td><td>JWT + NHẬP LIỆU+. Multipart field "document" (ciphertext, ≤25MB). Kiểm tra quota → pin IPFS. Trả {documentId, fileHash, ipfsCID, qrCode}. Hết quota → 403; lỗi Pinata → 500.</td></tr>
         <tr><td><span class="mono">POST /api/verify</span></td><td>Công khai, rate limit 10/5phút/IP. Multipart: file + documentId. Trả {isMatch, isRevoked, revocationReason, currentFileHash, originalHash, differences, imageDiff, aiReport, message}.</td></tr>
-        <tr><td><span class="mono">GET /api/batches</span></td><td>JWT. Trả toàn bộ lô tài liệu (dùng để map docId → metadata, visibility).</td></tr>
+        <tr><td><span class="mono">GET /api/batches</span></td><td>JWT + rank ≥ 1 (NHẬP LIỆU). Trả toàn bộ lô tài liệu (dùng để map docId → metadata, visibility); ví khách rank 0 → 403.</td></tr>
         <tr><td><span class="mono">POST /api/batches</span></td><td>JWT + NHẬP LIỆU+. Body {batchId, merkleRoot, ipfsCID, txHash, files[]}. Whitelist từng trường file; uploader lấy từ JWT.</td></tr>
         <tr><td><span class="mono">GET /api/documents/:docId/key</span></td><td>JWT. Trả khóa AES giải bọc nếu đủ quyền theo visibility. Không có khóa → 404; không đủ quyền → 403.</td></tr>
         <tr><td><span class="mono">GET /api/documents/:docId/status</span></td><td>Công khai. Trả {isRevoked, revocationReason, visibility, uploader} — dữ liệu đã public on-chain.</td></tr>
@@ -822,8 +847,10 @@
     <h2>A.3. Nhóm ví và quản trị</h2>
     <table>
         <tr><th style="width:32%">Endpoint</th><th>Mô tả</th></tr>
-        <tr><td><span class="mono">GET /api/wallets</span></td><td>JWT. Danh sách ví; storageUsed do server tính lại từ Batch — giá trị client tự khai bị bỏ qua.</td></tr>
-        <tr><td><span class="mono">POST /api/wallets/sync</span></td><td>JWT. Cập nhật ví: field tự sửa chỉ {alias, lastActive}; {role, status, storageLimit} chỉ ADMIN và chỉ cho ví người khác.</td></tr>
+        <tr><td><span class="mono">GET /api/wallets/me</span></td><td>JWT — mọi rank. Hồ sơ của chính ví đăng nhập (alias, email, phone, requestedRole).</td></tr>
+        <tr><td><span class="mono">GET /api/wallets/pending</span></td><td>JWT + ADMIN. Danh sách ví status ACTIVE nhưng rank on-chain = 0 — khay "chờ cấp quyền".</td></tr>
+        <tr><td><span class="mono">GET /api/wallets</span></td><td>JWT + rank ≥ 1 (NHẬP LIỆU). Danh sách ví; storageUsed do server tính lại từ Batch — giá trị client tự khai bị bỏ qua; email/phone bị che với caller rank &lt; QUẢN LÝ.</td></tr>
+        <tr><td><span class="mono">POST /api/wallets/sync</span></td><td>JWT. Cập nhật ví: field tự sửa chỉ {alias, lastActive, requestedRole} — requestedRole chỉ nhận NHẬP LIỆU/QUẢN LÝ; {role, status, storageLimit} chỉ ADMIN và chỉ cho ví người khác.</td></tr>
         <tr><td><span class="mono">POST /api/wallets/email</span></td><td>JWT. Đăng ký/đổi email + SĐT chủ ví (email nhận OTP, SĐT làm liên hệ cảnh báo). Email hoặc SĐT sai định dạng → 400.</td></tr>
         <tr><td><span class="mono">POST /api/apikeys</span></td><td>JWT + ADMIN. Body {name}. Trả {key: "sk_live_..."} đúng một lần — server chỉ lưu hash.</td></tr>
         <tr><td><span class="mono">GET /api/apikeys</span></td><td>JWT + ADMIN. Danh sách key (không chứa plaintext): name, createdBy, revoked, lastUsedAt.</td></tr>
@@ -858,12 +885,12 @@
     <h2>B.2. Schema các collection (trường đáng chú ý)</h2>
     <table>
         <tr><th>Collection</th><th>Trường quan trọng và ràng buộc</th></tr>
-        <tr><td>Wallet</td><td>address unique lowercase; status ∈ {ACTIVE, LOCKED, DELETED}; storageLimit mặc định 1024MB; email định dạng RFC</td></tr>
+        <tr><td>Wallet</td><td>address unique lowercase; status ∈ {ACTIVE, LOCKED, DELETED}; requestedRole ∈ {NHẬP LIỆU, QUẢN LÝ, null}; storageLimit mặc định 1024MB; email định dạng RFC</td></tr>
         <tr><td>Batch</td><td>batchId unique; uploader = địa chỉ JWT; files[].visibility ∈ {public, private} mặc định private; files[].encKey dạng "iv:ct:tag"</td></tr>
         <tr><td>DeviceSession</td><td>(address, deviceId) unique; status ∈ {pending, active, revoked}; otpHash "salt:scrypt"; otpExpires epoch ms; otpAttempts ≤ 5</td></tr>
         <tr><td>ApiKey</td><td>keyHash unique (sha256 của token); revoked bool; createdBy = địa chỉ ADMIN</td></tr>
         <tr><td>PartnerDocument</td><td>docId unique; apiKeyId → ApiKey; fileSize theo bytes; encKey bọc GCM; txHash giao dịch ghi</td></tr>
-        <tr><td>Notification</td><td>type ∈ {device_pending, device_approved, new_device, security_alert}; meta chứa deviceId</td></tr>
+        <tr><td>Notification</td><td>type ∈ {device_pending, device_approved, new_device, new_wallet, security_alert}; meta chứa deviceId hoặc địa chỉ ví mới</td></tr>
         <tr><td>AuthChallenge</td><td>address key; challenge chuỗi có nonce; expiresAt TTL index tự xóa</td></tr>
     </table>
 
