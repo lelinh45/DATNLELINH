@@ -521,9 +521,12 @@ app.get('/api/wallets/pending', requireAuth, requireRole('ADMIN'), async (req, r
     try {
         const wallets = await Wallet.find({ status: 'ACTIVE', role: { $ne: 'NGƯỜI XEM' } })
             .select('address alias email phone requestedRole lastActive').lean();
-        // DB role default 'NHẬP LIỆU' không đáng tin → phải check rank on-chain = 0
-        const ranks = await Promise.all(wallets.map(w => getRoleRank(w.address).catch(() => null)));
-        res.json({ success: true, wallets: wallets.filter((w, i) => ranks[i] === 0) });
+        // Check rank TRỰC TIẾP trên contract (không qua getRoleRank — fallback DB
+        // của nó không dùng được ở đây). RPC lỗi → giữ những ví đã gửi yêu cầu
+        // (requestedRole) để khay không trống khi mạng Sepolia chập chờn
+        const ranks = await Promise.all(wallets.map(w =>
+            getChainContract().userRoles(w.address).then(r => Number(r)).catch(() => null)));
+        res.json({ success: true, wallets: wallets.filter((w, i) => ranks[i] === 0 || (ranks[i] === null && !!w.requestedRole)) });
     } catch (e) {
         res.status(500).json({ success: false, message: 'Lỗi lấy danh sách ví chờ duyệt' });
     }
@@ -613,6 +616,12 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
                 return res.status(403).json({ success: false, message: 'Chỉ Admin mới được đồng bộ ví người khác hoặc thay đổi quyền' });
             }
             for (const k of ADMIN_FIELDS) if (k in updateData) update[k] = updateData[k];
+            // Admin ghi role = quyền đã được duyệt chính thức → đánh dấu tin cậy
+            // cho fallback RPC + xóa luôn yêu cầu chờ duyệt (đã xử xong)
+            if ('role' in updateData) {
+                update.roleGranted = true;
+                update.requestedRole = null;
+            }
         }
 
         // Cần đọc doc hiện tại khi ví tự khai thông tin — dùng cho 2 check dưới

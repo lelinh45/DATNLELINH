@@ -15,10 +15,10 @@ const walletStranger = ethers.Wallet.createRandom();
 
 // DB giả lập qua Map — seam injection để test route logic thật mà không cần MongoDB
 const walletDb = new Map([
-    [walletAdmin.address.toLowerCase(), { role: 'ADMIN', status: 'ACTIVE' }],
-    [walletManager.address.toLowerCase(), { role: 'QUẢN LÝ', status: 'ACTIVE' }],
-    [walletEntry.address.toLowerCase(), { role: 'NHẬP LIỆU', status: 'ACTIVE' }],
-    [walletLocked.address.toLowerCase(), { role: 'QUẢN LÝ', status: 'REVOKED' }],
+    [walletAdmin.address.toLowerCase(), { role: 'ADMIN', status: 'ACTIVE', roleGranted: true }],
+    [walletManager.address.toLowerCase(), { role: 'QUẢN LÝ', status: 'ACTIVE', roleGranted: true }],
+    [walletEntry.address.toLowerCase(), { role: 'NHẬP LIỆU', status: 'ACTIVE', roleGranted: true }],
+    [walletLocked.address.toLowerCase(), { role: 'QUẢN LÝ', status: 'REVOKED', roleGranted: true }],
 ]);
 const fakeWalletModel = {
     findOne: async ({ address }) => walletDb.get(address) || null,

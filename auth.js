@@ -69,6 +69,10 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
             }
         }
         if (!w) return 0;
+        // Fallback qua DB chỉ tin role DO ADMIN GÁN (roleGranted) — ví tự tạo có
+        // role mặc định 'NHẬP LIỆU'; nếu tin mặc định thì ví chờ duyệt sẽ được
+        // rank 1 mỗi khi RPC lỗi → lỗ hổng leo quyền + rơi khỏi khay chờ duyệt
+        if (!w.roleGranted) return 0;
         return ROLE_RANK[w.role] ?? 0;
     }
 
