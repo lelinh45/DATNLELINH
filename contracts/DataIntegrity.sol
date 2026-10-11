@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.24;
 
 contract DataIntegrity {
     // ==========================================
@@ -79,6 +79,24 @@ contract DataIntegrity {
     // ==========================================
     // 6. NGHIỆP VỤ LÕI: LƯU TRỮ VÀ THU HỒI
     // ==========================================
+    // [NEW] Ghi nhiều tài liệu trong 1 giao dịch — 1 chữ ký cho cả lô,
+    // nhưng mỗi docId vẫn có record riêng để getDocument/verify hoạt động
+    function addDocuments(string[] memory _documentIds, string[] memory _fileHashes, string[] memory _ipfsURIs) public canUpload {
+        require(_documentIds.length > 0, "Loi: Mang rong!");
+        require(_documentIds.length <= 100, "Loi: Mot lan toi da 100 tai lieu!");
+        require(_documentIds.length == _fileHashes.length && _fileHashes.length == _ipfsURIs.length, "Loi: Do dai mang khong khop!");
+
+        for (uint256 i = 0; i < _documentIds.length; i++) {
+            require(bytes(hashToDocId[_fileHashes[i]]).length == 0, "Loi: Tai lieu nay da ton tai tren he thong!");
+            require(documents[_documentIds[i]].timestamp == 0, "Loi: ID da ton tai!");
+
+            documents[_documentIds[i]] = Document(_fileHashes[i], _ipfsURIs[i], block.timestamp, msg.sender, false, "");
+            hashToDocId[_fileHashes[i]] = _documentIds[i];
+
+            emit DocumentAdded(_documentIds[i], _fileHashes[i], _ipfsURIs[i], msg.sender);
+        }
+    }
+
     function addDocument(string memory _documentId, string memory _fileHash, string memory _ipfsURI) public canUpload {
         require(bytes(hashToDocId[_fileHash]).length == 0, "Loi: Tai lieu nay da ton tai tren he thong!");
         require(documents[_documentId].timestamp == 0, "Loi: ID da ton tai!");
@@ -104,8 +122,15 @@ contract DataIntegrity {
         uint8 currentRole = userRoles[msg.sender];
         require(currentRole == ROLE_ADMIN || currentRole == ROLE_MANAGER, "Loi: Nhan vien Nhap lieu khong co quyen Thu hoi tai lieu!");
 
+        // Tài liệu do ví ADMIN upload thì chỉ ADMIN được thu hồi — Quản lý không đụng được
+        if (userRoles[documents[_documentId].uploader] == ROLE_ADMIN) {
+            require(currentRole == ROLE_ADMIN, "Loi: Quan ly khong the thu hoi tai lieu cua Admin!");
+        }
+
         documents[_documentId].isRevoked = true;
         documents[_documentId].revocationReason = _reason;
+        // Xóa khỏi sổ chống trùng để nội dung này có thể được nạp lại sau thu hồi
+        delete hashToDocId[documents[_documentId].fileHash];
 
         emit DocumentRevoked(_documentId, msg.sender, _reason);
     }
@@ -124,5 +149,25 @@ contract DataIntegrity {
 
     function getDocIdByHash(string memory _hash) public view returns (string memory) {
         return hashToDocId[_hash];
+    }
+
+    function getMerkleBatch(string memory _batchId) public view returns (
+        bytes32 merkleRoot, string memory ipfsURI, uint256 timestamp, address uploader
+    ) {
+        require(batches[_batchId].timestamp != 0, "Khong tim thay lo tren Blockchain!");
+        MerkleBatch memory b = batches[_batchId];
+        return (b.merkleRoot, b.ipfsURI, b.timestamp, b.uploader);
+    }
+
+    // Chuyển quyền root cho ví khác (chỉ chủ sở hữu gốc mới được gọi).
+    // Owner cũ giữ role ADMIN nhưng mất bảo vệ "owner" — owner mới có thể giáng quyền họ qua assignRole.
+    function transferOwnership(address _newOwner) public {
+        require(msg.sender == owner, "Loi: Chi chu so huu goc moi co quyen nay!");
+        require(_newOwner != address(0) && _newOwner != owner, "Loi: Dia chi khong hop le!");
+
+        owner = _newOwner;
+        userRoles[_newOwner] = ROLE_ADMIN;
+
+        emit RoleAssigned(msg.sender, _newOwner, ROLE_ADMIN);
     }
 }

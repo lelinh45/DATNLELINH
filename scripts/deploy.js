@@ -32,6 +32,13 @@ async function main() {
     }
     fs.writeFileSync(envFilePath, envContent);
     console.log("✅ Đã tự động cập nhật địa chỉ mới vào file .env!");
+
+    // Đồng bộ địa chỉ contract sang frontend config.js (frontend đọc từ đây, không đọc .env)
+    const configPath = path.join(__dirname, "../assets/js/config.js");
+    let configContent = fs.readFileSync(configPath, "utf8");
+    configContent = configContent.replace(/CONTRACT_ADDRESS:\s*"[^"]*"/, `CONTRACT_ADDRESS: "${contractAddress}"`);
+    fs.writeFileSync(configPath, configContent);
+    console.log("✅ Đã đồng bộ địa chỉ sang assets/js/config.js!");
 }
 
 main().catch((error) => {

@@ -1,3 +1,5 @@
+import { esc } from './sanitize.js';
+
 export const UI = {
     switchMenu(menuName) {
         const menus = ['upload', 'verify', 'history', 'revoked', 'apikeys', 'rpc', 'template', 'settings'];
@@ -57,8 +59,8 @@ export const UI = {
         const box = document.getElementById('consoleBox');
         if (!box) return;
         const color = type === 'error' ? 'text-red-400' : type === 'success' ? 'text-emerald-400' : type === 'warning' ? 'text-yellow-400' : 'text-blue-400';
-        const hashDisplay = hash ? `<br><span class="text-gray-600 ml-4">> <span class="text-blue-500/70 font-mono">${hash}</span></span>` : '';
-        box.innerHTML += `<div class="mb-1"><span class="text-gray-600">[${new Date().toLocaleTimeString()}]</span> <span class="${color}">${msg}</span>${hashDisplay}</div>`;
+        const hashDisplay = hash ? `<br><span class="text-gray-600 ml-4">> <span class="text-blue-500/70 font-mono">${esc(hash)}</span></span>` : '';
+        box.innerHTML += `<div class="mb-1"><span class="text-gray-600">[${new Date().toLocaleTimeString()}]</span> <span class="${color}">${esc(msg)}</span>${hashDisplay}</div>`;
         box.scrollTop = box.scrollHeight;
     },
 
@@ -72,7 +74,12 @@ export const UI = {
         if (isUpload) {
             // Logic cho form Tải lên hàng loạt (Thêm vào mảng)
             if (input && input.files && input.files.length > 0) {
-                const newFiles = Array.from(input.files);
+                const MAX_BATCH = 100; // khớp giới hạn của addDocuments() trong smart contract
+                const remaining = MAX_BATCH - this.selectedUploadFiles.length;
+                const newFiles = Array.from(input.files).slice(0, Math.max(0, remaining));
+                if (newFiles.length < input.files.length) {
+                    Swal.fire({ title: 'Giới hạn 100 tệp mỗi lô', text: `Chỉ thêm được ${newFiles.length}/${input.files.length} tệp. Smart Contract chỉ ký tối đa 100 tài liệu một lần.`, icon: 'warning', background: '#111827', color: '#fff' });
+                }
                 // Gộp file mới vào mảng cũ (không làm mất file đã chọn trước đó)
                 this.selectedUploadFiles = [...this.selectedUploadFiles, ...newFiles];
                 // Reset thẻ input để có thể chọn lại chính file đó nếu lỡ xóa
@@ -132,11 +139,11 @@ export const UI = {
                             <div class="flex items-center gap-3 overflow-hidden">
                                 <i class="fa-solid fa-file-lines text-blue-400 text-lg"></i>
                                 <div class="flex flex-col text-left truncate">
-                                    <span class="text-xs font-bold text-gray-200 truncate" title="${file.name}">${file.name}</span>
-                                    <span class="text-[10px] text-gray-500 font-mono">${sizeText}</span>
+                                    <span class="text-xs font-bold text-gray-200 truncate" title="${esc(file.name)}">${esc(file.name)}</span>
+                                    <span class="text-[10px] text-gray-500 font-mono">${esc(sizeText)}</span>
                                 </div>
                             </div>
-                            <button type="button" onclick="window.removeUploadFile(${index})" class="text-gray-500 hover:text-red-400 px-2 py-1 transition rounded hover:bg-red-900/30" title="Loại bỏ file này">
+                            <button type="button" data-act="rm-file" data-v="${index}" class="text-gray-500 hover:text-red-400 px-2 py-1 transition rounded hover:bg-red-900/30" title="Loại bỏ file này">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
@@ -183,7 +190,8 @@ export const UI = {
         document.getElementById('cert-timestamp').innerText = data.timestamp || new Date().toLocaleString('vi-VN');
         
         const qrEl = document.getElementById('cert-qr-img');
-        if (qrEl && data.qrCode) qrEl.src = data.qrCode;
+        // Chỉ gán src nếu là data:image — chặn javascript:/URL lạ
+        if (qrEl && data.qrCode && /^data:image\//.test(String(data.qrCode))) qrEl.src = data.qrCode;
 
         container.style.display = 'block';
 

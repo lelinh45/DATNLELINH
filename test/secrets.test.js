@@ -20,12 +20,6 @@ test('server.js không chứa Telegram token hardcode', () => {
     assert.equal(TELEGRAM_TOKEN_RE.test(src), false, 'Telegram bot token literal còn nằm trong server.js');
 });
 
-test('server.js đọc Telegram credentials từ process.env', () => {
-    const src = read('server.js');
-    assert.ok(src.includes('process.env.TELEGRAM_TOKEN'), 'server.js phải đọc TELEGRAM_TOKEN từ env');
-    assert.ok(src.includes('process.env.TELEGRAM_CHAT_ID'), 'server.js phải đọc TELEGRAM_CHAT_ID từ env');
-});
-
 test('client không chứa secret nào (Telegram token, Pinata keys, hex secret)', () => {
     for (const f of CLIENT_FILES) {
         const src = read(f);

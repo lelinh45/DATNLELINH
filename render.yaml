@@ -1,0 +1,45 @@
+# Render Blueprint — deploy 1 lần qua "New + → Blueprint" trên dashboard.render.com
+# Các key sync:false sẽ được hỏi nhập tay trong dashboard khi tạo service.
+# FREE plan: ngủ sau ~15 phút không truy cập, request đầu tiên chờ 30-60s.
+services:
+  - type: web
+    name: blockchain-data-integrity
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: AUTO_TUNNEL
+        value: "0"                    # trên Render không cần ngrok
+      - key: MONGO_URI                # chuỗi kết nối MongoDB Atlas (bước 1 trong README)
+        sync: false
+      - key: JWT_SECRET               # Render tự sinh chuỗi ngẫu nhiên an toàn
+        generateValue: true
+      - key: MASTER_KEY               # khóa bọc AES key — giữ nguyên sau khi deploy
+        generateValue: true
+      - key: PRIVATE_KEY              # ví server ký giao dịch cho API đối tác
+        sync: false
+      - key: CONTRACT_ADDRESS
+        sync: false
+      - key: RPC_URL                  # ví dụ https://eth-sepolia.g.alchemy.com/v2/<key>
+        sync: false
+      - key: PINATA_API_KEY
+        sync: false
+      - key: PINATA_API_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # SMTP (tùy chọn — OTP email duyệt thiết bị; bỏ trống nếu không dùng)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: OTP_FROM
+        sync: false
+      - key: CORS_ORIGINS             # để trống cũng được — API gọi same-origin
+        sync: false

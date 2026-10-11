@@ -42,10 +42,13 @@ export class Web3Service {
     // ==========================================
     async getEventsInChunks(filter, cacheKeyName) {
         const latestBlock = await this.provider.getBlockNumber();
-        const START_BLOCK = 11740000; 
+        const START_BLOCK = 11740000;
         const CHUNK_SIZE = 9000;
-        
-        let cacheData = JSON.parse(localStorage.getItem(`bdi_cache_${cacheKeyName}`)) || { lastScanned: START_BLOCK, events: [] };
+        // Cache gắn theo địa chỉ contract — deploy contract mới thì sự kiện của
+        // contract cũ không bị trộn vào danh sách (tránh docId trùng lặp ảo)
+        const scopedKey = `bdi_cache_${CONFIG.CONTRACT_ADDRESS}_${cacheKeyName}`;
+
+        let cacheData = JSON.parse(localStorage.getItem(scopedKey)) || { lastScanned: START_BLOCK, events: [] };
         let fromBlock = cacheData.lastScanned + 1;
         let newEvents = [];
 
@@ -65,24 +68,36 @@ export class Web3Service {
             }
             cacheData.events = cacheData.events.concat(newEvents);
             cacheData.lastScanned = latestBlock;
-            localStorage.setItem(`bdi_cache_${cacheKeyName}`, JSON.stringify(cacheData));
+            localStorage.setItem(scopedKey, JSON.stringify(cacheData));
         }
         return cacheData.events;
     }
 
     // ĐỌC QUYỀN TRỰC TIẾP TỪ SMART CONTRACT
+    // Trả null khi lỗi/không có contract — TUYỆT ĐỐI không trả role giả (1),
+    // vì caller sẽ sync role đó xuống MongoDB và phá vỡ phân quyền.
     async getUserRole(address) {
-        if (!this.contract) return 1; 
+        if (!this.contract) return null;
         try {
             const adminAddress = await this.contract.owner();
-            if (address.toLowerCase() === adminAddress.toLowerCase()) return 99; 
-            return await this.contract.userRoles(address); 
-        } catch (e) { return 1; }
+            if (address.toLowerCase() === adminAddress.toLowerCase()) return 99;
+            return await this.contract.userRoles(address);
+        } catch (e) {
+            console.warn('getUserRole lỗi (RPC/contract):', e.message || e);
+            return null;
+        }
     }
 
     async addDocumentOnChain(docId, fileHash, ipfsCID) {
         if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
         const tx = await this.contract.addDocument(docId, fileHash, `ipfs://${ipfsCID}`);
+        await tx.wait();
+        return tx.hash;
+    }
+
+    async addDocumentsOnChain(docIds, fileHashes, ipfsURIs) {
+        if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
+        const tx = await this.contract.addDocuments(docIds, fileHashes, ipfsURIs);
         await tx.wait();
         return tx.hash;
     }
@@ -97,6 +112,22 @@ export class Web3Service {
     async getDocumentFromChain(docId) {
         if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
         return await this.contract.getDocument(docId);
+    }
+
+    // Phí gas thật của 1 giao dịch (ETH) — cache vĩnh viễn vì fee không đổi
+    async getTxFeeEth(txHash) {
+        if (!this.provider || !txHash) return null;
+        try {
+            const cacheKey = `bdi_txfee_${txHash}`;
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) return cached;
+            const receipt = await this.provider.getTransactionReceipt(txHash);
+            if (!receipt) return null;
+            const feeWei = receipt.gasUsed * (receipt.gasPrice ?? receipt.effectiveGasPrice ?? 0n);
+            const eth = Number(ethers.formatEther(feeWei)).toFixed(6);
+            localStorage.setItem(cacheKey, eth);
+            return eth;
+        } catch (e) { return null; }
     }
 
     async assignRole(address, roleLevel) {

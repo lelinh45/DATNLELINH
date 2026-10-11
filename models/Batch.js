@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const batchSchema = new mongoose.Schema({
     batchId: { type: String, required: true, unique: true },
     merkleRoot: { type: String, required: true },
-    ipfsCID: { type: String, required: true }, // This is the manifest CID
+    ipfsCID: { type: String, required: true }, // CID của manifest JSON — danh mục file của cả lô
     txHash: { type: String, required: true },
     uploader: { type: String, required: true, lowercase: true },
     files: [{
@@ -11,8 +11,10 @@ const batchSchema = new mongoose.Schema({
         fileName: String,
         fileHash: String,
         fileSize: String,
-        ipfsCID: String, // FIX C2: CID of the individual file
-        qrCode: String,  // FIX C2: Ensure it is saved if provided
+        ipfsCID: String, // CID riêng của từng file ciphertext
+        qrCode: String,  // QR chứa docId để tra cứu nhanh khi in ấn
+        encKey: String,  // AES key của file — đã bọc bằng MASTER_KEY (AES-256-GCM), không phải plaintext
+        visibility: { type: String, enum: ['private', 'public'], default: 'private' },
         isRevoked: { type: Boolean, default: false },
         revocationReason: String,
         revokedBy: String,
