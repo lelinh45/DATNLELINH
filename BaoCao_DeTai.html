@@ -480,7 +480,7 @@
 
     <h3>2.4.1. Luồng upload tài liệu (người dùng web)</h3>
     <ol>
-        <li>Người dùng chọn một hoặc nhiều file, nhập mật khẩu AES, chọn chế độ <b>Riêng tư</b> (mặc định) hoặc <b>Công khai</b>.</li>
+        <li>Người dùng chọn một hoặc nhiều file — bằng hộp chọn file <b>hoặc kéo-thả trực tiếp</b> vào vùng nhận (dropzone đổi màu viền khi có file kéo qua; file thả nhầm ra ngoài trang bị chặn để không mất phiên làm việc) — rồi nhập mật khẩu AES, chọn chế độ <b>Riêng tư</b> (mặc định) hoặc <b>Công khai</b>.</li>
         <li>Trình duyệt đọc byte gốc của từng file, tính SHA-256, rồi mã hóa nội dung bằng AES-256.</li>
         <li>Ciphertext gửi lên <span class="mono">POST /api/upload</span>; backend kiểm tra quota IPFS thật từ Pinata rồi pin file, trả về CID và mã QR chứa documentId.</li>
         <li>Frontend gọi contract <span class="mono">addDocuments</span> qua MetaMask — người dùng tự ký và trả gas; một giao dịch ghi được cả lô nhiều tài liệu.</li>
@@ -488,6 +488,7 @@
     </ol>
     <p class="caption">Hình 2.2. Luồng upload tài liệu (người dùng web)</p>
     <p>Điểm thiết kế đáng chú ý: thứ tự "hash → mã hóa → IPFS → on-chain → metadata" đảm bảo bằng chứng ghi sau khi dữ liệu đã an vị trên IPFS, nên CID ghi trên chuỗi luôn tồn tại. Người dùng tự ký giao dịch nghĩa là server không cần giữ khóa riêng của ai — phí gas cũng là bằng chứng người dùng chủ động thực hiện.</p>
+    <p><b>Chống mất metadata khi bước 5 lỗi:</b> nếu giao dịch đã lên chuỗi nhưng <span class="mono">POST /api/batches</span> thất bại (server ngủ, mất mạng, JWT hết hạn), frontend đẩy lô đó vào hàng đợi <span class="mono">orphanedBatches</span> trong localStorage kèm cảnh báo rõ cho người dùng. Hàng đợi được tự động "xả" ngay khi đăng nhập/vào app — không cần chờ lần upload kế tiếp — và <b>chỉ xả các lô thuộc đúng ví đang đăng nhập</b> để tránh gán nhầm chủ sở hữu khi nhiều ví cùng dùng một trình duyệt. Phía server, <span class="mono">POST /api/batches</span> là thao tác <b>lũy đẳng (idempotent)</b>: batchId đã tồn tại thì chỉ bổ sung các trường còn trống (đặc biệt encKey và uploader "unknown") chứ không ghi đè dữ liệu có sẵn — nên retry bao nhiêu lần cũng an toàn, và bản ghi phục hồi từ manifest IPFS vẫn được vá khóa về sau.</p>
 
     <h3>2.4.2. Luồng xác thực tài liệu</h3>
     <ol>
@@ -503,7 +504,9 @@
     <ol>
         <li>Client xin challenge, ký bằng MetaMask, gửi chữ ký kèm <span class="mono">deviceId</span> ngẫu nhiên lưu ở trình duyệt.</li>
         <li>Server xác minh chữ ký; nếu ví chưa có phiên nào hoạt động <b>và chưa đăng ký email</b> → thiết bị được tự duyệt làm phiên đầu tiên (tránh khóa vĩnh viễn). Nếu ví có email → thiết bị vẫn phải qua OTP.</li>
-        <li>Nếu ví còn phiên hoạt động khác → thiết bị mới thành <span class="mono">pending</span>, không cấp JWT, đồng thời bắn thông báo "Thiết bị mới chờ phê duyệt" tới các thiết bị cũ.</li>
+        <li>Đăng nhập lại <b>trên cùng một thiết bị</b> (trùng deviceId) luôn được gia hạn phiên ngay — không bao giờ bị hỏi duyệt chính mình.</li>
+        <li>"Hoạt động" được định nghĩa là <span class="mono">lastSeen</span> trong vòng 24 giờ (= tuổi JWT): phiên cũ lâu ngày không truy cập tự hết hiệu lực chặn, nên máy cũ mất/hỏng <b>không thể khóa ví vĩnh viễn</b> — OTP luôn còn là đường cứu.</li>
+        <li>Nếu ví còn phiên hoạt động khác → thiết bị mới thành <span class="mono">pending</span>, không cấp JWT, đồng thời bắn thông báo "Thiết bị mới chờ phê duyệt" tới các thiết bị cũ. Response pending trả kèm <b>danh tính thiết bị đang chặn</b> (nhãn trình duyệt/hệ điều hành) để màn hình chờ chỉ rõ "hãy mở máy X và duyệt", thay vì báo chung chung.</li>
         <li>Duyệt bằng hai cách: thiết bị cũ bấm "Phê duyệt" trong chuông thông báo (đường chính), hoặc nhập OTP 6 số — <b>OTP chỉ được phép khi ví không còn thiết bị nào khác đang hoạt động</b>: cả request-otp lẫn verify-otp đều trả 403 OTP_BLOCKED nếu còn máy online, tránh OTP trở thành đường vòng khi email bị lộ.</li>
         <li>Chủ ví thu hồi phiên bất kỳ thiết bị nào; token thiết bị đó bị chặn ngay ở request kế tiếp vì middleware kiểm tra trạng thái session mỗi lần.</li>
     </ol>
@@ -516,7 +519,7 @@
         <li>Ví mới ký challenge → server chỉ bắn thông báo "ví mới vừa đăng nhập lần đầu" tới chuông của mọi ví <b>ADMIN</b>. Bản ghi Wallet trong MongoDB được tạo khi ví gọi <span class="mono">/wallets/sync</span> lần đầu — frontend tự sync ngay sau đăng nhập và khi lưu form phòng chờ, nên ví chờ duyệt luôn xuất hiện trong khay của admin kèm thông tin nhận diện đã khai.</li>
         <li>Frontend đọc quyền on-chain = 0 → ẩn <b>toàn bộ</b> menu và mọi tab, chỉ hiện phòng chờ: địa chỉ ví kèm nút copy để gửi cho quản trị viên, và form khai <b>tên/alias</b>, email, SĐT cùng <b>quyền mong muốn</b> (<span class="mono">requestedRole</span> ∈ {NHẬP LIỆU, QUẢN LÝ, NGƯỜI XEM}) — thông tin lưu vào Wallet để admin nhận diện đúng người thay vì nhìn chuỗi <span class="mono">0x...</span> trần.</li>
         <li>Phía admin, cạnh chuông thông báo có <b>khay "ví chờ duyệt"</b> (icon riêng + badge đếm, poll 30s) — liệt kê ví có <span class="mono">status: ACTIVE</span> nhưng rank on-chain = 0 qua endpoint <span class="mono">GET /api/wallets/pending</span> (chỉ ADMIN). Mỗi mục hiện alias, địa chỉ có nút copy, email/SĐT, quyền đề nghị và thời điểm hoạt động cuối.</li>
-        <li>Admin bấm <b>Duyệt</b> → hệ thống tự điền địa chỉ + alias + quyền đề nghị vào form phân quyền; admin chỉnh quyền nếu cần rồi ký <span class="mono">assignRole</span> một lần (riêng cấp NGƯỜI XEM cho ví rank 0 thì chỉ ghi MongoDB, không cần ký). Khi gõ tay địa chỉ ví vào form, một dòng trạng thái tra cứu trực tiếp (debounce 0.5s) hiển thị quyền hiện tại on-chain, tên đăng ký và quyền đề nghị của ví đó.</li>
+        <li>Admin bấm <b>Duyệt</b> → hệ thống tự điền địa chỉ + alias + quyền đề nghị vào form phân quyền, đồng thời <b>tự bung form, cuộn tới và nháy viền sáng</b> để admin không thể bỏ sót; admin chỉnh quyền nếu cần rồi ký <span class="mono">assignRole</span> một lần (riêng cấp NGƯỜI XEM cho ví rank 0 thì chỉ ghi MongoDB, không cần ký). Sau khi giao dịch xác nhận, bảng ví tải lại và <b>tự cuộn tới đúng dòng ví vừa duyệt kèm hiệu ứng nháy nền</b>. Khi gõ tay địa chỉ ví vào form, một dòng trạng thái tra cứu trực tiếp (debounce 0.5s) hiển thị quyền hiện tại on-chain, tên đăng ký và quyền đề nghị của ví đó.</li>
         <li>Phía ví chờ, frontend poll mỗi 15 giây cả quyền on-chain lẫn hồ sơ MongoDB — được duyệt <b>NHẬP LIỆU/QUẢN LÝ</b> thì mở toàn bộ chức năng theo rank, được duyệt <b>NGƯỜI XEM</b> thì chuyển sang chế độ chỉ đọc — đều <b>không cần đăng nhập lại</b>.</li>
     </ol>
     <p class="caption">Hình 2.5. Luồng đăng ký ví mới → phòng chờ → khay chờ duyệt của Admin</p>
@@ -533,7 +536,7 @@
     <h2>2.5. Thiết kế cơ sở dữ liệu MongoDB</h2>
     <table>
         <tr><th>Collection</th><th>Các trường chính</th><th>Vai trò</th></tr>
-        <tr><td>Wallet</td><td>address, alias, role, status, email, phone, requestedRole, storageLimit, storageUsed</td><td>Hồ sơ ví: danh tính hiển thị, trạng thái khóa, email nhận OTP, SĐT liên hệ, quyền đề nghị khi chờ duyệt, hạn mức logic</td></tr>
+        <tr><td>Wallet</td><td>address, alias, role, roleGranted, status, email, phone, requestedRole, storageLimit, storageUsed</td><td>Hồ sơ ví: danh tính hiển thị, cờ "đã từng được cấp quyền" (roleGranted — chỉ ví có cờ này mới được phép fallback role từ DB khi RPC lỗi), trạng thái khóa, email nhận OTP, SĐT liên hệ, quyền đề nghị khi chờ duyệt, hạn mức logic</td></tr>
         <tr><td>Batch</td><td>batchId, merkleRoot, ipfsCID, txHash, uploader, files[]</td><td>Lô tài liệu sau khi ghi on-chain; mảng files gồm docId, fileHash, ipfsCID, fileName, fileSize, qrCode, visibility, encKey</td></tr>
         <tr><td>DeviceSession</td><td>address, deviceId, deviceLabel, status, revoked, otpHash, otpExpires, otpAttempts, lastSeen</td><td>Phiên đăng nhập từng thiết bị: pending/active/revoked và vật liệu OTP</td></tr>
         <tr><td>ApiKey</td><td>name, keyHash, createdBy, revoked, lastUsedAt</td><td>API key đối tác — chỉ lưu hash</td></tr>
@@ -550,7 +553,7 @@
         <tr><td><span class="mono">addDocuments(ids, hashes, uris)</span></td><td>Ghi</td><td>Ghi lô nhiều tài liệu trong một giao dịch; phát sự kiện từng tài liệu</td></tr>
         <tr><td><span class="mono">getDocument(id)</span></td><td>Đọc</td><td>Trả fileHash, ipfsURI, timestamp, uploader, isRevoked, revocationReason</td></tr>
         <tr><td><span class="mono">revokeDocument(id, reason)</span></td><td>Ghi</td><td>Đánh dấu thu hồi kèm lý do — chỉ ADMIN/QUẢN LÝ gọi được; tài liệu của ví ADMIN thì chỉ ADMIN thu hồi được</td></tr>
-        <tr><td><span class="mono">setUserRole(addr, role)</span></td><td>Ghi</td><td>ADMIN gán quyền 0–3 cho ví</td></tr>
+        <tr><td><span class="mono">assignRole(addr, role)</span></td><td>Ghi</td><td>ADMIN gán quyền 0–3 cho ví</td></tr>
         <tr><td><span class="mono">userRoles(address)</span></td><td>Đọc</td><td>Tra quyền ví — backend đọc mỗi lần check role</td></tr>
     </table>
     <p class="caption">Bảng 2.3. Các hàm chính của smart contract DataIntegrity</p>
@@ -629,7 +632,7 @@
         <li><b>Ví lần đầu đăng nhập hệ thống:</b> server nhận ra chưa có bản ghi wallet thì bắn thông báo <span class="mono">new_wallet</span> tới mọi ví ADMIN — admin vào Quản Lý Quyền Ví đặt tên (alias) và phân quyền on-chain cho ví mới. Sidebar mỗi tài khoản hiển thị đúng alias của ví mình thay vì nhãn "Người Dùng" chung.</li>
     </ul>
     <p><b>OTP email — đường cứu có điều kiện:</b> thiết bị pending có thể xin mã qua <span class="mono">POST /api/auth/request-otp</span>, nhưng <b>chỉ khi ví không còn thiết bị nào khác đang hoạt động</b> — còn máy online thì server trả 403 OTP_BLOCKED và bắt duyệt từ máy đó. <span class="mono">POST /api/auth/verify-otp</span> kiểm tra lại điều kiện này lần nữa lúc xác nhận (phòng race condition), giới hạn 5 lần sai, so scrypt bằng timingSafeEqual, thành công thì chuyển session sang active và <b>xóa hẳn otpHash</b>. Mã 6 số sinh bằng <span class="mono">crypto.randomInt</span>, lưu dạng scrypt+salt, sống 5 phút, gửi lại tối thiểu 60 giây. Chính sách này ngăn OTP trở thành đường vòng khi email chủ ví bị lộ: kẻ đọc trộm được hộp thư cũng không qua được cửa phê duyệt từ thiết bị thật.</p>
-    <p><b>Middleware:</b> <span class="mono">requireAuth</span> verify JWT HS256, rồi nếu token có claim <span class="mono">dev</span> thì tra session — thiết bị pending/revoked bị chặn ngay lập tức. <span class="mono">requireRole</span> đọc quyền theo thứ tự ưu tiên: ví bị khóa trong DB luôn về 0 (kể cả khi chain còn role) → hỏi contract on-chain → fallback DB nếu RPC lỗi.</p>
+    <p><b>Middleware:</b> <span class="mono">requireAuth</span> verify JWT HS256, rồi nếu token có claim <span class="mono">dev</span> thì tra session — thiết bị pending/revoked bị chặn ngay lập tức. <span class="mono">requireRole</span> đọc quyền theo thứ tự ưu tiên: ví bị khóa trong DB luôn về 0 (kể cả khi chain còn role) → hỏi contract on-chain → <b>fallback DB chỉ khi ví có cờ <span class="mono">roleGranted = true</span></b> (tức đã từng được admin cấp quyền thật). Cờ này được đặt lúc cấp quyền, nhờ đó một ví chờ duyệt — vốn mang role mặc định trong DB — không thể lợi dụng lúc RPC sập để trôi qua cửa quyền.</p>
 
     <h2>3.4. Cài đặt nghiệp vụ upload — verify — thu hồi</h2>
     <p><b>Upload (<span class="mono">POST /api/upload</span>):</b> nhận ciphertext từ client, tính lại SHA-256 phía server (không tin hash client gửi), sinh documentId từ tên file đã lọc ký tự lạ cộng timestamp. Trước khi pin, gọi <span class="mono">checkIpfsQuota</span> đọc dung lượng thật từ Pinata — vượt quota thì từ chối 403 ngay, không pin mù. Pin thành công trả CID và QR code (thư viện qrcode) chứa documentId để in ấn tra cứu nhanh.</p>
@@ -666,9 +669,9 @@
 
     <h2>3.7. Xây dựng giao diện người dùng</h2>
     <p>Giao diện một trang (<span class="mono">index.html</span>) với các module JavaScript tách vai trò: <span class="mono">config.js</span> (hằng số, ABI, gateway), <span class="mono">web3Service.js</span> (kết nối MetaMask, contract, event, receipt), <span class="mono">apiService.js</span> (gọi backend kèm JWT), <span class="mono">sanitize.js</span> (hàm esc chống XSS), <span class="mono">uiHandler.js</span> (thành phần hiển thị), <span class="mono">main.js</span> (luồng nghiệp vụ).</p>
-    <p><b>Tab Truy xuất:</b> quét sự kiện ghi tài liệu từ contract (cache trong localStorage theo block để lần sau chỉ quét phần mới), đối chiếu metadata từ batches, render bảng gồm tên file, hash rút gọn link IPFS, uploader, thời gian, <b>cột PHÍ (ETH)</b> — giá trị thật tính từ <span class="mono">gasUsed × gasPrice</span> của transaction receipt, link tới sepolia.etherscan.io, cache vĩnh viễn vì phí không bao giờ đổi. Khi nhiều file chung một giao dịch, cùng hiện phí tổng — đúng thực tế và được dedupe để chỉ gọi RPC một lần mỗi txHash.</p>
+    <p><b>Tab Truy xuất:</b> quét sự kiện ghi tài liệu từ contract theo chunk 9000 block (cache trong localStorage, khóa cache gắn theo địa chỉ contract để deploy contract mới không trộn sự kiện cũ), đối chiếu metadata từ batches, render bảng gồm tên file, hash rút gọn link IPFS, uploader, thời gian, <b>cột PHÍ (ETH)</b> — giá trị thật tính từ <span class="mono">gasUsed × gasPrice</span> của transaction receipt, link tới sepolia.etherscan.io, cache vĩnh viễn vì phí không bao giờ đổi. Khi nhiều file chung một giao dịch, cùng hiện phí tổng — đúng thực tế và được dedupe để chỉ gọi RPC một lần mỗi txHash. Điểm kỹ thuật then chốt của cache: con trỏ <span class="mono">lastScanned</span> <b>chỉ tiến tới block cuối cùng của đoạn liền kề quét thành công</b> — một chunk RPC lỗi thì dừng lại và quét tiếp lần sau, tuyệt đối không đánh dấu "đã quét" phần chưa đọc được (tránh lỗ hổng sự kiện vĩnh viễn trong cache — lỗi thực tế khiến tài liệu/thu hồi hiển thị sai so với chuỗi).</p>
     <p><b>Xem trước:</b> sau khi có khóa (escrow hoặc nhập tay), client giải mã ciphertext tải từ IPFS; PDF/ảnh/văn bản mở tab mới với Blob URL; DOCX mở tab riêng render bằng <b>docx-preview</b> + JSZip — giữ font, bảng, lề, ngắt trang gần giống Word thay vì chỉ trích text như giải pháp trích xuất thuần túy. Giới hạn đã ghi nhận: SmartArt, textbox và hiệu ứng phức tạp có thể khác bản gốc.</p>
-    <p><b>Các tab khác:</b> Upload với dialog nhập mật khẩu AES + chọn riêng tư/công khai + tiến trình từng bước (băm → mã hóa → IPFS → chờ ký → xác nhận); Verify với vùng kết quả có bản đồ nhiệt và báo cáo AI; Quản lý ví hiển thị dung lượng thật dạng "x MB / 1024 MB"; Quản lý API key hiển thị plaintext đúng một lần trong modal kèm nút copy (danh sách tự tải lại khi mở tab và sau đăng nhập); Cài đặt có cặp ô email + SĐT chủ ví với nút hai trạng thái "Lưu/Thay đổi" — đã lưu thì khóa ô cho tới khi chủ động sửa; chuông thông báo duyệt thiết bị.</p>
+    <p><b>Các tab khác:</b> Upload với dialog nhập mật khẩu AES + chọn riêng tư/công khai + tiến trình từng bước (băm → mã hóa → IPFS → chờ ký → xác nhận), hỗ trợ kéo-thả file vào dropzone (đổi màu viền khi kéo qua, lấy nhiều file một lúc, nút xóa từng file khỏi danh sách); Verify cũng có dropzone riêng (lấy file đầu tiên) với vùng kết quả có bản đồ nhiệt và báo cáo AI; Quản lý ví hiển thị dung lượng thật dạng "x MB / 1024 MB"; Quản lý API key hiển thị plaintext đúng một lần trong modal kèm nút copy (danh sách tự tải lại khi mở tab và sau đăng nhập); Cài đặt có cặp ô email + SĐT chủ ví với nút hai trạng thái "Lưu/Thay đổi" — đã lưu thì khóa ô cho tới khi chủ động sửa; chuông thông báo duyệt thiết bị và khay ví chờ cấp quyền riêng (badge đếm, poll 30s, nút Duyệt tự điền form).</p>
     <p><b>Tìm kiếm hai chế độ:</b> ô lọc ở bảng Truy xuất và Danh sách hủy bỏ mặc định là tìm mờ (chứa chuỗi) trên docId/tên file/ví/thời gian/hash; nhưng khi chuỗi nhập bắt đầu bằng <span class="mono">0x</span> thì chuyển sang so khớp <b>chính xác toàn bộ địa chỉ ví uploader</b> — một ký tự sai lệch là không còn kết quả, phù hợp tra cứu theo danh tính chứ không phải từ khóa.</p>
     <p><b>Chống vỡ layout:</b> bảng dữ liệu nằm trong container cuộn ngang, tên file cắt bằng ellipsis kèm tooltip đầy đủ, panel tiến trình blockchain thu nhỏ — kiểm tra trên màn hình hẹp không tràn.</p>
 
@@ -676,7 +679,7 @@
     <p>Ngoài các cơ chế đã trình bày rải ở trên, phần này tổng hợp toàn bộ lớp phòng thủ thực tế trong code:</p>
     <ul>
         <li><b>Quota IPFS thật:</b> hàm <span class="mono">getIpfsUsageBytes</span> gọi <span class="mono">data/userPinnedDataTotal</span> trước mỗi lần pin; vượt 1GB → 403; API Pinata lỗi → fallback cộng kích thước đã ghi trong MongoDB (cả Batch lẫn PartnerDocument); cả hai lỗi → 503 fail-closed. Không có đường nào pin mù.</li>
-        <li><b>Dung lượng ví server-side:</b> <span class="mono">GET /api/wallets</span> tự tính storageUsed từ bản ghi Batch thay vì nhận số client khai — client có gửi <span class="mono">storageUsed</span> trong sync cũng bị bỏ qua.</li>
+        <li><b>Dung lượng ví server-side:</b> <span class="mono">GET /api/wallets</span> tự tính storageUsed từ bản ghi Batch thay vì nhận số client khai — client có gửi <span class="mono">storageUsed</span> trong sync cũng bị bỏ qua; frontend cũng tự đối chiếu lại từ các batch đọc được (self-healing) nên số liệu không phụ thuộc vào một lần ghi thành công.</li>
         <li><b>Mass-assignment:</b> mọi endpoint nhận dữ liệu đều whitelist từng trường — không thể ghi isRevoked, role, storageLimit, uploader giả; uploader luôn lấy từ JWT.</li>
         <li><b>XSS:</b> hàm <span class="mono">esc()</span> escape mọi chuỗi động trước khi chèn innerHTML; bộ <span class="mono">test/xss.test.js</span> quét regex đảm bảo không biến nào render trần.</li>
         <li><b>Rate limit:</b> verify 10 lần/5 phút/IP + ban 15 phút + log an ninh; API key 60/phút; OTP 5 lần sai + cooldown gửi 60 giây.</li>
@@ -704,18 +707,19 @@
     <p>Chương này trình bày phương pháp kiểm thử, kết quả thu được và đánh giá trung thực về mức độ đạt được của hệ thống — bao gồm cả những điểm hoạt động đúng lẫn các hạn chế còn tồn tại.</p>
 
     <h2>4.1. Môi trường và phương pháp kiểm thử</h2>
-    <p><b>Môi trường kiểm thử thực tế:</b> backend Node.js chạy tại cổng 3000; MongoDB lưu 6 ví và các lô tài liệu thật; contract trên mạng Sepolia truy cập qua RPC công khai; tài khoản Pinata gói free với quota 1GB — tại thời điểm đánh giá đã dùng khoảng 28.8MB trên 72 pin. Toàn bộ giao dịch đều là giao dịch thật, tra được trên sepolia.etherscan.io.</p>
+    <p><b>Môi trường kiểm thử thực tế:</b> backend Node.js chạy tại cổng 3000; MongoDB Atlas lưu 5 ví và 20 lô tài liệu thật; contract trên mạng Sepolia truy cập qua RPC công khai; tài khoản Pinata gói free với quota 1GB — tại thời điểm đánh giá có 79 pin (bao gồm các file mã hóa và manifest của từng lô). Toàn bộ giao dịch đều là giao dịch thật, tra được trên sepolia.etherscan.io.</p>
     <p><b>Phương pháp kiểm thử gồm hai lớp bổ sung nhau:</b></p>
     <ul>
-        <li><b>Bộ test tự động</b> (<span class="mono">node --test</span>) gồm 71 ca: test contract trên mạng Hardhat giả lập; test tính nhất quán giữa các quyết định thiết kế; test rò rỉ bí mật (quét repo tìm khóa riêng/key bị commit nhầm); test XSS (quét các biến render trần); test module xác thực với dependency mock.</li>
-        <li><b>Kiểm thử end-to-end thật:</b> tạo API key thật trong MongoDB, gọi bằng curl theo đúng giao thức của đối tác — upload file → nhận CID và txHash thật → verify đúng file và file đã sửa → kiểm tra cách ly giữa hai key → tải về và đối chiếu nội dung gốc.</li>
+        <li><b>Bộ test tự động</b> (<span class="mono">node --test</span>) gồm 79 ca: test contract trên mạng Hardhat giả lập; test tính nhất quán giữa các quyết định thiết kế; test rò rỉ bí mật (quét repo tìm khóa riêng/key bị commit nhầm); test XSS (quét các biến render trần); test module xác thực với dependency mock.</li>
+        <li><b>Bộ kiểm thử end-to-end an toàn</b> (<span class="mono">_e2e_safe.mjs</span>) gồm 38 bước kiểm tra trên server test cổng 3001 với MongoDB cục bộ riêng (không đụng dữ liệu thật): luồng đăng nhập — duyệt thiết bị — OTP; khay ví chờ duyệt (duyệt/từ chối/khai lại); quyền truy cập từng endpoint; độ trễ thực tế từng API và RPC on-chain.</li>
     </ul>
     <p>Nguyên tắc kiểm thử được đặt ra ngay từ đầu: không chấp nhận kết quả suy diễn — chức năng nào không chạy được trong môi trường (ví dụ MetaMask headless) thì phải nói rõ là chưa kiểm chứng được, thay vì ngầm giả định đúng.</p>
 
     <h2>4.2. Kết quả kiểm thử chức năng</h2>
     <table>
         <tr><th>Kịch bản kiểm thử</th><th>Kết quả</th></tr>
-        <tr><td>Bộ test tự động: contract, nhất quán dữ liệu, lộ bí mật, XSS, xác thực</td><td>71/71 ca pass</td></tr>
+        <tr><td>Bộ test tự động: contract, nhất quán dữ liệu, lộ bí mật, XSS, xác thực</td><td>79/79 ca pass</td></tr>
+        <tr><td>Bộ kiểm thử end-to-end an toàn trên server test (xác thực, thiết bị, khay chờ, phân quyền, độ trễ)</td><td>38/38 bước pass</td></tr>
         <tr><td>Upload qua API đối tác → IPFS (CID thật) → on-chain (tx thật trên Sepolia)</td><td>Thành công, trả documentId / fileHash / txHash; tx tra được trên Etherscan</td></tr>
         <tr><td>Verify đúng file nguyên vẹn</td><td>match: true — TÀI LIỆU NGUYÊN VẸN</td></tr>
         <tr><td>Verify file bị sửa 1 ký tự</td><td>match: false — PHÁT HIỆN GIẢ MẠO ngay lập tức</td></tr>
@@ -735,6 +739,7 @@
         <li>Endpoint download ban đầu dùng gateway công cộng ipfs.io bị trả 429/502 do giới hạn tần suất; sau khi đổi ưu tiên sang gateway riêng của tài khoản Pinata thì tải file ổn định — bài học thực tế về phụ thuộc dịch vụ ngoài.</li>
         <li>API key test định dạng sai (chứa ký tự không hợp lệ) bị middleware từ chối ngay ở bước kiểm tra format trước cả khi tra DB — đúng hướng fail-fast.</li>
         <li>Xác nhận số dung lượng Pinata đọc trực tiếp từ API: <span class="mono">pin_size_total = 30,167,238 bytes ≈ 28.77MB</span> — con số quota hiển thị và chặn là số thật, không phải ước tính.</li>
+        <li><b>Sự cố thật đã phát hiện và khắc phục trong vận hành:</b> một giai đoạn metadata các lô không vào được MongoDB (ghi chain + pin IPFS đã xong) khiến dung lượng ví hiển thị 0 và cột dung lượng file trống. Hệ thống phục hồi được bằng cách đọc lại manifest trên Pinata và đối chiếu sự kiện DocumentAdded trên cả hai địa chỉ contract cũ/mới — toàn bộ tên file, dung lượng, visibility được dựng lại. Sự cố này chính là động lực cho ba cơ chế mới: hàng đợi orphanedBatches tự xả, endpoint lưu batch lũy đẳng, và quét sự kiện không để lỗ hổng.</li>
     </ul>
 
     <h2>4.3. Kiểm thử bảo mật và đánh giá</h2>
@@ -768,6 +773,7 @@
         <li><b>Hệ thống chạy testnet Sepolia.</b> Cơ chế kỹ thuật giống mainnet nhưng chi phí gas thật, tốc độ xác nhận và độ ổn định khác môi trường production.</li>
         <li><b>Xem trước DOCX không pixel-perfect.</b> docx-preview giữ được font, bảng, lề, ngắt trang nhưng SmartArt, textbox, hiệu ứng phức tạp có thể khác bản Word gốc.</li>
         <li><b>Phụ thuộc dịch vụ ngoài.</b> Pinata (lưu trữ), RPC Sepolia (blockchain), SMTP (OTP email) — khi một dịch vụ lỗi, chức năng tương ứng tạm dừng theo hướng fail-closed: hệ thống từ chối an toàn chứ không bỏ qua kiểm tra. Đây là lựa chọn có ý thức: với hệ thống xác thực, "không kiểm tra được" phải đồng nghĩa "không cho phép", chứ không được coi như "cho qua".</li>
+        <li><b>Metadata MongoDB có thể tụt lại sau bước ghi on-chain.</b> Nếu POST /api/batches thất bại sau khi giao dịch đã confirm, tài liệu vẫn tồn tại trên chuỗi và IPFS nhưng thiếu tên/dung lượng/khóa ủy thác trong DB. Đã giảm thiểu bằng ba lớp: hàng đợi retry phía client tự xả khi đăng nhập, endpoint lưu batch lũy đẳng, và quy trình phục hồi thủ công từ manifest IPFS + sự kiện on-chain. Hạn chế còn lại: khóa AES ủy thác chỉ tồn tại ở payload của client — nếu người dùng xóa sạch dữ liệu trình duyệt trước khi retry thành công thì phải nhập khóa thủ công khi giải mã.</li>
         <li><b>Một số kiểm chứng chưa thực hiện được trong môi trường:</b> luồng ký MetaMask thật trên trình duyệt headless gặp lỗi môi trường renderer — được ghi nhận rõ thay vì ngầm coi là đã test. Luồng này cần kiểm thử tay trên trình duyệt thật trước khi demo.</li>
     </ol>
 
@@ -786,7 +792,7 @@
         <li><b>Về tính trung thực của dữ liệu:</b> mọi con số hiển thị — phí giao dịch từ transaction receipt, dung lượng từ API Pinata, trạng thái từ bản ghi on-chain — đều lấy từ nguồn thật. Hệ thống không dùng dữ liệu mô phỏng hay con số minh họa ở bất kỳ đâu.</li>
         <li><b>Về bảo mật:</b> defense in depth với escrow khóa AES-256-GCM, OTP scrypt+salt, API key chỉ lưu hash, whitelist chống mass-assignment, escape XSS toàn diện, rate limit nhiều lớp và fail-closed khi dịch vụ ngoài lỗi.</li>
     </ul>
-    <p>Kết quả kiểm thử: 71/71 ca test tự động pass; kiểm thử end-to-end bằng curl với API key thật cho kết quả đúng toàn bộ luồng upload — verify — cách ly — download; các giao dịch thật tra được độc lập trên Etherscan.</p>
+    <p>Kết quả kiểm thử: 79/79 ca test tự động pass; 38/38 bước kiểm thử end-to-end trên server test pass; kiểm thử API đối tác bằng curl với key thật cho kết quả đúng toàn bộ luồng upload — verify — cách ly — download; các giao dịch thật tra được độc lập trên Etherscan.</p>
     <h2>2. Đóng góp của đề tài</h2>
     <p>Đề tài cho thấy việc ứng dụng blockchain vào xác thực tài liệu không chỉ là "ghi hash lên chuỗi" như nhiều mô hình minh họa đơn giản, mà là một bài toán hệ thống đầy đủ: phải giải quyết đồng thời bí mật nội dung, kiểm soát truy cập, danh tính người dùng, giới hạn tài nguyên thật và khả năng tích hợp cho tổ chức không có hạ tầng blockchain. Kiến trúc tách ba lớp "bằng chứng — nội dung — vận hành" mà đề tài áp dụng là mô hình có thể tái sử dụng cho các hệ thống cùng dạng.</p>
     <h2>3. Hướng phát triển</h2>
@@ -832,12 +838,12 @@
         <tr><th style="width:32%">Endpoint</th><th>Mô tả</th></tr>
         <tr><td><span class="mono">GET /api/auth/challenge?address=0x...</span></td><td>Cấp thông điệp challenge có nonce ngẫu nhiên, sống 5 phút. Trả {success, challenge}. Địa chỉ sai định dạng → 400.</td></tr>
         <tr><td><span class="mono">POST /api/auth/login</span></td><td>Body: {address, signature, challenge, deviceId, deviceLabel}. Xác minh chữ ký → JWT 24h. Thiết bị mới chưa duyệt → 403 kèm code DEVICE_PENDING. Challenge hết hạn/sai → 401. Chữ ký không khớp → 401.</td></tr>
-        <tr><td><span class="mono">GET /api/auth/pending?address=&deviceId=</span></td><td>Thiết bị pending poll trạng thái duyệt: unknown / pending / active / revoked.</td></tr>
+        <tr><td><span class="mono">GET /api/auth/pending?address=&deviceId=</span></td><td>Thiết bị pending poll trạng thái duyệt: unknown / pending / active / revoked; khi pending trả kèm thông tin thiết bị đang hoạt động (deviceLabel) để UI chỉ rõ máy cần duyệt.</td></tr>
         <tr><td><span class="mono">POST /api/auth/request-otp</span></td><td>Body: {address, deviceId}. Gửi OTP 6 số về email chủ ví — <b>chỉ khi ví không còn thiết bị nào khác đang hoạt động</b>. Còn máy online → 403 OTP_BLOCKED; chưa có email → 400 NO_EMAIL; thiếu SMTP → 400 SMTP_MISSING; gửi lại sớm &lt;60s → 429.</td></tr>
         <tr><td><span class="mono">POST /api/auth/verify-otp</span></td><td>Body: {address, deviceId, code}. Đúng mã → session active. Sai mã → 401 (tối đa 5 lần → 429); hết hạn → 400; còn thiết bị active → 403 OTP_BLOCKED.</td></tr>
-        <tr><td><span class="mono">POST /api/auth/devices/approve</span></td><td>JWT của thiết bị cũ. Body: {address, deviceId}. Duyệt thiết bị pending của cùng ví.</td></tr>
-        <tr><td><span class="mono">GET /api/auth/sessions</span></td><td>JWT. Liệt kê phiên thiết bị của ví đang đăng nhập.</td></tr>
-        <tr><td><span class="mono">POST /api/auth/sessions/:id/revoke</span></td><td>JWT. Thu hồi một phiên — token của thiết bị đó chết ngay.</td></tr>
+        <tr><td><span class="mono">GET /api/sessions</span></td><td>JWT. Liệt kê phiên thiết bị của ví đang đăng nhập.</td></tr>
+        <tr><td><span class="mono">POST /api/sessions/approve</span></td><td>JWT của thiết bị cũ. Body: {address, deviceId}. Duyệt thiết bị pending của cùng ví.</td></tr>
+        <tr><td><span class="mono">POST /api/sessions/revoke</span></td><td>JWT. Body: {sessionId}. Thu hồi một phiên — token của thiết bị đó chết ngay.</td></tr>
     </table>
 
     <h2>A.2. Nhóm tài liệu hệ thống</h2>
@@ -846,7 +852,8 @@
         <tr><td><span class="mono">POST /api/upload</span></td><td>JWT + NHẬP LIỆU+. Multipart field "document" (ciphertext, ≤25MB). Kiểm tra quota → pin IPFS. Trả {documentId, fileHash, ipfsCID, qrCode}. Hết quota → 403; lỗi Pinata → 500.</td></tr>
         <tr><td><span class="mono">POST /api/verify</span></td><td>Công khai, rate limit 10/5phút/IP. Multipart: file + documentId. Trả {isMatch, isRevoked, revocationReason, currentFileHash, originalHash, differences, imageDiff, aiReport, message}.</td></tr>
         <tr><td><span class="mono">GET /api/batches</span></td><td>JWT + requireViewer (rank ≥ 1 hoặc DB role NGƯỜI XEM+ACTIVE). Trả toàn bộ lô tài liệu (dùng để map docId → metadata, visibility); ví khách rank 0 chưa được cấp → 403.</td></tr>
-        <tr><td><span class="mono">POST /api/batches</span></td><td>JWT + NHẬP LIỆU+. Body {batchId, merkleRoot, ipfsCID, txHash, files[]}. Whitelist từng trường file; uploader lấy từ JWT.</td></tr>
+        <tr><td><span class="mono">POST /api/batches</span></td><td>JWT + NHẬP LIỆU+. Body {batchId, merkleRoot, ipfsCID, txHash, files[]}. Whitelist từng trường file; uploader lấy từ JWT. <b>Lũy đẳng:</b> batchId đã tồn tại → merge các trường còn trống (encKey, uploader "unknown") thay vì 409 — phục vụ retry và phục hồi metadata.</td></tr>
+        <tr><td><span class="mono">POST /api/batches/revoke</span></td><td>JWT + QUẢN LÝ+. Body {docId}. Đồng bộ cờ isRevoked vào MongoDB sau khi đã thu hồi on-chain; tài liệu của ví ADMIN chỉ ADMIN được đồng bộ (khớp rule trên contract).</td></tr>
         <tr><td><span class="mono">GET /api/documents/:docId/key</span></td><td>JWT. Trả khóa AES giải bọc nếu đủ quyền theo visibility. Không có khóa → 404; không đủ quyền → 403.</td></tr>
         <tr><td><span class="mono">GET /api/documents/:docId/status</span></td><td>Công khai. Trả {isRevoked, revocationReason, visibility, uploader} — dữ liệu đã public on-chain.</td></tr>
     </table>
@@ -857,11 +864,14 @@
         <tr><td><span class="mono">GET /api/wallets/me</span></td><td>JWT — mọi rank. Hồ sơ của chính ví đăng nhập (alias, email, phone, requestedRole).</td></tr>
         <tr><td><span class="mono">GET /api/wallets/pending</span></td><td>JWT + ADMIN. Danh sách ví status ACTIVE nhưng rank on-chain = 0 — khay "chờ cấp quyền".</td></tr>
         <tr><td><span class="mono">GET /api/wallets</span></td><td>JWT + requireViewer. Danh sách ví; storageUsed do server tính lại từ Batch — giá trị client tự khai bị bỏ qua; email/phone bị che với caller rank &lt; QUẢN LÝ.</td></tr>
-        <tr><td><span class="mono">POST /api/wallets/sync</span></td><td>JWT. Cập nhật ví: field tự sửa chỉ {alias, lastActive, requestedRole} — requestedRole chỉ nhận NHẬP LIỆU/QUẢN LÝ/NGƯỜI XEM; {role, status, storageLimit} chỉ ADMIN và chỉ cho ví người khác.</td></tr>
+        <tr><td><span class="mono">POST /api/wallets/sync</span></td><td>JWT. Cập nhật ví: field tự sửa chỉ {alias, lastActive, requestedRole} — requestedRole chỉ nhận NHẬP LIỆU/QUẢN LÝ/NGƯỜI XEM; {role, status, storageLimit, roleGranted} chỉ ADMIN và chỉ cho ví người khác.</td></tr>
+        <tr><td><span class="mono">POST /api/wallets/reject</span></td><td>JWT + ADMIN. Body {address}. Từ chối ví chờ duyệt: đánh dấu rejected trong hồ sơ; ví bị từ chối khai báo lại thông tin thì quay về trạng thái chờ.</td></tr>
         <tr><td><span class="mono">POST /api/wallets/email</span></td><td>JWT. Đăng ký/đổi email + SĐT chủ ví (email nhận OTP, SĐT làm liên hệ cảnh báo). Email hoặc SĐT sai định dạng → 400.</td></tr>
         <tr><td><span class="mono">POST /api/apikeys</span></td><td>JWT + ADMIN. Body {name}. Trả {key: "sk_live_..."} đúng một lần — server chỉ lưu hash.</td></tr>
         <tr><td><span class="mono">GET /api/apikeys</span></td><td>JWT + ADMIN. Danh sách key (không chứa plaintext): name, createdBy, revoked, lastUsedAt.</td></tr>
         <tr><td><span class="mono">POST /api/apikeys/:id/revoke</span></td><td>JWT + ADMIN. Thu hồi key — có hiệu lực ngay.</td></tr>
+        <tr><td><span class="mono">GET /api/notifications</span></td><td>JWT. Danh sách thông báo của ví đang đăng nhập (duyệt thiết bị, ví mới, cảnh báo).</td></tr>
+        <tr><td><span class="mono">POST /api/notifications/read</span></td><td>JWT. Body {id} — đánh dấu thông báo đã đọc.</td></tr>
     </table>
 
     <h2>A.4. Nhóm đối tác (/api/v1) — xác thực header x-api-key</h2>
@@ -892,12 +902,12 @@
     <h2>B.2. Schema các collection (trường đáng chú ý)</h2>
     <table>
         <tr><th>Collection</th><th>Trường quan trọng và ràng buộc</th></tr>
-        <tr><td>Wallet</td><td>address unique lowercase; status ∈ {ACTIVE, REVOKED, DELETED}; role ∈ {ADMIN, QUẢN LÝ, NHẬP LIỆU, NGƯỜI XEM, BỊ KHÓA, ĐÃ XÓA}; requestedRole ∈ {NHẬP LIỆU, QUẢN LÝ, NGƯỜI XEM, null}; storageLimit mặc định 1024MB; email định dạng RFC</td></tr>
+        <tr><td>Wallet</td><td>address unique lowercase; status ∈ {ACTIVE, REVOKED, DELETED}; role ∈ {ADMIN, QUẢN LÝ, NHẬP LIỆU, NGƯỜI XEM, BỊ KHÓA, ĐÃ XÓA}; roleGranted bool — chỉ true khi admin đã cấp quyền (gate cho fallback role khi RPC lỗi); rejected bool cho ví bị từ chối; requestedRole ∈ {NHẬP LIỆU, QUẢN LÝ, NGƯỜI XEM, null}; storageLimit mặc định 1024MB; email định dạng RFC</td></tr>
         <tr><td>Batch</td><td>batchId unique; uploader = địa chỉ JWT; files[].visibility ∈ {public, private} mặc định private; files[].encKey dạng "iv:ct:tag"</td></tr>
         <tr><td>DeviceSession</td><td>(address, deviceId) unique; status ∈ {pending, active, revoked}; otpHash "salt:scrypt"; otpExpires epoch ms; otpAttempts ≤ 5</td></tr>
         <tr><td>ApiKey</td><td>keyHash unique (sha256 của token); revoked bool; createdBy = địa chỉ ADMIN</td></tr>
         <tr><td>PartnerDocument</td><td>docId unique; apiKeyId → ApiKey; fileSize theo bytes; encKey bọc GCM; txHash giao dịch ghi</td></tr>
-        <tr><td>Notification</td><td>type ∈ {device_pending, device_approved, new_device, new_wallet, security_alert}; meta chứa deviceId hoặc địa chỉ ví mới</td></tr>
+        <tr><td>Notification</td><td>type ∈ {device_pending, device_approved, new_device, new_wallet, doc_revoked, session_revoked, system, security_alert}; meta chứa deviceId hoặc địa chỉ ví mới</td></tr>
         <tr><td>AuthChallenge</td><td>address key; challenge chuỗi có nonce; expiresAt TTL index tự xóa</td></tr>
     </table>
 
@@ -913,7 +923,7 @@
 
 <div class="a4 page-break">
     <p class="center no-indent" style="font-size:15pt"><b>PHỤ LỤC C. DANH SÁCH CA KIỂM THỬ TỰ ĐỘNG</b></p>
-    <p>Bộ test chạy bằng <span class="mono">node --test test/*.test.js</span>, tổng 70 ca trong 5 nhóm:</p>
+    <p>Bộ test chạy bằng <span class="mono">node --test test/*.test.js</span>, tổng 79 ca trong 5 nhóm:</p>
     <table>
         <tr><th>File test</th><th>Nhóm kiểm thử</th><th>Nội dung chính</th></tr>
         <tr><td><span class="mono">contract.test.js</span></td><td>Smart contract</td><td>Ghi tài liệu đơn và theo lô; đọc lại đúng bản ghi; thu hồi kèm lý do; phân quyền 0–3; từ chối caller thiếu quyền; sự kiện phát đúng tham số</td></tr>
@@ -922,11 +932,13 @@
         <tr><td><span class="mono">secrets.test.js</span></td><td>Rò rỉ bí mật</td><td>Quét repo: không có private key / API key / mật khẩu thật trong code; .env nằm trong .gitignore; biến môi trường đọc đúng tên</td></tr>
         <tr><td><span class="mono">xss.test.js</span></td><td>XSS</td><td>Quét main.js/uiHandler.js: mọi biến động đi qua esc() trước khi chèn HTML; không điểm render trần nào</td></tr>
     </table>
-    <p>Kết quả cuối cùng tại thời điểm báo cáo: <b>71/71 pass</b>, thời gian chạy ~4 giây, không ca nào bị bỏ qua hay flaky.</p>
+    <p>Kết quả cuối cùng tại thời điểm báo cáo: <b>79/79 pass</b>, thời gian chạy ~5 giây, không ca nào bị bỏ qua hay flaky. Riêng bộ end-to-end an toàn (<span class="mono">_e2e_safe.mjs</span>, server test :3001 + MongoDB cục bộ riêng): <b>38/38 bước pass</b>, tự dọn database sau khi chạy.</p>
 
     <h2>C.2. Checklist kiểm thử tay trước demo</h2>
     <ul>
         <li>Đăng nhập MetaMask ví NHẬP LIỆU → upload file private và public → đổi ví khác kiểm tra ổ khóa và quyền tải.</li>
+        <li>Kéo-thả nhiều file vào dropzone Đóng Dấu (viền sáng khi kéo qua) → xóa từng file bằng nút ✕ → kéo-thả 1 file vào dropzone Xác Thực; thả nhầm ra ngoài trang không bị mở file thay tab.</li>
+        <li>Ví mới đăng nhập lần đầu → phòng chờ khai alias/email/quyền mong muốn → admin thấy ví trong khay chờ → bấm Duyệt (form tự bung + cuộn + nháy sáng) → Thực thi ký assignRole → bảng ví tự cuộn tới dòng vừa duyệt.</li>
         <li>Đăng nhập trên trình duyệt/thiết bị khác → thấy thông báo pending ở thiết bị cũ → duyệt hoặc từ chối → kiểm tra phiên bị chặn.</li>
         <li>Đăng ký email ví → xin OTP → nhập đúng/sai → quan sát đếm lỗi và cooldown gửi lại.</li>
         <li>Verify file gốc, file sửa 1 ký tự, file đã thu hồi — đối chiếu thông báo và AI report.</li>
