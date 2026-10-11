@@ -1289,6 +1289,33 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         // Token JWT hết hạn/đổi ví giữa chừng → xin challenge và ký lại trước khi ghi dữ liệu
         await ApiService.ensureAuth(web3.signer, web3.currentAccount);
 
+        // Cảnh báo trùng nội dung: fileHash đã ghi on-chain trước đây → hỏi lại
+        // trước khi mã hóa/upload (tránh vô tình tạo bản ghi thứ hai tốn gas).
+        // docId luôn khác nhau theo timestamp nên contract không tự chặn.
+        try {
+            const norm = h => String(h || '').replace(/^0x/i, '').toLowerCase();
+            const onChain = {};
+            for (const ev of (await web3.queryHistory() || [])) {
+                const h = norm(ev.args[1]);
+                if (h) onChain[h] = ev.args[0];
+            }
+            const dups = fileDataArray.filter(f => onChain[norm(f.hash)]);
+            if (dups.length) {
+                const list = dups.map(f => `• ${esc(f.fileObj.name)} <span class="text-gray-500">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 40))}…)</span>`).join('<br>');
+                const dupHtml = `${dups.length} tệp có nội dung đã được đóng dấu trên blockchain:<br><br>${list}<br><br>Vẫn tạo bản ghi mới cho các tệp này?`;
+                const res = await Swal.fire({
+                    title: 'Phát hiện tài liệu trùng nội dung',
+                    html: dupHtml,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Vẫn upload',
+                    cancelButtonText: 'Hủy',
+                    background: '#111827', color: '#fff'
+                });
+                if (!res.isConfirmed) { UI.updateProgress(0, "Đã hủy — không tạo bản ghi trùng", "STANDBY"); return; }
+            }
+        } catch (e) { console.warn('Bỏ qua kiểm tra trùng (RPC lỗi):', e); }
+
         let uploadedDocs = [];
         let leaves = [];
 
@@ -1766,6 +1793,7 @@ async function loadTransactionHistory() {
                         <td class="px-3 py-2 font-mono text-blue-400 text-xs">
                             <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(docId)}">${esc(docId)}</span></div>
                             <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
+                            <div class="mt-1 text-[9px] ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'text-emerald-400' : 'text-gray-500'}"><i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
                             <div class="mt-1.5 flex gap-3">
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                 <button data-act="revoke" data-v="${esc(docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>
@@ -1819,6 +1847,7 @@ async function loadTransactionHistory() {
                         <td class="px-3 py-2 font-mono text-blue-400 text-xs">
                             <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</span></div>
                             <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileDoc.fileName)}">File: ${esc(fileDoc.fileName)}</div>
+                            <div class="mt-1 text-[9px] ${fileDoc.visibility === 'public' ? 'text-emerald-400' : 'text-gray-500'}"><i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
                             <div class="mt-1.5 flex gap-3">
                                 <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                 <button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>
