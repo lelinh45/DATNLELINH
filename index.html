@@ -456,11 +456,14 @@
                                 </div>
                                 <div class="xl:col-span-3">
                                     <label class="block text-xs text-gray-500 mb-2 truncate">Cấp độ phân quyền</label>
-                                    <select id="newRoleLevel" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-gray-300 focus:outline-none focus:border-blue-500 appearance-none transition-colors">
-                                        <option value="1">Quyền Nhập Liệu</option>
-                                        <option value="2">Quyền Quản Lý</option>
-                                        <option value="viewer">Quyền Người Xem (chỉ đọc)</option>
-                                    </select>
+                                    <div class="relative">
+                                        <select id="newRoleLevel" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 pr-10 text-sm text-gray-300 focus:outline-none focus:border-blue-500 appearance-none transition-colors cursor-pointer">
+                                            <option value="1">Quyền Nhập Liệu</option>
+                                            <option value="2">Quyền Quản Lý</option>
+                                            <option value="viewer">Quyền Người Xem (chỉ đọc)</option>
+                                        </select>
+                                        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none"></i>
+                                    </div>
                                 </div>
                                 <div class="xl:col-span-2">
                                     <button onclick="handleAssignRole()" id="btn-grant-role" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-3 rounded-lg text-sm font-bold transition-all duration-200 shadow-[0_4px_15px_rgba(16,185,129,0.2)] flex justify-center items-center whitespace-nowrap">
