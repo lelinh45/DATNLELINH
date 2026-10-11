@@ -600,9 +600,8 @@ async function syncDashboardData() {
         // 1. Lấy dữ liệu On-chain từ Blockchain
         const metrics = await web3.getLiveMetrics();
 
-        // 2. Tính số lượng ví được cấp quyền từ Database
-        let wallets = await ApiService.getAllWallets();
-        metrics.issuerCount = wallets.filter(w => w.status !== 'REVOKED').length;
+        // 2. issuerCount lấy theo quyền upload THẬT trên chain (getLiveMetrics)
+        // — không đếm từ DB vì ví chờ duyệt có role mặc định gây đếm sai
 
         // 3. Cộng dồn file MongoDB chưa thu hồi — chỉ file chưa có trong sự kiện
         // on-chain (file vừa upload đã có DocumentAdded rồi, đếm lại sẽ bị gấp đôi)

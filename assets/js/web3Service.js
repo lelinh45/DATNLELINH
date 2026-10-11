@@ -170,7 +170,11 @@ export class Web3Service {
                     if (!docData[4]) activeDocCount++;
                 }
                 const roleEvents = await this.getEventsInChunks(this.contract.filters.RoleAssigned(), 'role_events');
-                issuerCount += roleEvents.length;
+                // Đếm ví đang được ủy quyền upload (rank ≥ 1) theo event MỚI NHẤT
+                // mỗi ví — ví bị tước (event cuối = 0) không đếm, không đếm trùng
+                const latestRole = {};
+                for (const ev of roleEvents) latestRole[ev.args[1].toLowerCase()] = Number(ev.args[2]);
+                issuerCount = Object.values(latestRole).filter(r => r >= 1).length + 1; // +1 cho owner (constructor gán sẵn, không emit event)
             } catch (err) {}
         }
         return { docCount: activeDocCount, issuerCount, latency };
