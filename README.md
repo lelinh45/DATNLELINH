@@ -110,7 +110,11 @@ git push -u origin master
 
 **Lưu ý free plan:** server ngủ sau ~15 phút không truy cập — người đầu tiên vào
 chờ 30-60s khởi động, các lượt sau nhanh bình thường. Muốn không ngủ: nâng lên
-plan Starter ($7/tháng) chỉ bằng 1 click, không phải đổi code.
+plan Starter ($7/tháng) chỉ bằng 1 click, không phải đổi code. Cách miễn phí
+cho ngày demo: tạo monitor trên **UptimeRobot** ping `https://<service>.onrender.com`
+mỗi 5 phút để giữ service luôn warm — lưu ý Render free chỉ có **750 giờ/tháng**
+tổng cho mọi free service (~744h cho 1 service chạy 24/7 → vừa đủ 1 cái, đừng
+áp dụng nếu còn service free khác).
 
 **Sau deploy nhớ cập nhật frontend config** nếu `API_BASE`/`CONTRACT_ADDRESS`
 trong `assets/js/config.js` đang trỏ localhost — mặc định đã là same-origin
@@ -124,13 +128,31 @@ Khuyến nghị thêm `MASTER_KEY` (bọc khóa escrow; để trống dùng JWT_
 ## Kiểm thử
 
 ```bash
-npm test    # 71 ca: contract, auth/OTP, consistency, secrets, XSS
+npm test    # 79 ca: contract, auth/OTP, consistency, secrets, XSS, viewer/pending
 ```
+
+E2E an toàn (không ghi chain, không đụng DB production — dùng MongoDB local
+`bdi_e2e` tự hủy sau khi chạy):
+
+```bash
+# Git Bash
+PORT=3001 MONGO_URI="mongodb://127.0.0.1:27017/bdi_e2e" node server.js &
+node _e2e_safe.mjs
+
+# Windows CMD — 2 cửa sổ terminal
+set PORT=3001&& set MONGO_URI=mongodb://127.0.0.1:27017/bdi_e2e&& node server.js
+node _e2e_safe.mjs
+```
+
+(`_e2e.mjs` gốc ghi thật lên Sepolia + DB — chỉ chạy khi cố ý kiểm thử end-to-end
+trên môi trường thật, không dùng cho regression thường ngày.)
 
 ## Cấu trúc
 
 ```
-contracts/DataIntegrity.sol   — contract lưu hash + RBAC 4 cấp, deploy bằng Hardhat
+contracts/DataIntegrity.sol   — contract lưu hash + RBAC on-chain (rank 0-3:
+                              chờ duyệt / NHẬP LIỆU / QUẢN LÝ / ADMIN); vai trò
+                              NGƯỜI XEM chỉ đọc = rank 0 + cờ role trong MongoDB
 server.js                     — API upload/verify/batch/quota/API-key, escrow khóa
 auth.js                       — challenge → JWT, phiên thiết bị, OTP (scrypt)
 models/                       — Wallet, Batch, DeviceSession, ApiKey,

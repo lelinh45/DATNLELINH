@@ -234,7 +234,7 @@ window.fillAssignRole = function(address, alias, requestedRole) {
     const levelEl = document.getElementById('newRoleLevel');
     if (addrEl) addrEl.value = address;
     if (aliasEl) aliasEl.value = alias || '';
-    if (levelEl) levelEl.value = requestedRole === 'QUẢN LÝ' ? '2' : '1';
+    if (levelEl) levelEl.value = requestedRole === 'QUẢN LÝ' ? '2' : requestedRole === 'NGƯỜI XEM' ? 'viewer' : '1';
     document.getElementById('pending-dropdown')?.classList.add('hidden');
     document.getElementById('nav-roles')?.click();
     addrEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });

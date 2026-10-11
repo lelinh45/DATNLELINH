@@ -1,5 +1,8 @@
 // E2E AN TOÀN — server test :3001 + MongoDB local bdi_e2e (không đụng Atlas/on-chain)
-// chạy: node _e2e_safe.mjs   (server phải đang chạy với MONGO_URI local + PORT=3001)
+// B1 — khởi động server test:
+//   Git Bash:  PORT=3001 MONGO_URI="mongodb://127.0.0.1:27017/bdi_e2e" node server.js
+//   CMD:       set PORT=3001&& set MONGO_URI=mongodb://127.0.0.1:27017/bdi_e2e&& node server.js
+// B2: node _e2e_safe.mjs   (xong tự drop database bdi_e2e)
 import { Wallet, JsonRpcProvider, Contract } from 'ethers';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
