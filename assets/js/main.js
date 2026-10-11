@@ -786,7 +786,7 @@ function applyPendingGate(account, me) {
     const addrEl = document.getElementById('gate-wallet-address');
     if (addrEl) addrEl.innerText = account;
     if (me) {
-        if (me.status === 'REVOKED') {
+        if (me.rejected === true) {
             switchUI('tab-pending');
             applyRejectedGate();
             return;
@@ -857,18 +857,18 @@ function startGuestUnlockPoll(account) {
             // → chuyển sang chế độ chỉ đọc ngay, không cần đăng nhập lại
             if (rank === 0 && isPendingGateVisible()) {
                 const me = await ApiService.getMyWallet();
-                if (me && me.status === 'REVOKED') {
+                if (me && me.rejected === true) {
                     applyRejectedGate();
-                } else if (me && me.status === 'ACTIVE' && !document.getElementById('gate-rejected')?.classList.contains('hidden')) {
-                    // Admin mở lại ví sau khi từ chối → quay về màn hình chờ duyệt
+                } else if (me && me.role === 'NGƯỜI XEM') {
+                    applyViewerMode(account);
+                    Swal.fire({ title: 'Đã được cấp quyền!', text: 'Bạn được cấp quyền Người Xem — có thể xem và xác thực tài liệu (chỉ đọc).', icon: 'success', background: '#111827', color: '#fff' });
+                } else if (!document.getElementById('gate-rejected')?.classList.contains('hidden')) {
+                    // Ví từng bị từ chối vừa khai lại thông tin → quay về màn hình chờ
                     document.getElementById('gate-rejected')?.classList.add('hidden');
                     document.getElementById('gate-wait-card')?.classList.remove('hidden');
                     document.getElementById('gate-form-card')?.classList.remove('hidden');
                     const t = document.getElementById('page-title');
                     if (t) t.innerText = 'Chờ cấp quyền';
-                } else if (me && me.role === 'NGƯỜI XEM') {
-                    applyViewerMode(account);
-                    Swal.fire({ title: 'Đã được cấp quyền!', text: 'Bạn được cấp quyền Người Xem — có thể xem và xác thực tài liệu (chỉ đọc).', icon: 'success', background: '#111827', color: '#fff' });
                 }
             }
         } catch (e) {}
@@ -2084,9 +2084,11 @@ window.loadWalletRoles = async function() {
     // =======================================================
 
     // 2. KHÔI PHỤC TỪ BLOCKCHAIN & ĐẨY VÀO MONGODB
+    const latestRankByAddr = {}; // rank mới nhất theo sự kiện — phân biệt "chưa từng được cấp" vs "đã bị tước"
     try {
         if (web3.contract) {
             const roleEvents = await web3.getEventsInChunks(web3.contract.filters.RoleAssigned(), 'role_events');
+            for (let ev of roleEvents) latestRankByAddr[String(ev.args[1]).toLowerCase()] = Number(ev.args[2]);
             for (let ev of roleEvents) {
                 const assignedAddr = ev.args[1]; 
                 
@@ -2126,6 +2128,13 @@ window.loadWalletRoles = async function() {
                 const rCode = Number(rRaw);
                 // Ví NGƯỜI XEM giữ rank 0 trên chain — không để sync đè thành BỊ KHÓA
                 const isViewer = rCode === 0 && w.role === 'NGƯỜI XEM';
+                // Rank 0 + chưa từng được cấp rank ≥1 = ví CHỜ DUYỆT (hoặc bị từ chối)
+                // → chỉ nằm ở khay chờ; KHÔNG đè DB thành BỊ KHÓA, KHÔNG hiện trong bảng
+                const everApproved = (latestRankByAddr[w.address.toLowerCase()] || 0) >= 1;
+                if (rCode === 0 && !isViewer && !everApproved) {
+                    w.__pending = true;
+                    continue;
+                }
                 const realRole = isViewer ? 'NGƯỜI XEM'
                     : (rCode === 99 || rCode === 3) ? 'ADMIN' : rCode === 2 ? 'QUẢN LÝ' : rCode === 1 ? 'NHẬP LIỆU' : 'BỊ KHÓA';
                 const realStatus = isViewer ? 'ACTIVE' : rCode === 0 ? 'REVOKED' : 'ACTIVE';
@@ -2176,6 +2185,10 @@ window.loadWalletRoles = async function() {
     }
 
     if (typeof syncDashboardData === 'function') await syncDashboardData();
+
+    // Ví chờ duyệt/bị từ chối (rank 0, chưa từng có quyền) → không hiện trong
+    // bảng ví đã cấp quyền — chúng nằm riêng ở khay "ví mới chờ cấp quyền"
+    wallets = wallets.filter(w => !w.__pending);
 
     // Lưu snapshot ví để getWalletName tra alias cho bảng lịch sử/drawer
     try {

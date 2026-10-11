@@ -541,7 +541,7 @@ app.post('/api/wallets/reject', requireAuth, requireRole('ADMIN'), async (req, r
         if (target === req.user.address) {
             return res.status(400).json({ success: false, message: 'Không thể từ chối chính ví của mình' });
         }
-        const w = await Wallet.findOneAndUpdate({ address: target }, { $set: { status: 'REVOKED' } }, { new: true });
+        const w = await Wallet.findOneAndUpdate({ address: target }, { $set: { status: 'REVOKED', rejected: true } }, { new: true });
         if (!w) return res.status(404).json({ success: false, message: 'Không tìm thấy ví trong hệ thống' });
         try {
             await Notification.create({
@@ -613,6 +613,18 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
                 return res.status(403).json({ success: false, message: 'Chỉ Admin mới được đồng bộ ví người khác hoặc thay đổi quyền' });
             }
             for (const k of ADMIN_FIELDS) if (k in updateData) update[k] = updateData[k];
+        }
+
+        // Ví bị từ chối (rejected) hoặc bị sync cũ đè role BỊ KHÓA dù chưa từng có
+        // quyền on-chain — tự khai lại thông tin → cho quay lại khay chờ duyệt.
+        // Ví bị Admin khóa thủ công (giữ role thật, rejected=false) KHÔNG tự mở được
+        if (isSelf && ('alias' in update || 'requestedRole' in update)) {
+            const cur = await Wallet.findOne({ address: target }).select('status rejected role').lean();
+            if (cur && cur.status === 'REVOKED' && (cur.rejected === true || cur.role === 'BỊ KHÓA')) {
+                update.status = 'ACTIVE';
+                update.rejected = false;
+                if (cur.role === 'BỊ KHÓA') update.role = 'NHẬP LIỆU';
+            }
         }
 
         const updatedWallet = await Wallet.findOneAndUpdate(

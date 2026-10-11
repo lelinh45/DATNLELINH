@@ -8,6 +8,7 @@ const walletSchema = new mongoose.Schema({
     role: { type: String, enum: ['ADMIN', 'QUẢN LÝ', 'NHẬP LIỆU', 'NGƯỜI XEM', 'BỊ KHÓA', 'ĐÃ XÓA'], default: 'NHẬP LIỆU' },
     requestedRole: { type: String, enum: ['NHẬP LIỆU', 'QUẢN LÝ', 'NGƯỜI XEM'], default: null }, // quyền ví tự đề nghị khi chờ duyệt
     status: { type: String, enum: ['ACTIVE', 'REVOKED', 'DELETED'], default: 'ACTIVE' },
+    rejected: { type: Boolean, default: false }, // true = bị Admin từ chối cấp quyền (khác với bị khóa thủ công)
     storageUsed: { type: Number, default: 0 },
     storageLimit: { type: Number, default: 1024 }, // 1 GB/ví — khớp quota thật của gói Pinata free
     lastActive: { type: Date, default: Date.now }
