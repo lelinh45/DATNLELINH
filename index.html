@@ -204,18 +204,6 @@
             </header>
 
             <div class="flex-1 overflow-y-auto p-6 relative flex flex-col">
-                <!-- Banner ví mới chưa được cấp quyền — chỉ hiện khi rank = 0 -->
-                <div id="pending-approval-banner" class="hidden mb-4 bg-amber-900/20 border border-amber-700/50 rounded-xl p-4 flex items-start gap-3">
-                    <i class="fa-solid fa-hourglass-half text-amber-400 text-lg mt-0.5"></i>
-                    <div class="flex-1">
-                        <p class="text-amber-300 font-bold text-sm">Ví đang chờ Admin cấp quyền</p>
-                        <p class="text-amber-200/70 text-xs mt-1 leading-relaxed">
-                            Ví <span id="pending-wallet-address" class="font-mono text-amber-200"></span> đã đăng nhập và được ghi nhận vào hệ thống.
-                            Hiện tại bạn chỉ dùng được chức năng <b>Xác Thực Toàn Vẹn</b> — các chức năng còn lại sẽ tự động mở ngay khi Admin cấp quyền, không cần đăng nhập lại.
-                            <br><i class="fa-solid fa-lightbulb me-1"></i>Hãy vào <b>Cài Đặt Chung</b> điền tên + email/SĐT để Admin nhận diện đúng người khi duyệt quyền cho ví của bạn.
-                        </p>
-                    </div>
-                </div>
                 <!-- Banner chế độ Người Xem — chỉ đọc -->
                 <div id="viewer-banner" class="hidden mb-4 bg-sky-900/20 border border-sky-700/50 rounded-xl p-4 flex items-start gap-3">
                     <i class="fa-solid fa-eye text-sky-400 text-lg mt-0.5"></i>
@@ -259,6 +247,46 @@
                     <div class="lg:col-span-8 bg-panel p-6 rounded-xl border border-gray-800 flex flex-col min-h-0">
                         
                         <!-- TAB 1: UPLOAD -->
+                        <!-- Phòng chờ: ví đã đăng nhập nhưng CHƯA được Admin cấp quyền — không vào được hệ thống -->
+                        <div id="tab-pending" class="flex-1 flex flex-col min-h-0 hidden overflow-y-auto">
+                            <div class="max-w-lg mx-auto mt-6 w-full pb-8">
+                                <div class="bg-panel border border-amber-800/50 rounded-2xl p-8 text-center shadow-lg">
+                                    <div class="w-16 h-16 mx-auto rounded-full bg-amber-900/30 border border-amber-700/50 flex items-center justify-center mb-4">
+                                        <i class="fa-solid fa-hourglass-half text-amber-400 text-2xl"></i>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-white">Ví đang chờ Admin cấp quyền</h2>
+                                    <p class="text-gray-400 text-sm mt-2 leading-relaxed">
+                                        Ví của bạn đã đăng nhập và được ghi nhận vào hệ thống, nhưng <b class="text-amber-300">chưa được cấp quyền truy cập</b>.
+                                        Gửi địa chỉ ví này cho quản trị viên — trang sẽ tự mở ngay khi được duyệt, không cần đăng nhập lại.
+                                    </p>
+                                    <div class="mt-4 flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2.5">
+                                        <code id="gate-wallet-address" class="text-amber-300 text-xs font-mono flex-1 text-left truncate">0x...</code>
+                                        <button id="btn-gate-copy" class="text-gray-400 hover:text-white text-xs shrink-0 transition"><i class="fa-regular fa-copy me-1"></i>Copy</button>
+                                    </div>
+                                    <button onclick="location.reload()" class="mt-4 text-xs text-gray-500 hover:text-gray-300 transition"><i class="fa-solid fa-right-from-bracket me-1"></i>Đổi ví khác</button>
+                                </div>
+                                <div class="bg-panel border border-gray-800 rounded-2xl p-6 mt-4">
+                                    <p class="text-sm font-bold text-gray-300"><i class="fa-solid fa-id-card me-2 text-blue-400"></i>Thông tin nhận diện</p>
+                                    <p class="text-[11px] text-gray-500 mt-1">Khai tên + liên hệ + quyền mong muốn để Admin nhận diện đúng người thay vì chuỗi 0x... trần.</p>
+                                    <div class="flex flex-col gap-2.5 mt-3">
+                                        <input id="gate-alias" type="text" maxlength="50" placeholder="Tên của bạn — vd: Nguyễn Văn A" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
+                                        <input id="gate-email" type="email" placeholder="Email — vd: email@example.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
+                                        <input id="gate-phone" type="tel" placeholder="Số điện thoại — vd: 0912 345 678" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
+                                        <select id="gate-req-role" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
+                                            <option value="">— Quyền bạn muốn được cấp (gợi ý cho Admin) —</option>
+                                            <option value="NGƯỜI XEM">Người Xem (chỉ đọc)</option>
+                                            <option value="NHẬP LIỆU">Nhân viên Nhập Liệu</option>
+                                            <option value="QUẢN LÝ">Quản Lý</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-3 mt-4">
+                                        <button id="btn-gate-save" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">Lưu thông tin</button>
+                                        <span id="gate-saved-hint" class="text-[11px] text-emerald-400 hidden"><i class="fa-solid fa-circle-check me-1"></i>Đã lưu — Admin sẽ thấy thông tin này khi duyệt</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div id="tab-upload" class="flex-1 flex flex-col min-h-0">
                             <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Khởi tạo Dấu vân tay số (Băm dữ liệu)</label>
                             
@@ -759,7 +787,7 @@
     <script type="module" src="assets/js/main.js"></script>
     <script>
     function switchUI(tabId, clickedElement) {
-        const allTabs = ['tab-upload', 'tab-verify', 'tab-history', 'tab-revoked', 'tab-roles', 'tab-apikeys', 'tab-rpc', 'tab-template', 'tab-settings'];
+        const allTabs = ['tab-pending', 'tab-upload', 'tab-verify', 'tab-history', 'tab-revoked', 'tab-roles', 'tab-apikeys', 'tab-rpc', 'tab-template', 'tab-settings'];
         allTabs.forEach(id => {
             const el = document.getElementById(id);
             if(el) el.classList.add('hidden');

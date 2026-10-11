@@ -34,18 +34,19 @@ nghĩa nếu không có khóa AES.
 - **Quản lý thiết bị** — đăng nhập trên máy lạ phải được duyệt từ máy đã đăng nhập
   (chuông thông báo 🔔 → Duyệt/Từ chối). OTP email chỉ mở khi ví **không còn thiết
   bị nào hoạt động** — tránh OTP thành đường vòng khi email bị lộ.
-- **Ví mới → chế độ khách** — ví chưa được cấp quyền (rank on-chain 0) chỉ thấy
-  tab Xác Thực + Cài Đặt, khai tên/email/quyền mong muốn rồi chờ duyệt. Admin có
-  **khay "ví chờ duyệt"** cạnh chuông (badge đếm, alias, copy địa chỉ, quyền đề
-  nghị) → bấm Duyệt tự điền form phân quyền; khách tự mở full UI sau khi được
-  cấp quyền mà không cần login lại. Backend chặn rank 0 ở mọi API cần quyền —
-  UI chỉ là lớp trải nghiệm.
-- **Vai trò NGƯỜI XEM (chỉ đọc)** — rank on-chain vẫn 0 nên contract tự chặn
-  mọi giao dịch ghi; MongoDB gắn cờ `NGƯỜI XEM` để backend mở quyền đọc
-  (`GET /batches`, `GET /wallets` qua middleware `requireViewer`). Viewer thấy
-  Truy Xuất / Xác Thực / DS Hủy Bỏ, tải được tài liệu công khai — không upload,
-  không thu hồi, không quản trị. Cấp từ form phân quyền: ví rank 0 sẵn thì chỉ
-  ghi DB (không tốn gas), ví đang có quyền thì ký `assignRole(0)` tước trước.
+- **Ví mới → phòng chờ** — ví chưa được cấp quyền (rank on-chain 0) **không vào
+  được hệ thống**: chỉ thấy màn hình chờ với địa chỉ ví (copy gửi Admin) + form
+  khai tên/email/quyền mong muốn. Admin có **khay "ví chờ duyệt"** cạnh chuông
+  (badge đếm, alias, copy địa chỉ, quyền đề nghị) → bấm Duyệt tự điền form phân
+  quyền; trang tự mở ngay khi được duyệt mà không cần login lại. Backend chặn
+  rank 0 ở mọi API cần quyền — UI chỉ là lớp trải nghiệm.
+- **3 vai trò được cấp: NGƯỜI XEM / NHẬP LIỆU / QUẢN LÝ** — NGƯỜI XEM là quyền
+  chỉ đọc theo mô hình lai: rank on-chain vẫn 0 nên contract tự chặn mọi giao
+  dịch ghi; MongoDB gắn cờ `NGƯỜI XEM` để backend mở quyền đọc (`GET /batches`,
+  `GET /wallets` qua middleware `requireViewer`). Viewer thấy Truy Xuất / Xác
+  Thực / DS Hủy Bỏ, tải được tài liệu công khai — không upload, không thu hồi,
+  không quản trị. Cấp từ form phân quyền: ví rank 0 sẵn thì chỉ ghi DB (không
+  tốn gas), ví đang có quyền thì ký `assignRole(0)` tước trước.
 - **Upload có chọn lọc** — mã hóa AES-256 tại trình duyệt, tự chọn Riêng tư
   (mình + Admin) hay Công khai (mọi ví đăng nhập). Khóa AES được ủy thác cho server,
   bọc thêm một lớp AES-256-GCM trước khi vào MongoDB.

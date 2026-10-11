@@ -487,6 +487,41 @@ document.addEventListener('DOMContentLoaded', () => {
             Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
         }
     });
+    // Phòng chờ: ví chờ duyệt khai thông tin nhận diện + copy địa chỉ ví
+    document.getElementById('btn-gate-copy')?.addEventListener('click', () => {
+        const addr = document.getElementById('gate-wallet-address')?.innerText || '';
+        if (addr) navigator.clipboard?.writeText(addr).catch(() => {});
+    });
+    document.getElementById('btn-gate-save')?.addEventListener('click', async () => {
+        const alias = (document.getElementById('gate-alias')?.value || '').trim();
+        const email = (document.getElementById('gate-email')?.value || '').trim();
+        const phone = (document.getElementById('gate-phone')?.value || '').trim();
+        const reqRole = document.getElementById('gate-req-role')?.value || '';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            Swal.fire({ title: 'Email không hợp lệ', icon: 'warning', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            return;
+        }
+        if (phone && !/^\+?[\d\s-]{8,15}$/.test(phone)) {
+            Swal.fire({ title: 'Số điện thoại không hợp lệ', icon: 'warning', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            return;
+        }
+        try {
+            await ApiService.setWalletContact(email, phone);
+            if (web3.currentAccount) {
+                const selfUpdate = { requestedRole: reqRole };
+                if (alias) selfUpdate.alias = alias;
+                await ApiService.syncWalletData(web3.currentAccount, selfUpdate);
+                if (alias) {
+                    const profileName = document.querySelector('aside .truncate');
+                    if (profileName) profileName.innerText = alias;
+                }
+            }
+            document.getElementById('gate-saved-hint')?.classList.remove('hidden');
+            Swal.fire({ title: 'Đã lưu thông tin', text: 'Admin sẽ thấy thông tin này trong khay chờ duyệt.', icon: 'success', background: '#111827', color: '#fff', timer: 1800, showConfirmButton: false });
+        } catch (e) {
+            Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
+        }
+    });
     document.getElementById('btn-execute-upload')?.addEventListener('click', handleUpload);
     document.getElementById('btn-execute-verify')?.addEventListener('click', handleVerify);
     document.getElementById('btn-refresh-history')?.addEventListener('click', loadTransactionHistory);
@@ -682,32 +717,43 @@ function waitForDeviceApproval(account) {
 }
 
 // =====================================================================
-// CHẾ ĐỘ KHÁCH: ví rank 0 (đăng nhập được nhưng chưa được Admin cấp quyền)
-// chỉ thấy tab Xác Thực — poll mở khóa ngay khi Admin assignRole xong
+// PHÒNG CHỜ + CHẾ ĐỘ NGƯỜI XEM cho ví rank 0 (chưa có quyền on-chain):
+// - Chưa được cấp gì → chỉ thấy phòng chờ (không vào được hệ thống)
+// - DB gán NGƯỜI XEM → vào được nhưng chỉ đọc
+// Poll mở khóa ngay khi Admin duyệt — cả khi cấp viewer lẫn rank cao hơn
 // =====================================================================
-const GUEST_VISIBLE_NAV = ['nav-verify', 'nav-settings'];
 const VIEWER_VISIBLE_NAV = ['nav-verify', 'nav-history', 'nav-revoked', 'nav-settings'];
 let guestUnlockTimer = null;
 
-function applyGuestMode(account) {
-    document.querySelectorAll('aside .menu-item').forEach(el => {
-        el.style.display = GUEST_VISIBLE_NAV.includes(el.id) ? '' : 'none';
-    });
+function isPendingGateVisible() {
+    const t = document.getElementById('tab-pending');
+    return t && !t.classList.contains('hidden');
+}
+
+// Ví chưa được cấp quyền: ẩn TOÀN BỘ nav + mọi tab, chỉ hiện phòng chờ
+function applyPendingGate(account, me) {
+    document.querySelectorAll('aside .menu-item').forEach(el => { el.style.display = 'none'; });
     const adminHeader = document.getElementById('nav-admin-header');
     const adminNav = document.getElementById('nav-admin-nav');
     if (adminHeader) adminHeader.style.display = 'none';
     if (adminNav) adminNav.style.display = 'none';
-    // Thẻ thống kê có onclick nhảy sang tab bị ẩn → ẩn luôn trong chế độ khách
     const stats = document.getElementById('dashboard-stats');
     if (stats) stats.style.display = 'none';
+    document.getElementById('viewer-banner')?.classList.add('hidden');
 
-    const banner = document.getElementById('pending-approval-banner');
-    if (banner) {
-        banner.classList.remove('hidden');
-        const addrEl = document.getElementById('pending-wallet-address');
-        if (addrEl) addrEl.innerText = account;
+    const addrEl = document.getElementById('gate-wallet-address');
+    if (addrEl) addrEl.innerText = account;
+    if (me) {
+        const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+        set('gate-alias', me.alias);
+        set('gate-email', me.email);
+        set('gate-phone', me.phone);
+        if (me.requestedRole) set('gate-req-role', me.requestedRole);
+        if (me.alias || me.email || me.requestedRole) document.getElementById('gate-saved-hint')?.classList.remove('hidden');
     }
-    switchUI('tab-verify', document.getElementById('nav-verify'));
+    switchUI('tab-pending');
+    const title = document.getElementById('page-title');
+    if (title) title.innerText = 'Chờ cấp quyền';
 }
 
 // Chế độ NGƯỜI XEM: rank on-chain = 0 nhưng DB gán role NGƯỜI XEM →
@@ -723,7 +769,6 @@ function applyViewerMode(account) {
     const stats = document.getElementById('dashboard-stats');
     if (stats) stats.style.display = '';
 
-    document.getElementById('pending-approval-banner')?.classList.add('hidden');
     document.getElementById('viewer-banner')?.classList.remove('hidden');
     switchUI('tab-history', document.getElementById('nav-history'));
 }
@@ -737,7 +782,7 @@ function exitGuestMode() {
     if (adminNav) adminNav.style.display = '';
     const stats = document.getElementById('dashboard-stats');
     if (stats) stats.style.display = '';
-    document.getElementById('pending-approval-banner')?.classList.add('hidden');
+    document.getElementById('tab-pending')?.classList.add('hidden');
     document.getElementById('viewer-banner')?.classList.add('hidden');
 }
 
@@ -759,6 +804,16 @@ function startGuestUnlockPoll(account) {
                 exitGuestMode();
                 Swal.fire({ title: 'Đã được cấp quyền!', text: 'Admin vừa cấp quyền cho ví của bạn. Hệ thống đã mở đầy đủ chức năng.', icon: 'success', background: '#111827', color: '#fff' });
                 if (typeof window.loadWalletRoles === 'function') window.loadWalletRoles();
+                return;
+            }
+            // Rank vẫn 0 nhưng đang ở phòng chờ + DB vừa gán NGƯỜI XEM
+            // → chuyển sang chế độ chỉ đọc ngay, không cần đăng nhập lại
+            if (rank === 0 && isPendingGateVisible()) {
+                const me = await ApiService.getMyWallet();
+                if (me && me.role === 'NGƯỜI XEM') {
+                    applyViewerMode(account);
+                    Swal.fire({ title: 'Đã được cấp quyền!', text: 'Bạn được cấp quyền Người Xem — có thể xem và xác thực tài liệu (chỉ đọc).', icon: 'success', background: '#111827', color: '#fff' });
+                }
             }
         } catch (e) {}
     }, 15000);
@@ -846,19 +901,15 @@ async function connectWallet() {
         // khi nào Admin assignRole xong thì tự mở full UI (poll 15s)
         const myRank = await getMyRoleRank(account);
         if (myRank === 0) {
-            // Rank 0 nhưng DB gán NGƯỜI XEM → chế độ chỉ đọc (không phải khách chờ duyệt)
-            let isViewer = false;
-            try {
-                const me = await ApiService.getMyWallet();
-                isViewer = me && me.role === 'NGƯỜI XEM';
-            } catch (e) {}
-            if (isViewer) {
+            // Rank 0: DB gán NGƯỜI XEM → chế độ chỉ đọc; còn lại → phòng chờ
+            let me = null;
+            try { me = await ApiService.getMyWallet(); } catch (e) {}
+            if (me && me.role === 'NGƯỜI XEM') {
                 applyViewerMode(account);
-                startGuestUnlockPoll(account);
             } else {
-                applyGuestMode(account);
-                startGuestUnlockPoll(account);
+                applyPendingGate(account, me);
             }
+            startGuestUnlockPoll(account);
         } else {
             exitGuestMode();
         }

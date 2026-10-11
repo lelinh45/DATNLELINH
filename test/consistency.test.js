@@ -186,6 +186,19 @@ test('Viewer UI: nav không có upload/quản trị; login phân nhánh theo DB 
     assert.ok(indexHtml.includes('value="viewer"'), 'form cấp quyền phải có option viewer');
 });
 
+test('Pending: ví chờ duyệt chỉ thấy phòng chờ, không vào được hệ thống', () => {
+    assert.ok(indexHtml.includes('id="tab-pending"'), 'index.html phải có tab phòng chờ');
+    assert.ok(mainJs.includes('applyPendingGate'), 'phải có applyPendingGate');
+    const gate = mainJs.slice(mainJs.indexOf('function applyPendingGate'), mainJs.indexOf('function applyPendingGate') + 1800);
+    assert.ok(gate.includes("el.style.display = 'none'"), 'phòng chờ phải ẩn toàn bộ nav');
+    assert.ok(gate.includes("switchUI('tab-pending')"), 'phòng chờ phải mở tab-pending');
+    assert.ok(indexHtml.includes("'tab-pending'") && indexHtml.includes('tab-pending') && /allTabs = \[[^\]]*'tab-pending'/.test(indexHtml), 'tab-pending phải nằm trong allTabs của switchUI');
+    // Poll phải phát hiện được cả việc được gán NGƯỜI XEM (rank vẫn 0)
+    const poll = mainJs.slice(mainJs.indexOf('function startGuestUnlockPoll'), mainJs.indexOf('function startGuestUnlockPoll') + 1600);
+    assert.ok(poll.includes("me.role === 'NGƯỜI XEM'"), 'poll phải mở viewer mode khi DB gán NGƯỜI XEM');
+    assert.ok(!mainJs.includes('applyGuestMode') && !mainJs.includes('pending-approval-banner'), 'không còn chế độ khách vào được tab verify');
+});
+
 test('Viewer: auto-sync không đè NGƯỜI XEM thành BỊ KHÓA; assign xử lý rank 0', () => {
     const syncBlock = mainJs.slice(mainJs.indexOf('ĐỐI CHIẾU QUYỀN THỰC TẾ'), mainJs.indexOf('ĐỐI CHIẾU QUYỀN THỰC TẾ') + 2500);
     assert.ok(syncBlock.includes("isViewer") && syncBlock.includes("'NGƯỜI XEM'"), 'auto-sync phải giữ NGƯỜI XEM khi rank 0');
