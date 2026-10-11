@@ -6,7 +6,9 @@ services:
     name: blockchain-data-integrity
     runtime: node
     plan: free
-    buildCommand: npm install
+    # --omit=dev: bỏ hardhat/toolbox (chỉ dùng deploy contract ở local) —
+    # chúng xung đột peer dependency nhau khiến npm install fail trên Render
+    buildCommand: npm install --omit=dev
     startCommand: node server.js
     healthCheckPath: /
     envVars:
