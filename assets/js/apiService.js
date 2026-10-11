@@ -301,7 +301,7 @@ export const ApiService = {
     // Từ chối ví đang chờ cấp quyền — chỉ ADMIN (khóa ví: status → REVOKED)
     async rejectWallet(address) {
         const res = await fetch(`${CONFIG.API_BASE}/wallets/reject`, {
-            method: 'POST', headers: authHeaders(), body: JSON.stringify({ address })
+            method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ address })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.message || 'Không từ chối được ví');
