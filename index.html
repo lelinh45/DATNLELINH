@@ -302,7 +302,7 @@
                             <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Khởi tạo Dấu vân tay số (Băm dữ liệu)</label>
                             
                             <!-- Đã thêm sự kiện onclick vào DropZone để mở File Input -->
-                            <div id="uploadDropZone" onclick="if(event.target.id !== 'uploadFile' && !event.target.closest('button')) document.getElementById('uploadFile').click()" class="border-2 border-dashed border-gray-600 bg-[#0b0f19] hover:bg-[#1f2937] hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition-all duration-300 relative group flex flex-col items-center justify-center flex-1 min-h-[220px] mb-4">
+                            <div id="uploadDropZone" class="border-2 border-dashed border-gray-600 bg-[#0b0f19] hover:bg-[#1f2937] hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition-all duration-300 relative group flex flex-col items-center justify-center flex-1 min-h-[220px] mb-4">
                                 <!-- Đã thêm sự kiện onchange -->
                                 <input type="file" id="uploadFile" class="hidden" multiple onchange="if(window.UI) window.UI.updateFileName('uploadFile')">
                                 
@@ -320,7 +320,7 @@
                                         <span class="text-sm font-bold text-gray-300">Đã chọn: <span id="uploadFileCount" class="text-blue-400 font-bold text-lg">0</span> tài liệu</span>
                                         <button type="button" onclick="document.getElementById('uploadFile').click(); event.stopPropagation();" class="text-xs bg-blue-900/30 text-blue-400 px-3 py-1.5 rounded hover:bg-blue-900/60 transition"><i class="fa-solid fa-plus mr-1"></i> Thêm tệp</button>
                                     </div>
-                                    <div id="uploadFileList" class="w-full flex-1 max-h-[160px] overflow-y-auto space-y-2 pr-2 custom-scrollbar" onclick="event.stopPropagation()">
+                                    <div id="uploadFileList" class="w-full flex-1 max-h-[160px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                                         <!-- Dữ liệu JS sẽ đổ vào đây -->
                                     </div>
                                 </div>
@@ -339,7 +339,7 @@
                             <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Tệp tin cần kiểm chứng</label>
                             
                             <!-- Đã thêm sự kiện onclick vào DropZone để mở File Input -->
-                            <div id="verifyDropZone" onclick="if(event.target.id !== 'verifyFile' && !event.target.closest('button')) document.getElementById('verifyFile').click()" class="border-2 border-dashed border-gray-600 bg-[#0b0f19] hover:bg-[#1f2937] hover:border-emerald-500 rounded-xl p-8 text-center cursor-pointer transition-all duration-300 relative group flex flex-col items-center justify-center flex-1 min-h-[220px] mb-4">
+                            <div id="verifyDropZone" class="border-2 border-dashed border-gray-600 bg-[#0b0f19] hover:bg-[#1f2937] hover:border-emerald-500 rounded-xl p-8 text-center cursor-pointer transition-all duration-300 relative group flex flex-col items-center justify-center flex-1 min-h-[220px] mb-4">
                                 <!-- Đã thêm sự kiện onchange -->
                                 <input type="file" id="verifyFile" class="hidden" onchange="if(window.UI) window.UI.updateFileName('verifyFile')">
                                 

@@ -491,7 +491,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadDropZone = document.getElementById('uploadDropZone');
     const uploadFileInput = document.getElementById('uploadFile');
     if (uploadDropZone && uploadFileInput) {
-        uploadDropZone.addEventListener('click', (e) => { if (e.target !== uploadFileInput) uploadFileInput.click(); });
+        // Click vùng trống mở picker; bỏ qua nút (✕ xóa, +Thêm tệp) và vùng danh
+        // sách file — để data-act="rm-file" bubble lên document delegation xử lý
+        uploadDropZone.addEventListener('click', (e) => {
+            if (e.target === uploadFileInput || e.target.closest('button') || e.target.closest('#uploadFileList')) return;
+            uploadFileInput.click();
+        });
         uploadFileInput.addEventListener('click', (e) => e.stopPropagation());
         uploadFileInput.addEventListener('change', () => UI.updateFileName('uploadFile'));
         attachDropZone(uploadDropZone, uploadFileInput, 'border-blue-500');
@@ -500,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const verifyDropZone = document.getElementById('verifyDropZone');
     const verifyFileInput = document.getElementById('verifyFile');
     if (verifyDropZone && verifyFileInput) {
-        verifyDropZone.addEventListener('click', (e) => { if (e.target !== verifyFileInput) verifyFileInput.click(); });
+        verifyDropZone.addEventListener('click', (e) => { if (e.target !== verifyFileInput && !e.target.closest('button')) verifyFileInput.click(); });
         verifyFileInput.addEventListener('click', (e) => e.stopPropagation());
         verifyFileInput.addEventListener('change', () => UI.updateFileName('verifyFile'));
         attachDropZone(verifyDropZone, verifyFileInput, 'border-emerald-500');
