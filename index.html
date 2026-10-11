@@ -825,6 +825,7 @@
         const arm = () => { clearTimeout(timer); timer = setTimeout(close, 3000); };
         btn.addEventListener('click', () => isOpen() ? close() : open());
         ['click', 'input', 'focusin', 'mousemove', 'change'].forEach(ev => box.addEventListener(ev, arm));
+        window.openRoleForm = open; // cho fillAssignRole mở form khi bấm Duyệt ở khay chờ
     })();
     </script>
 </body>

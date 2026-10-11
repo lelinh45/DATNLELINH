@@ -241,8 +241,8 @@ export const ApiService = {
         try {
             const res = await fetch(`${CONFIG.API_BASE}/auth/pending?address=${encodeURIComponent(address)}&deviceId=${encodeURIComponent(deviceId)}`);
             const data = await res.json().catch(() => ({}));
-            return data.status || 'unknown';
-        } catch { return 'unknown'; }
+            return { status: data.status || 'unknown', activeDevices: data.activeDevices || [] };
+        } catch { return { status: 'unknown', activeDevices: [] }; }
     },
     async requestOtp(address, deviceId) {
         const res = await fetch(`${CONFIG.API_BASE}/auth/request-otp`, {

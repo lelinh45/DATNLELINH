@@ -242,8 +242,17 @@ window.fillAssignRole = function(address, alias, requestedRole) {
     if (levelEl) levelEl.value = requestedRole === 'QUẢN LÝ' ? '2' : requestedRole === 'NGƯỜI XEM' ? 'viewer' : '1';
     document.getElementById('pending-dropdown')?.classList.add('hidden');
     document.getElementById('nav-roles')?.click();
-    addrEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    addrEl?.focus();
+    // Mở form phân quyền (đang tự thu gọn sau 3s) rồi cuộn tới + nháy sáng
+    // để admin thấy rõ thông tin đã được điền sẵn
+    window.openRoleForm?.();
+    setTimeout(() => {
+        addrEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const box = document.getElementById('admin-role-collapse');
+        box?.classList.add('ring-2', 'ring-emerald-400/70', 'rounded-xl');
+        setTimeout(() => box?.classList.remove('ring-2', 'ring-emerald-400/70', 'rounded-xl'), 2500);
+        addrEl?.focus();
+    }, 120);
+    Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `Đã điền thông tin ví ${alias || address.slice(0,10)+'…'} — chọn quyền rồi bấm Thực thi`, background: '#111827', color: '#fff', timer: 3000, showConfirmButton: false });
 };
 
 // Từ chối ví chờ: khóa ví trong DB (status REVOKED) — biến mất khỏi khay chờ,
@@ -692,8 +701,14 @@ function waitForDeviceApproval(account) {
 
         let pollTimer = setInterval(async () => {
             const st = await ApiService.checkPendingStatus(account, deviceId);
-            if (st === 'active') finish(true);
-            else if (st === 'revoked' || st === 'unknown') {
+            const hint = document.getElementById('pending-active-hint');
+            if (hint) {
+                hint.innerHTML = st.activeDevices.length
+                    ? `Ví đang có phiên hoạt động trên: <b>${st.activeDevices.map(d => esc(d.label)).join(', ')}</b> — hãy mở máy đó và duyệt.`
+                    : `Không còn thiết bị nào khác đang hoạt động — có thể dùng <b>Cách 2 (OTP email)</b>.`;
+            }
+            if (st.status === 'active') finish(true);
+            else if (st.status === 'revoked' || st.status === 'unknown') {
                 finish(false);
                 Swal.fire({ title: 'Đã bị từ chối', text: 'Phiên đăng nhập này đã bị từ chối/thu hồi.', icon: 'error', background: '#111827', color: '#fff' });
             }
@@ -718,6 +733,7 @@ function waitForDeviceApproval(account) {
                         </div>
                         <div id="otp-msg" class="text-[11px] mt-2 hidden"></div>
                     </div>
+                    <p id="pending-active-hint" class="text-[11px] text-amber-300/90 text-center"></p>
                     <p class="text-[11px] text-gray-500 text-center"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang chờ phê duyệt...</p>
                 </div>`,
             background: '#111827', color: '#fff', width: 480,
