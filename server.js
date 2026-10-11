@@ -544,7 +544,7 @@ app.post('/api/wallets/reject', requireAuth, requireRole('ADMIN'), async (req, r
         if (target === req.user.address) {
             return res.status(400).json({ success: false, message: 'Không thể từ chối chính ví của mình' });
         }
-        const w = await Wallet.findOneAndUpdate({ address: target }, { $set: { status: 'REVOKED', rejected: true } }, { new: true });
+        const w = await Wallet.findOneAndUpdate({ address: target }, { $set: { status: 'REVOKED', rejected: true } }, { returnDocument: 'after' });
         if (!w) return res.status(404).json({ success: false, message: 'Không tìm thấy ví trong hệ thống' });
         try {
             await Notification.create({
@@ -651,7 +651,7 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
         const updatedWallet = await Wallet.findOneAndUpdate(
             { address: target },
             { $set: update },
-            { new: true, upsert: true, runValidators: true }
+            { returnDocument: 'after', upsert: true, runValidators: true }
         );
         res.json(updatedWallet);
     } catch (error) {
@@ -942,7 +942,7 @@ app.post('/api/sessions/approve', requireAuth, async (req, res) => {
         const r = await DeviceSession.findOneAndUpdate(
             { address: req.user.address, deviceId, status: 'pending' },
             { $set: { status: 'active', lastSeen: Date.now() } },
-            { new: true }
+            { returnDocument: 'after' }
         );
         if (!r) return res.status(404).json({ success: false, message: 'Không tìm thấy phiên chờ duyệt' });
         try {
