@@ -76,20 +76,6 @@ Frontend là `index.html` tĩnh — backend tự phục vụ sẵn tại `http:/
 (chỉ serve `index.html` + `assets/`, không lộ `.env`/code). Vẫn mở được trực tiếp
 hoặc qua Live Server (port 5500) như cũ. MetaMask trỏ mạng **Sepolia**.
 
-### Truy cập từ máy khác (không cùng mạng)
-
-Chỉ cần `node server.js` — server tự spawn ngrok tunnel và in link public ra
-console (`AUTO_TUNNEL=0` để tắt, `NGROK_BIN=` trỏ đường dẫn nếu ngrok không có
-trong PATH). Link ngẫu nhiên đổi mỗi lần khởi động; muốn **link cố định** thì
-vào https://dashboard.ngrok.com/domains lấy 1 static domain miễn phí rồi đặt
-`NGROK_DOMAIN=xxx.ngrok-free.app` trong `.env` — mỗi lần `node server.js` là
-mọi người vào đúng link đó.
-
-Người dùng mở URL HTTPS của tunnel → cài MetaMask → đăng nhập bình thường
-(`config.js` tự nhận same-origin `/api`, CORS tự nhận domain tunnel).
-Bắt buộc phải là HTTPS — `crypto.subtle` (băm file) chỉ chạy trong secure context,
-nên mở thẳng `http://IP:3000` sẽ không hoạt động.
-
 ### Deploy 24/7 lên Render (miễn phí) — không phụ thuộc máy cá nhân
 
 Hệ thống chạy được hoàn toàn trên cloud: file lưu trên IPFS/Pinata, metadata trên

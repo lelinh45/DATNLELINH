@@ -12,8 +12,6 @@ services:
     startCommand: node server.js
     healthCheckPath: /
     envVars:
-      - key: AUTO_TUNNEL
-        value: "0"                    # trên Render không cần ngrok
       - key: MONGO_URI                # chuỗi kết nối MongoDB Atlas (bước 1 trong README)
         sync: false
       - key: JWT_SECRET               # Render tự sinh chuỗi ngẫu nhiên an toàn

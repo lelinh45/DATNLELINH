@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
+
 import mammoth from 'mammoth';
 import multer from 'multer';
 import crypto from 'crypto';
@@ -1123,46 +1123,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-// =====================================================================
-// TỰ ĐỘNG MỞ NGROK TUNNEL — chỉ cần `node server.js` là có link public
-// cho máy ở mạng khác. Tắt bằng AUTO_TUNNEL=0 trong .env (deploy thật
-// hoặc không cần tunnel thì nên tắt). Đường dẫn ngrok: NGROK_BIN.
-// NGROK_DOMAIN=<domain>.ngrok-free.app → link cố định không đổi mỗi lần
-// chạy (mỗi tài khoản ngrok free được 1 static domain — vào
-// dashboard.ngrok.com/domains để lấy). Bỏ trống → link ngẫu nhiên mỗi lần.
-// =====================================================================
-function startNgrokTunnel(p) {
-    if (process.env.AUTO_TUNNEL === '0') return;
-    const bin = process.env.NGROK_BIN || 'ngrok';
-    const domain = (process.env.NGROK_DOMAIN || '').trim();
-    const args = ['http', String(p), '--log', 'stdout'];
-    if (domain) args.push('--domain', domain);
-    let child;
-    try {
-        child = spawn(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
-    } catch (e) {
-        console.warn(`⚠️  Không chạy được ngrok (${e.message}). Truy cập local: http://localhost:${p}`);
-        return;
-    }
-    child.on('error', () => console.warn(`⚠️  ngrok không khởi động được — kiểm tra cài đặt/PATH hoặc đặt NGROK_BIN trong .env`));
-    child.stderr.on('data', () => {});
-    // ngrok cung cấp local API ở cổng 4040 — poll lấy public URL để in ra console
-    const poll = setInterval(async () => {
-        try {
-            const r = await fetch('http://127.0.0.1:4040/api/tunnels');
-            const d = await r.json();
-            const https = (d.tunnels || []).find(t => t.public_url && t.public_url.startsWith('https'));
-            if (https) {
-                clearInterval(poll);
-                console.log(`\n🌐 LINK PUBLIC — gửi cho mọi người truy cập:\n   ${https.public_url}\n`);
-            }
-        } catch {}
-    }, 1500);
-    setTimeout(() => clearInterval(poll), 30000); // ngrok chậm quá thì thôi
-    process.on('exit', () => { try { child.kill(); } catch {} });
-}
-
 app.listen(port, () => {
     console.log(`🚀 Server backend (API + xác thực) chạy tại cổng ${port}`);
-    startNgrokTunnel(port);
 });
