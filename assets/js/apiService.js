@@ -298,6 +298,16 @@ export const ApiService = {
         } catch (e) { return null; }
     },
 
+    // Từ chối ví đang chờ cấp quyền — chỉ ADMIN (khóa ví: status → REVOKED)
+    async rejectWallet(address) {
+        const res = await fetch(`${CONFIG.API_BASE}/wallets/reject`, {
+            method: 'POST', headers: authHeaders(), body: JSON.stringify({ address })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Không từ chối được ví');
+        return data;
+    },
+
     // Hồ sơ của chính ví đang đăng nhập — mọi rank đều đọc được (kể cả khách rank 0)
     async getMyWallet() {
         try {

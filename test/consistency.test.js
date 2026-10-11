@@ -194,7 +194,7 @@ test('Pending: ví chờ duyệt chỉ thấy phòng chờ, không vào được
     assert.ok(gate.includes("switchUI('tab-pending')"), 'phòng chờ phải mở tab-pending');
     assert.ok(indexHtml.includes("'tab-pending'") && indexHtml.includes('tab-pending') && /allTabs = \[[^\]]*'tab-pending'/.test(indexHtml), 'tab-pending phải nằm trong allTabs của switchUI');
     // Poll phải phát hiện được cả việc được gán NGƯỜI XEM (rank vẫn 0)
-    const poll = mainJs.slice(mainJs.indexOf('function startGuestUnlockPoll'), mainJs.indexOf('function startGuestUnlockPoll') + 1600);
+    const poll = mainJs.slice(mainJs.indexOf('function startGuestUnlockPoll'), mainJs.indexOf('function startGuestUnlockPoll') + 3000);
     assert.ok(poll.includes("me.role === 'NGƯỜI XEM'"), 'poll phải mở viewer mode khi DB gán NGƯỜI XEM');
     assert.ok(!mainJs.includes('applyGuestMode') && !mainJs.includes('pending-approval-banner'), 'không còn chế độ khách vào được tab verify');
 });

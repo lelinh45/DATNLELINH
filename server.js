@@ -529,6 +529,34 @@ app.get('/api/wallets/pending', requireAuth, requireRole('ADMIN'), async (req, r
     }
 });
 
+// ADMIN từ chối ví đang chờ duyệt — khóa trong DB (hiện "TẠM KHÓA" ở bảng ví),
+// ví bên kia thấy trạng thái bị từ chối thay vì chờ mãi
+app.post('/api/wallets/reject', requireAuth, requireRole('ADMIN'), async (req, res) => {
+    try {
+        const { address } = req.body || {};
+        if (typeof address !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+            return res.status(400).json({ success: false, message: 'Địa chỉ ví không hợp lệ' });
+        }
+        const target = address.toLowerCase();
+        if (target === req.user.address) {
+            return res.status(400).json({ success: false, message: 'Không thể từ chối chính ví của mình' });
+        }
+        const w = await Wallet.findOneAndUpdate({ address: target }, { $set: { status: 'REVOKED' } }, { new: true });
+        if (!w) return res.status(404).json({ success: false, message: 'Không tìm thấy ví trong hệ thống' });
+        try {
+            await Notification.create({
+                address: target, type: 'system',
+                title: 'Yêu cầu cấp quyền bị từ chối',
+                message: 'Admin đã từ chối cấp quyền cho ví của bạn. Liên hệ quản trị viên nếu cần xem xét lại.',
+                meta: { rejectedBy: req.user.address }
+            });
+        } catch (e) {}
+        res.json({ success: true, message: 'Đã từ chối ví' });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Lỗi khi từ chối ví' });
+    }
+});
+
 // Danh sách ví toàn hệ thống — chỉ nhân sự đã được cấp quyền (rank >= 1) mới xem
 app.get('/api/wallets', requireAuth, requireViewer, async (req, res) => {
     try {

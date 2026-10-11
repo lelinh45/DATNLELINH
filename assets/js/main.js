@@ -34,6 +34,7 @@ document.addEventListener('click', (e) => {
         case 'cfg-lock':        deferAfterSwal(() => window.toggleWalletLock(d.v, d.locked === '1')); break;
         case 'cfg-delete':      deferAfterSwal(() => window.deleteWallet(d.v)); break;
         case 'approve-pending': window.fillAssignRole(d.v, d.alias, d.role); break;
+        case 'reject-pending':  if (d.v) window.rejectPendingWallet(d.v, d.alias); break;
         case 'kick-session':    if (d.v) window.kickDeviceSession(d.v); break;
         case 'approve-session': if (d.v) window.approveDeviceSession(d.v); break;
         case 'revoke-key':      if (d.v) window.revokeApiKey(d.v); break;
@@ -221,7 +222,10 @@ async function renderPendingPanel() {
                             <span class="text-gray-600"> · ${time}</span>
                         </div>
                     </div>
-                    <button data-act="approve-pending" data-v="${esc(w.address)}" data-alias="${esc(w.alias || '')}" data-role="${esc(w.requestedRole || '')}" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shrink-0">Duyệt</button>
+                    <div class="flex flex-col gap-1.5 shrink-0">
+                        <button data-act="approve-pending" data-v="${esc(w.address)}" data-alias="${esc(w.alias || '')}" data-role="${esc(w.requestedRole || '')}" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition">Duyệt</button>
+                        <button data-act="reject-pending" data-v="${esc(w.address)}" data-alias="${esc(w.alias || '')}" class="bg-red-900/40 hover:bg-red-800/60 text-red-300 border border-red-800/60 text-[11px] font-bold px-3 py-1.5 rounded-lg transition">Từ chối</button>
+                    </div>
                 </div>
             </div>`;
         }).join('');
@@ -241,14 +245,42 @@ window.fillAssignRole = function(address, alias, requestedRole) {
     addrEl?.focus();
 };
 
+// Từ chối ví chờ: khóa ví trong DB (status REVOKED) — biến mất khỏi khay chờ,
+// hiện trong bảng Quản Lý Ví ở trạng thái TẠM KHÓA, và ví kia thấy "đã bị từ chối"
+window.rejectPendingWallet = async function(address, alias) {
+    const cf = await Swal.fire({
+        title: 'Từ chối ví này?',
+        html: `Ví <b>${esc(alias || '')}</b><br><span class="font-mono text-xs">${esc(address)}</span><br>sẽ bị khóa và phải liên hệ Admin để được xem xét lại.`,
+        icon: 'warning', showCancelButton: true, confirmButtonText: 'Từ chối', cancelButtonText: 'Hủy',
+        confirmButtonColor: '#dc2626', background: '#111827', color: '#fff'
+    });
+    if (!cf.isConfirmed) return;
+    try {
+        await ApiService.rejectWallet(address);
+        await renderPendingPanel();
+        refreshPendingBadge();
+        Swal.fire({ title: 'Đã từ chối', icon: 'success', timer: 1500, showConfirmButton: false, background: '#111827', color: '#fff' });
+    } catch (e) {
+        Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
+    }
+};
+
 function initPendingWalletsUI() {
     const btn = document.getElementById('btn-pending');
     const dd = document.getElementById('pending-dropdown');
     if (!btn || !dd) return;
     btn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        const willOpen = dd.classList.contains('hidden');
         dd.classList.toggle('hidden');
-        if (!dd.classList.contains('hidden')) {
+        if (willOpen) {
+            // Neo thẳng vào tọa độ nút bằng fixed — không phụ thuộc container
+            // cha (display/overflow thay đổi vẫn không bị lệch khỏi icon)
+            const r = btn.getBoundingClientRect();
+            dd.style.position = 'fixed';
+            dd.style.top = `${Math.round(r.bottom + 8)}px`;
+            dd.style.left = 'auto';
+            dd.style.right = `${Math.round(window.innerWidth - r.right)}px`;
             document.getElementById('notif-dropdown')?.classList.add('hidden');
             await renderPendingPanel();
         }
@@ -731,6 +763,15 @@ function isPendingGateVisible() {
     return t && !t.classList.contains('hidden');
 }
 
+// Ví bị Admin từ chối: ẩn form chờ, hiện thông báo từ chối
+function applyRejectedGate() {
+    document.getElementById('gate-wait-card')?.classList.add('hidden');
+    document.getElementById('gate-form-card')?.classList.add('hidden');
+    document.getElementById('gate-rejected')?.classList.remove('hidden');
+    const title = document.getElementById('page-title');
+    if (title) title.innerText = 'Yêu cầu bị từ chối';
+}
+
 // Ví chưa được cấp quyền: ẩn TOÀN BỘ nav + mọi tab, chỉ hiện phòng chờ
 function applyPendingGate(account, me) {
     document.querySelectorAll('aside .menu-item').forEach(el => { el.style.display = 'none'; });
@@ -745,6 +786,11 @@ function applyPendingGate(account, me) {
     const addrEl = document.getElementById('gate-wallet-address');
     if (addrEl) addrEl.innerText = account;
     if (me) {
+        if (me.status === 'REVOKED') {
+            switchUI('tab-pending');
+            applyRejectedGate();
+            return;
+        }
         const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
         set('gate-alias', me.alias);
         set('gate-email', me.email);
@@ -811,7 +857,16 @@ function startGuestUnlockPoll(account) {
             // → chuyển sang chế độ chỉ đọc ngay, không cần đăng nhập lại
             if (rank === 0 && isPendingGateVisible()) {
                 const me = await ApiService.getMyWallet();
-                if (me && me.role === 'NGƯỜI XEM') {
+                if (me && me.status === 'REVOKED') {
+                    applyRejectedGate();
+                } else if (me && me.status === 'ACTIVE' && !document.getElementById('gate-rejected')?.classList.contains('hidden')) {
+                    // Admin mở lại ví sau khi từ chối → quay về màn hình chờ duyệt
+                    document.getElementById('gate-rejected')?.classList.add('hidden');
+                    document.getElementById('gate-wait-card')?.classList.remove('hidden');
+                    document.getElementById('gate-form-card')?.classList.remove('hidden');
+                    const t = document.getElementById('page-title');
+                    if (t) t.innerText = 'Chờ cấp quyền';
+                } else if (me && me.role === 'NGƯỜI XEM') {
                     applyViewerMode(account);
                     Swal.fire({ title: 'Đã được cấp quyền!', text: 'Bạn được cấp quyền Người Xem — có thể xem và xác thực tài liệu (chỉ đọc).', icon: 'success', background: '#111827', color: '#fff' });
                 }
@@ -844,6 +899,15 @@ async function connectWallet() {
         // bảng Quản Lý Quyền Ví của Admin (lastActive nằm trong whitelist tự-sửa)
         try { await ApiService.syncWalletData(account, { lastActive: Date.now() }); } catch (e) {}
 
+        // Kiểm tra quyền on-chain TRƯỚC KHI mở app — nếu reveal trước, ví chờ
+        // duyệt sẽ nhìn thấy UI hệ thống nháy qua trong giây lát rồi mới tới phòng chờ
+        const myRank = await getMyRoleRank(account);
+        let me = null;
+        if (myRank === 0) {
+            try { me = await ApiService.getMyWallet(); } catch (e) {}
+        }
+        const isPending = myRank === 0 && (!me || me.role !== 'NGƯỜI XEM');
+
         const loginScreen = document.getElementById('login-screen');
         const appContainer = document.getElementById('app-container');
 
@@ -863,10 +927,25 @@ async function connectWallet() {
 
         const profileName = document.querySelector('aside .truncate');
 
-        if (typeof window.loadWalletRoles === 'function') window.loadWalletRoles();
+        // Ví chưa được cấp quyền (rank 0) → phòng chờ/chế độ chỉ đọc — áp TRƯỚC
+        // khi phần nặng phía dưới chạy để user không thấy UI sai
+        if (myRank === 0) {
+            if (me && me.role === 'NGƯỜI XEM') applyViewerMode(account);
+            else applyPendingGate(account, me);
+            startGuestUnlockPoll(account);
+        } else {
+            exitGuestMode();
+        }
+
+        // Ví chờ duyệt không cần quét sự kiện on-chain hay bảng ví — tiết kiệm RPC
+        if (!isPending) {
+            if (typeof window.loadWalletRoles === 'function') window.loadWalletRoles();
+            await syncDashboardData();
+        }
+
         // Nạp email + SĐT chủ ví vào ô cài đặt; nếu đã có → khóa ô, nút đổi thành "Thay đổi"
         try {
-            const me = await ApiService.getMyWallet();
+            if (!me) me = await ApiService.getMyWallet();
             // Sidebar hiển thị tên alias mà admin đã đặt cho ví này;
             // chưa đặt tên thì theo vai trò, còn lại là "Người Dùng"
             if (profileName) {
@@ -893,24 +972,6 @@ async function connectWallet() {
                 document.getElementById('contact-saved-hint')?.classList.toggle('hidden', !hasContact);
             }
         } catch (e) {}
-        await syncDashboardData();
-
-        // Ví chưa được cấp quyền (rank 0) → chế độ khách: chỉ dùng Xác Thực,
-        // khi nào Admin assignRole xong thì tự mở full UI (poll 15s)
-        const myRank = await getMyRoleRank(account);
-        if (myRank === 0) {
-            // Rank 0: DB gán NGƯỜI XEM → chế độ chỉ đọc; còn lại → phòng chờ
-            let me = null;
-            try { me = await ApiService.getMyWallet(); } catch (e) {}
-            if (me && me.role === 'NGƯỜI XEM') {
-                applyViewerMode(account);
-            } else {
-                applyPendingGate(account, me);
-            }
-            startGuestUnlockPoll(account);
-        } else {
-            exitGuestMode();
-        }
     } catch (error) {
         Swal.fire({ title: 'Lỗi Kết Nối', text: getShortError(error, 'Mất kết nối tới ví MetaMask.'), icon: 'error', background: '#111827', color: '#fff' });
     } finally { isProcessing = false; }

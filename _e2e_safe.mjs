@@ -83,6 +83,12 @@ if (process.env.PRIVATE_KEY) {
     { const r = await get('/wallets', HA); rec('GET /wallets (admin)', r.ms); ok('Admin → /wallets 200 (thấy email nếu có)', r.st === 200); }
     { const r = await get('/wallets/pending', HA); rec('GET /wallets/pending (admin)', r.ms); ok('Admin → khay chờ duyệt 200', r.st === 200); }
     { const r = await get('/apikeys', HA); ok('Admin → /apikeys 200', r.st === 200); }
+    // Từ chối ví chờ duyệt: khóa ví → biến mất khỏi khay + ví bên kia đọc được status
+    { const r = await post('/wallets/reject', { address: wPend.address }, HV); ok('Viewer → reject ví → 403', r.st === 403); }
+    { const r = await post('/wallets/reject', { address: 'not-an-address' }, HA); ok('Admin → reject địa chỉ xấu → 400', r.st === 400); }
+    { const r = await post('/wallets/reject', { address: wPend.address }, HA); ok('Admin → reject ví chờ → 200', r.st === 200, JSON.stringify(r)); }
+    { const r = await get('/wallets/me', HP); ok('Ví bị từ chối → /wallets/me vẫn đọc được + status REVOKED', r.st === 200 && r.status === 'REVOKED', JSON.stringify(r).slice(0, 150)); }
+    { const r = await get('/wallets/pending', HA); const still = (r.wallets || []).some(w => w.address === wPend.address.toLowerCase()); ok('Ví bị từ chối → biến mất khỏi khay chờ', r.st === 200 && !still); }
 } else console.log('  (không có PRIVATE_KEY — bỏ qua)');
 
 console.log('== F. ĐỘ TRỄ RPC ON-CHAIN (đọc — giới hạn UX) ==');
