@@ -278,12 +278,12 @@
                                 </div>
                                 <div id="gate-form-card" class="bg-panel border border-gray-800 rounded-2xl p-6 mt-4">
                                     <p class="text-sm font-bold text-gray-300"><i class="fa-solid fa-id-card me-2 text-blue-400"></i>Thông tin nhận diện</p>
-                                    <p class="text-[11px] text-gray-500 mt-1">Khai tên + liên hệ + quyền mong muốn để Admin nhận diện đúng người thay vì chuỗi 0x... trần.</p>
+                                    <p class="text-[11px] text-gray-500 mt-1">Khai tên + liên hệ + quyền mong muốn để Admin nhận diện đúng người thay vì chuỗi 0x... trần. <span class="text-amber-400">* Tất cả các ô đều bắt buộc.</span></p>
                                     <div class="flex flex-col gap-2.5 mt-3">
-                                        <input id="gate-alias" type="text" maxlength="50" placeholder="Tên của bạn — vd: Nguyễn Văn A" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
-                                        <input id="gate-email" type="email" placeholder="Email — vd: email@example.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
-                                        <input id="gate-phone" type="tel" placeholder="Số điện thoại — vd: 0912 345 678" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
-                                        <select id="gate-req-role" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
+                                        <input id="gate-alias" type="text" maxlength="50" required placeholder="Tên của bạn * — vd: Nguyễn Văn A" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
+                                        <input id="gate-email" type="email" required placeholder="Email * — vd: email@example.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
+                                        <input id="gate-phone" type="tel" required placeholder="Số điện thoại * — vd: 0912 345 678" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
+                                        <select id="gate-req-role" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-amber-500">
                                             <option value="">— Quyền bạn muốn được cấp (gợi ý cho Admin) —</option>
                                             <option value="NGƯỜI XEM">Người Xem (chỉ đọc)</option>
                                             <option value="NHẬP LIỆU">Nhân viên Nhập Liệu</option>

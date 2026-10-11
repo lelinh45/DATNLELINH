@@ -47,7 +47,9 @@ const HP = { Authorization: 'Bearer ' + lP.token };
 { const r = await post('/batches/revoke', { docId: 'x', reason: 'y' }, HP); ok('Pending → revoke 403', r.st === 403); }
 { const r = await get('/apikeys', HP); ok('Pending → /apikeys 403', r.st === 403); }
 { const r = await get('/wallets/me', HP); rec('GET /wallets/me', r.ms); ok('Pending → /wallets/me 200 (hồ sơ mình)', r.st === 200); }
-{ const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Pending', requestedRole: 'NGƯỜI XEM' }, HP); ok('Pending tự khai requestedRole NGƯỜI XEM', r.st === 200 && r.requestedRole === 'NGƯỜI XEM', JSON.stringify(r).slice(0, 200)); }
+{ const r = await post('/wallets/sync', { address: wPend.address, requestedRole: 'NGƯỜI XEM' }, HP); ok('Pending thiếu tên/liên hệ khi xin quyền → 400', r.st === 400, 'st=' + r.st); }
+{ const r = await post('/wallets/email', { email: 'pend@test.com', phone: '0912345678' }, HP); ok('Pending lưu email+SĐT', r.st === 200, 'st=' + r.st); }
+{ const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Pending', requestedRole: 'NGƯỜI XEM' }, HP); ok('Pending khai đủ thông tin → requestedRole OK', r.st === 200 && r.requestedRole === 'NGƯỜI XEM', JSON.stringify(r).slice(0, 200)); }
 { const r = await post('/wallets/sync', { address: wPend.address, role: 'ADMIN', status: 'ACTIVE' }, HP); ok('Pending tự leo quyền role=ADMIN → 403', r.st === 403, 'st=' + r.st); }
 
 console.log('== C. VÍ NGƯỜI XEM (rank 0 + DB flag) — đọc được, ghi bị chặn ==');

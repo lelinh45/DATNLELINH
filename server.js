@@ -615,16 +615,28 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
             for (const k of ADMIN_FIELDS) if (k in updateData) update[k] = updateData[k];
         }
 
+        // Cần đọc doc hiện tại khi ví tự khai thông tin — dùng cho 2 check dưới
+        let curDoc = null;
+        if (isSelf && ('alias' in update || 'requestedRole' in update)) {
+            curDoc = await Wallet.findOne({ address: target }).select('alias email phone status rejected role').lean();
+        }
+
+        // Ví tự đề nghị quyền phải khai đủ Tên + Email + SĐT — thiếu 1 trường
+        // thì không tính là "xin duyệt" (bypass frontend gọi API cũng bị chặn)
+        if (isSelf && 'requestedRole' in update && update.requestedRole) {
+            const merged = { ...(curDoc || {}), ...update };
+            if (!merged.alias || !merged.email || !merged.phone) {
+                return res.status(400).json({ success: false, message: 'Vui lòng khai đủ Tên, Email và Số điện thoại trước khi xin cấp quyền' });
+            }
+        }
+
         // Ví bị từ chối (rejected) hoặc bị sync cũ đè role BỊ KHÓA dù chưa từng có
         // quyền on-chain — tự khai lại thông tin → cho quay lại khay chờ duyệt.
         // Ví bị Admin khóa thủ công (giữ role thật, rejected=false) KHÔNG tự mở được
-        if (isSelf && ('alias' in update || 'requestedRole' in update)) {
-            const cur = await Wallet.findOne({ address: target }).select('status rejected role').lean();
-            if (cur && cur.status === 'REVOKED' && (cur.rejected === true || cur.role === 'BỊ KHÓA')) {
-                update.status = 'ACTIVE';
-                update.rejected = false;
-                if (cur.role === 'BỊ KHÓA') update.role = 'NHẬP LIỆU';
-            }
+        if (curDoc && curDoc.status === 'REVOKED' && (curDoc.rejected === true || curDoc.role === 'BỊ KHÓA')) {
+            update.status = 'ACTIVE';
+            update.rejected = false;
+            if (curDoc.role === 'BỊ KHÓA') update.role = 'NHẬP LIỆU';
         }
 
         const updatedWallet = await Wallet.findOneAndUpdate(

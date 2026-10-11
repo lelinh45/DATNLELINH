@@ -531,11 +531,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = (document.getElementById('gate-email')?.value || '').trim();
         const phone = (document.getElementById('gate-phone')?.value || '').trim();
         const reqRole = document.getElementById('gate-req-role')?.value || '';
+        // Bắt buộc đủ cả 4 trường — bỏ trống bất kỳ ô nào thì không gửi được
+        if (!alias || !email || !phone || !reqRole) {
+            Swal.fire({ title: 'Chưa đủ thông tin', text: 'Vui lòng điền đầy đủ Tên, Email, Số điện thoại và chọn Quyền mong muốn trước khi gửi.', icon: 'warning', background: '#111827', color: '#fff', timer: 2000, showConfirmButton: false });
+            return;
+        }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             Swal.fire({ title: 'Email không hợp lệ', icon: 'warning', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
             return;
         }
-        if (phone && !/^\+?[\d\s-]{8,15}$/.test(phone)) {
+        if (!/^\+?[\d\s-]{8,15}$/.test(phone)) {
             Swal.fire({ title: 'Số điện thoại không hợp lệ', icon: 'warning', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
             return;
         }
