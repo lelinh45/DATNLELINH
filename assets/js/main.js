@@ -181,6 +181,7 @@ function initNotificationUI() {
 // KHAY VÍ CHỜ CẤP QUYỀN — icon cạnh chuông, chỉ hiện với ví ADMIN
 // =====================================================================
 async function refreshPendingBadge() {
+    if (pendingGateActive) return; // ví ở phòng chờ không gọi API admin
     if (!ApiService.hasValidToken()) return;
     const wallets = await ApiService.getPendingWallets();
     const wrap = document.getElementById('pending-wrap');
@@ -623,6 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ĐỒNG BỘ SỐ LIỆU DASHBOARD (HÀM TẬP TRUNG)
 // =====================================================================
 async function syncDashboardData() {
+    if (pendingGateActive) return; // ví ở phòng chờ → không cần metrics, tránh spam 403
     // Chưa login → chỉ hiển thị số liệu on-chain, không gọi API (tránh 401 dồn dập + tốn rate-limit)
     if (!ApiService.hasValidToken()) {
         try {
@@ -762,6 +764,9 @@ function waitForDeviceApproval(account) {
 // =====================================================================
 const VIEWER_VISIBLE_NAV = ['nav-verify', 'nav-history', 'nav-revoked', 'nav-settings'];
 let guestUnlockTimer = null;
+// Ví đang ở phòng chờ/từ chối (rank 0) → tắt mọi vòng lặp nền gọi API nhân sự
+// (metrics, bảng ví, API keys, khay admin) để không spam 403 và không đơ trang
+let pendingGateActive = false;
 
 function isPendingGateVisible() {
     const t = document.getElementById('tab-pending');
@@ -770,6 +775,7 @@ function isPendingGateVisible() {
 
 // Ví bị Admin từ chối: ẩn form chờ, hiện thông báo từ chối
 function applyRejectedGate() {
+    pendingGateActive = true;
     document.getElementById('gate-wait-card')?.classList.add('hidden');
     document.getElementById('gate-form-card')?.classList.add('hidden');
     document.getElementById('gate-rejected')?.classList.remove('hidden');
@@ -779,6 +785,7 @@ function applyRejectedGate() {
 
 // Ví chưa được cấp quyền: ẩn TOÀN BỘ nav + mọi tab, chỉ hiện phòng chờ
 function applyPendingGate(account, me) {
+    pendingGateActive = true;
     document.querySelectorAll('aside .menu-item').forEach(el => { el.style.display = 'none'; });
     const adminHeader = document.getElementById('nav-admin-header');
     const adminNav = document.getElementById('nav-admin-nav');
@@ -811,6 +818,7 @@ function applyPendingGate(account, me) {
 // Chế độ NGƯỜI XEM: rank on-chain = 0 nhưng DB gán role NGƯỜI XEM →
 // được xem Truy Xuất + DS Hủy Bỏ + Xác Thực, vẫn không thấy upload/quản trị
 function applyViewerMode(account) {
+    pendingGateActive = false;
     document.querySelectorAll('aside .menu-item').forEach(el => {
         el.style.display = VIEWER_VISIBLE_NAV.includes(el.id) ? '' : 'none';
     });
@@ -826,6 +834,7 @@ function applyViewerMode(account) {
 }
 
 function exitGuestMode() {
+    pendingGateActive = false;
     if (guestUnlockTimer) { clearInterval(guestUnlockTimer); guestUnlockTimer = null; }
     document.querySelectorAll('aside .menu-item').forEach(el => { el.style.display = ''; });
     const adminHeader = document.getElementById('nav-admin-header');
@@ -1901,6 +1910,7 @@ async function loadRevokedHistory() {
 // API KEYS VÀ CẤU HÌNH
 // =====================================================================
 async function loadAPIKeys() {
+    if (pendingGateActive) return; // ví ở phòng chờ không gọi API admin
     const tbody = document.getElementById('api-keys-table-body');
     if (!tbody) return;
     let keys = [];
@@ -2034,6 +2044,7 @@ window.sortWalletTable = function(key) {
 };
 
 window.loadWalletRoles = async function() {
+    if (pendingGateActive) return; // ví ở phòng chờ không tải/đồng bộ bảng ví (tránh 403 + đè DB)
     const tbody = document.getElementById('wallet-roles-table-body');
     if (!tbody) return;
 
