@@ -15,19 +15,34 @@ export class Web3Service {
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
+    // Nhiều ví extension cài chung sẽ đấu nhau quyền window.ethereum —
+    // ưu tiên provider MetaMask thật (isMetaMask) thay vì cái đầu tiên/lạ
+    pickInjectedProvider() {
+        const eth = window.ethereum;
+        if (!eth) return null;
+        if (Array.isArray(eth.providers) && eth.providers.length) {
+            return eth.providers.find(p => p.isMetaMask) || eth.providers[0];
+        }
+        if (eth.providerMap instanceof Map && eth.providerMap.size) {
+            return eth.providerMap.get('MetaMask') || [...eth.providerMap.values()][0];
+        }
+        return eth;
+    }
+
     async connectWallet() {
-        if (typeof window.ethereum === 'undefined') throw new Error("Không tìm thấy ví MetaMask. Vui lòng cài đặt tiện ích!");
+        const injected = this.pickInjectedProvider();
+        if (!injected) throw new Error("Không tìm thấy ví MetaMask. Vui lòng cài đặt tiện ích!");
         try {
-            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CONFIG.HARDHAT_CHAIN_ID }] });
+            await injected.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CONFIG.HARDHAT_CHAIN_ID }] });
         } catch (switchError) {
             if (switchError.code === 4902) {
-                await window.ethereum.request({
+                await injected.request({
                     method: 'wallet_addEthereumChain',
                     params: [{ chainId: CONFIG.HARDHAT_CHAIN_ID, chainName: CONFIG.HARDHAT_CHAIN_NAME, rpcUrls: [CONFIG.RPC_URL], nativeCurrency: CONFIG.CURRENCY }],
                 });
             }
         }
-        this.provider = new ethers.BrowserProvider(window.ethereum);
+        this.provider = new ethers.BrowserProvider(injected);
         await this.provider.send("eth_requestAccounts", []);
         this.signer = await this.provider.getSigner();
         this.currentAccount = await this.signer.getAddress();
