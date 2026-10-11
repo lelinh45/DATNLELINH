@@ -67,13 +67,18 @@ export class Web3Service {
         const CHUNK_SIZE = 9000;
         // Cache gắn theo địa chỉ contract — deploy contract mới thì sự kiện của
         // contract cũ không bị trộn vào danh sách (tránh docId trùng lặp ảo)
-        const scopedKey = `bdi_cache_${CONFIG.CONTRACT_ADDRESS}_${cacheKeyName}`;
+        const scopedKey = `bdi_cache_v2_${CONFIG.CONTRACT_ADDRESS}_${cacheKeyName}`;
 
         let cacheData = JSON.parse(localStorage.getItem(scopedKey)) || { lastScanned: START_BLOCK, events: [] };
         let fromBlock = cacheData.lastScanned + 1;
         let newEvents = [];
 
         if (fromBlock <= latestBlock) {
+            // Chỉ tăng lastScanned tới block cuối LIỀN KỀ quét thành công.
+            // Trước đây chunk lỗi bị bỏ qua nhưng lastScanned vẫn nhảy tới
+            // latest → hố sự kiện vĩnh viễn trong cache (tài liệu/thu hồi/
+            // phân quyền "nhảy" sai so với chain cho tới khi xóa localStorage).
+            let contiguousTo = fromBlock - 1;
             for (let from = fromBlock; from <= latestBlock; from += CHUNK_SIZE) {
                 let to = from + CHUNK_SIZE - 1;
                 if (to > latestBlock) to = latestBlock;
@@ -85,10 +90,14 @@ export class Web3Service {
                         blockNumber: ev.blockNumber
                     }));
                     newEvents = newEvents.concat(mappedChunk);
-                } catch (error) { console.warn(`Bỏ qua lỗi tại block ${from}-${to}:`, error); }
+                    contiguousTo = to;
+                } catch (error) {
+                    console.warn(`Dừng quét tại block ${from}-${to} (sẽ quét lại lần sau):`, error);
+                    break;
+                }
             }
             cacheData.events = cacheData.events.concat(newEvents);
-            cacheData.lastScanned = latestBlock;
+            cacheData.lastScanned = contiguousTo;
             localStorage.setItem(scopedKey, JSON.stringify(cacheData));
         }
         return cacheData.events;

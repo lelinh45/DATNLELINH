@@ -252,7 +252,7 @@ window.fillAssignRole = function(address, alias, requestedRole) {
         setTimeout(() => box?.classList.remove('ring-2', 'ring-emerald-400/70', 'rounded-xl'), 2500);
         addrEl?.focus();
     }, 120);
-    Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `Đã điền thông tin ví ${alias || address.slice(0,10)+'…'} — chọn quyền rồi bấm Thực thi`, background: '#111827', color: '#fff', timer: 3000, showConfirmButton: false });
+    Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `Đã điền thông tin ví ${esc(alias || address.slice(0,10)+'…')} — chọn quyền rồi bấm Thực thi`, background: '#111827', color: '#fff', timer: 3000, showConfirmButton: false });
 };
 
 // Từ chối ví chờ: khóa ví trong DB (status REVOKED) — biến mất khỏi khay chờ,
@@ -658,6 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotificationUI();
     initPendingWalletsUI();
     loadAPIKeys();
+    drainOrphanedBatches().then(() => { if (typeof window.loadWalletRoles === 'function') window.loadWalletRoles(); });
     if (typeof window.loadWalletRoles === 'function') window.loadWalletRoles();
 });
 
@@ -1263,6 +1264,24 @@ async function promptPasswordAndUpload() {
     await executeUploadCore(finalFiles, formValues.key, formValues.vis);
 }
 
+// Drain các batch "mồ côi" (ghi chain xong nhưng lưu DB lỗi) — tự chạy lại
+// ngay khi vào app/tab upload, không chờ lần upload kế tiếp. Nhờ merge ở
+// server, retry cũng bổ sung encKey vào bản ghi phục hồi thiếu khóa.
+// Chỉ drain orphan CỦA VÍ ĐANG ĐĂNG NHẬP — server gán uploader=chủ JWT,
+// nếu drain lô của ví khác sẽ gán sai chủ sở hữu (dữ liệu "nhảy" sang ví lạ).
+async function drainOrphanedBatches() {
+    const orphans = JSON.parse(localStorage.getItem('orphanedBatches') || '[]');
+    if (!orphans.length) return;
+    const me = (sessionStorage.getItem('bdi_addr') || '').toLowerCase();
+    const remain = [];
+    for (const ob of orphans) {
+        if (me && String(ob.uploader || '').toLowerCase() !== me) { remain.push(ob); continue; }
+        try { await ApiService.saveBatchToDatabase(ob); }
+        catch (e) { remain.push(ob); }
+    }
+    localStorage.setItem('orphanedBatches', JSON.stringify(remain));
+}
+
 // LUỒNG MÃ HÓA, IPFS VÀ BLOCKCHAIN 
 async function executeUploadCore(fileDataArray, secretKey, visibility = 'private') {
     isProcessing = true;
@@ -1337,17 +1356,7 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         
         try {
             await ApiService.saveBatchToDatabase(batchData);
-
-            // Drain các batch "mồ côi" (ghi chain xong nhưng lưu DB lỗi ở phiên trước)
-            const orphans = JSON.parse(localStorage.getItem('orphanedBatches') || '[]');
-            if (orphans.length) {
-                const remain = [];
-                for (const ob of orphans) {
-                    try { await ApiService.saveBatchToDatabase(ob); }
-                    catch (e) { remain.push(ob); }
-                }
-                localStorage.setItem('orphanedBatches', JSON.stringify(remain));
-            }
+            await drainOrphanedBatches();
 
             // Cập nhật dung lượng ví
             let totalMB = 0; fileDataArray.forEach(item => { totalMB += item.fileObj.size / (1024 * 1024); });
@@ -2478,7 +2487,7 @@ window.handleAssignRole = async function() {
             // Chờ bảng ví render xong rồi cuộn tới đúng dòng ví vừa duyệt và nháy
             // sáng — admin thấy ngay ví mới xuất hiện trong bảng TÀI KHOẢN VÍ
             await window.loadWalletRoles();
-            const row = document.querySelector(`tr[data-row-addr="${address.toLowerCase()}"]`);
+            const row = document.querySelector(`tr[data-row-addr="${esc(address.toLowerCase())}"]`);
             if (row) {
                 row.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 row.classList.add('bg-emerald-900/40');
@@ -2628,13 +2637,8 @@ window.deleteWallet = async function(address) {
             UI.updateProgress(40, "Đang tước quyền trên Blockchain...", "PROCESSING");
             await web3.assignRole(address, 0); 
             
-            // Cập nhật DB nội bộ để ẩn ví đi (Gắn cờ isDeleted)
-            let wallets = JSON.parse(localStorage.getItem('bdi_authorized_wallets')) || [];
-            let w = wallets.find(x => x.address.toLowerCase() === address.toLowerCase());
-            if (w) {
-                w.isDeleted = true;
-                localStorage.setItem('bdi_authorized_wallets', JSON.stringify(wallets));
-            }
+            // Cập nhật DB nội bộ để ẩn ví đi — MongoDB là nguồn sự thật;
+            // snapshot localStorage chỉ giữ {address, alias} cho getWalletName
             await ApiService.syncWalletData(address, { status: 'DELETED', role: 'ĐÃ XÓA' });
 
             UI.updateProgress(100, "Đã xóa ví thành công", "SUCCESS");

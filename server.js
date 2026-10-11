@@ -732,16 +732,37 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
         if (typeof batchId !== 'string' || !batchId.trim()) {
             return res.status(400).json({ success: false, message: 'Thiếu batchId hợp lệ' });
         }
+        // Whitelist từng field của file — chặn client nhúng sẵn isRevoked/revokedBy giả
+        const safeFiles = Array.isArray(files) ? files.map(f => ({
+            docId: f && f.docId, fileHash: f && f.fileHash, ipfsCID: f && f.ipfsCID,
+            fileName: f && f.fileName, fileSize: f && f.fileSize, qrCode: f && f.qrCode,
+            visibility: ['public', 'private'].includes(f && f.visibility) ? f.visibility : 'private',
+            // AES key do user nhập — bọc bằng MASTER_KEY trước khi ghi DB
+            encKey: f && f.encKey ? wrapKey(f.encKey) : undefined
+        })) : [];
+        // Retry an toàn: batchId đã tồn tại (VD: bản ghi phục hồi từ manifest
+        // thiếu encKey) → merge field CÒN THIẾU của file trùng docId thay vì 409.
+        // Không ghi đè dữ liệu có sẵn — chỉ bổ sung chỗ trống
+        const existing = await Batch.findOne({ batchId });
+        if (existing) {
+            let changed = false;
+            // Bản ghi phục hồi có thể thiếu chủ sở hữu — khi chủ ví thật retry
+            // lô mồ côi, gán lại theo chủ JWT
+            if (!existing.uploader || existing.uploader === 'unknown') {
+                existing.uploader = req.user.address; changed = true;
+            }
+            for (const nf of safeFiles) {
+                const ef = existing.files.find(x => x.docId === nf.docId);
+                if (!ef) { existing.files.push(nf); changed = true; continue; }
+                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey']) {
+                    if (!ef[k] && nf[k]) { ef[k] = nf[k]; changed = true; }
+                }
+            }
+            if (changed) await existing.save();
+            return res.json({ success: true, merged: changed, batch: existing });
+        }
         const newBatch = new Batch({
-            batchId, merkleRoot, ipfsCID, txHash,
-            // Whitelist từng field của file — chặn client nhúng sẵn isRevoked/revokedBy giả
-            files: Array.isArray(files) ? files.map(f => ({
-                docId: f && f.docId, fileHash: f && f.fileHash, ipfsCID: f && f.ipfsCID,
-                fileName: f && f.fileName, fileSize: f && f.fileSize, qrCode: f && f.qrCode,
-                visibility: ['public', 'private'].includes(f && f.visibility) ? f.visibility : 'private',
-                // AES key do user nhập — bọc bằng MASTER_KEY trước khi ghi DB
-                encKey: f && f.encKey ? wrapKey(f.encKey) : undefined
-            })) : [],
+            batchId, merkleRoot, ipfsCID, txHash, files: safeFiles,
             uploader: req.user.address // lấy từ JWT — chống giả mạo uploader
         });
         await newBatch.save();
