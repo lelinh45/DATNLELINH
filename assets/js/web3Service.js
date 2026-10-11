@@ -42,6 +42,12 @@ export class Web3Service {
                 });
             }
         }
+        // Hệ thống chỉ chạy trên Sepolia — user từ chối chuyển mạng hoặc ví không
+        // hỗ trợ switch thì dừng luôn, báo rõ thay vì lỗi lạ ở bước sau
+        const currentChain = await injected.request({ method: 'eth_chainId' });
+        if (String(currentChain).toLowerCase() !== String(CONFIG.HARDHAT_CHAIN_ID).toLowerCase()) {
+            throw new Error(`Sai mạng Blockchain. Vui lòng chuyển ví sang mạng ${CONFIG.HARDHAT_CHAIN_NAME} (Sepolia) rồi đăng nhập lại.`);
+        }
         this.provider = new ethers.BrowserProvider(injected);
         await this.provider.send("eth_requestAccounts", []);
         this.signer = await this.provider.getSigner();
