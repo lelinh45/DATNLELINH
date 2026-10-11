@@ -446,7 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const emailInput = document.getElementById('input-wallet-email');
     const phoneInput = document.getElementById('input-wallet-phone');
     const aliasInput = document.getElementById('input-wallet-alias');
-    const reqRoleInput = document.getElementById('input-requested-role');
     const setContactSavedUI = (saved) => {
         if (!contactBtn) return;
         contactBtn.textContent = saved ? 'Thay đổi' : 'Lưu';
@@ -457,13 +456,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (aliasInput) aliasInput.disabled = saved;
         if (emailInput) emailInput.disabled = saved;
         if (phoneInput) phoneInput.disabled = saved;
-        if (reqRoleInput) reqRoleInput.disabled = saved;
         document.getElementById('contact-saved-hint')?.classList.toggle('hidden', !saved);
     };
     contactBtn?.addEventListener('click', async () => {
         if (contactBtn.textContent === 'Thay đổi') { setContactSavedUI(false); aliasInput?.focus(); return; }
         const alias = (aliasInput?.value || '').trim();
-        const reqRole = reqRoleInput?.value || '';
         const email = (emailInput?.value || '').trim();
         const phone = (phoneInput?.value || '').trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -476,9 +473,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         try {
             await ApiService.setWalletContact(email, phone);
-            // Alias + quyền mong muốn do chủ ví tự đặt — giúp Admin nhận diện & duyệt đúng
+            // Alias do chủ ví tự đặt — giúp Admin nhận diện khi duyệt quyền
             if (web3.currentAccount) {
-                const selfUpdate = { requestedRole: reqRole };
+                const selfUpdate = {};
                 if (alias) selfUpdate.alias = alias;
                 await ApiService.syncWalletData(web3.currentAccount, selfUpdate);
                 if (alias) {
@@ -879,13 +876,11 @@ async function connectWallet() {
             const emailIn = document.getElementById('input-wallet-email');
             const phoneIn = document.getElementById('input-wallet-phone');
             const aliasIn = document.getElementById('input-wallet-alias');
-            const reqRoleIn = document.getElementById('input-requested-role');
             const savedBtn = document.getElementById('btn-save-email');
             const hasContact = me && (me.email || me.phone || me.alias);
             if (emailIn && me?.email) emailIn.value = me.email;
             if (phoneIn && me?.phone) phoneIn.value = me.phone;
             if (aliasIn && me?.alias) aliasIn.value = me.alias;
-            if (reqRoleIn && me?.requestedRole) reqRoleIn.value = me.requestedRole;
             if (savedBtn) {
                 savedBtn.textContent = hasContact ? 'Thay đổi' : 'Lưu';
                 savedBtn.classList.toggle('bg-emerald-600', !hasContact);
@@ -895,7 +890,6 @@ async function connectWallet() {
                 if (aliasIn) aliasIn.disabled = !!hasContact;
                 if (emailIn) emailIn.disabled = !!hasContact;
                 if (phoneIn) phoneIn.disabled = !!hasContact;
-                if (reqRoleIn) reqRoleIn.disabled = !!hasContact;
                 document.getElementById('contact-saved-hint')?.classList.toggle('hidden', !hasContact);
             }
         } catch (e) {}
