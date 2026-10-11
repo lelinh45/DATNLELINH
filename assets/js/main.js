@@ -2368,7 +2368,7 @@ window.loadWalletRoles = async function() {
         const pct = (v) => Math.min(100, Math.max(0, Number(v) || 0));
 
         return `
-        <tr class="border-b border-gray-800 hover:bg-[#1f2937]/30 transition ${isRevoked ? 'opacity-60' : ''}">
+        <tr class="border-b border-gray-800 hover:bg-[#1f2937]/30 transition ${isRevoked ? 'opacity-60' : ''}" data-row-addr="${esc((w.address||'').toLowerCase())}">
             ${tdCheckboxHTML}
             <td class="py-1.5 px-2">
                 <div class="p-2 cursor-pointer group hover:bg-gray-800 rounded-lg transition-all inline-block w-full" data-act="wallet-preview" data-v="${esc(w.address || '')}" title="Nhấn để xem Hồ Sơ Tài Khoản">
@@ -2469,7 +2469,17 @@ window.handleAssignRole = async function() {
         document.getElementById('newRoleAddress').value = '';
         if (document.getElementById('newRoleAlias')) document.getElementById('newRoleAlias').value = '';
         document.getElementById('newRoleLevel').value = '1';
-        if (typeof window.loadWalletRoles === 'function') window.loadWalletRoles();
+        if (typeof window.loadWalletRoles === 'function') {
+            // Chờ bảng ví render xong rồi cuộn tới đúng dòng ví vừa duyệt và nháy
+            // sáng — admin thấy ngay ví mới xuất hiện trong bảng TÀI KHOẢN VÍ
+            await window.loadWalletRoles();
+            const row = document.querySelector(`tr[data-row-addr="${address.toLowerCase()}"]`);
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('bg-emerald-900/40');
+                setTimeout(() => row.classList.remove('bg-emerald-900/40'), 3000);
+            }
+        }
     } catch (error) {
         Swal.fire({ title: 'Từ chối', text: getShortError(error, 'Chỉ Admin hệ thống mới có quyền thực thi.'), icon: 'error', background: '#111827', color: '#fff' });
     } finally {
