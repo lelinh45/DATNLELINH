@@ -466,12 +466,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Kéo-thả file vào dropzone: gán dataTransfer.files vào input rồi chạy lại
+    // luồng updateFileName sẵn có (giữ nguyên validate giới hạn số tệp)
+    const attachDropZone = (zone, input, accent) => {
+        if (!zone || !input) return;
+        const on = () => { zone.classList.add(accent, 'bg-[#1f2937]'); };
+        const off = () => { zone.classList.remove(accent, 'bg-[#1f2937]'); };
+        zone.addEventListener('dragover', (e) => { e.preventDefault(); on(); });
+        zone.addEventListener('dragleave', (e) => { if (!zone.contains(e.relatedTarget)) off(); });
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault(); off();
+            if (!e.dataTransfer?.files?.length) return;
+            if (input.multiple) {
+                input.files = e.dataTransfer.files;
+            } else {
+                const dt = new DataTransfer();
+                dt.items.add(e.dataTransfer.files[0]);
+                input.files = dt.files;
+            }
+            UI.updateFileName(input.id);
+        });
+    };
+
     const uploadDropZone = document.getElementById('uploadDropZone');
     const uploadFileInput = document.getElementById('uploadFile');
     if (uploadDropZone && uploadFileInput) {
         uploadDropZone.addEventListener('click', (e) => { if (e.target !== uploadFileInput) uploadFileInput.click(); });
         uploadFileInput.addEventListener('click', (e) => e.stopPropagation());
         uploadFileInput.addEventListener('change', () => UI.updateFileName('uploadFile'));
+        attachDropZone(uploadDropZone, uploadFileInput, 'border-blue-500');
     }
 
     const verifyDropZone = document.getElementById('verifyDropZone');
@@ -480,7 +503,11 @@ document.addEventListener('DOMContentLoaded', () => {
         verifyDropZone.addEventListener('click', (e) => { if (e.target !== verifyFileInput) verifyFileInput.click(); });
         verifyFileInput.addEventListener('click', (e) => e.stopPropagation());
         verifyFileInput.addEventListener('change', () => UI.updateFileName('verifyFile'));
+        attachDropZone(verifyDropZone, verifyFileInput, 'border-emerald-500');
     }
+
+    // Thả file trượt khỏi dropzone → chặn trình duyệt mở file thay trang app
+    ['dragover', 'drop'].forEach(ev => window.addEventListener(ev, (e) => e.preventDefault()));
 
     document.getElementById('btn-connect')?.addEventListener('click', connectWallet);
     // Nút liên hệ có 2 trạng thái: "Lưu" (đang nhập) ↔ "Thay đổi" (đã lưu, khóa ô nhập)
