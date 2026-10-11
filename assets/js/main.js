@@ -386,7 +386,7 @@ function getShortError(err, customRevertMsg) {
     if (err.code === 'ACTION_REJECTED' || msg.includes('user rejected')) return 'Bạn đã chủ động hủy bỏ giao dịch trên ví MetaMask.';
     if (msg.includes('insufficient funds')) return 'Ví của bạn không đủ số dư Sepolia ETH để trả phí Gas.';
     if (msg.includes('revert')) return customRevertMsg || 'Giao dịch bị từ chối bởi Blockchain (sai trạng thái).';
-    return esc(err.shortMessage || 'Đã xảy ra lỗi kết nối mạng. Vui lòng thử lại.');
+    return esc(err.shortMessage || msg || 'Đã xảy ra lỗi kết nối mạng. Vui lòng thử lại.');
 }
 
 // =====================================================================
