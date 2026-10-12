@@ -343,6 +343,21 @@ UI.updateProgress = function(percent, message, status) {
     }
 };
 
+// Terminal tự bám đáy: khi cột trái render lại (bảng lịch sử, file queue...)
+// consoleBox bị co/giãn theo grid items-stretch — trình duyệt giữ nguyên
+// scrollTop nên box trông như "nhảy lên giữa". ResizeObserver snap lại về đáy,
+// trừ khi user đã tự cuộn lên để đọc log cũ (hủy pin, đến log mới pin lại).
+let consolePinned = true;
+const _consoleEl = document.getElementById('consoleBox');
+if (_consoleEl) {
+    _consoleEl.addEventListener('scroll', () => {
+        consolePinned = _consoleEl.scrollTop + _consoleEl.clientHeight >= _consoleEl.scrollHeight - 4;
+    });
+    new ResizeObserver(() => {
+        if (consolePinned) _consoleEl.scrollTop = _consoleEl.scrollHeight;
+    }).observe(_consoleEl);
+}
+
 // =====================================================================
 // CÁC HÀM TIỆN ÍCH
 // =====================================================================

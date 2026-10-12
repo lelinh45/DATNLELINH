@@ -60,7 +60,10 @@ export const UI = {
         if (!box) return;
         const color = type === 'error' ? 'text-red-400' : type === 'success' ? 'text-emerald-400' : type === 'warning' ? 'text-yellow-400' : 'text-blue-400';
         const hashDisplay = hash ? `<br><span class="text-gray-600 ml-4">> <span class="text-blue-500/70 font-mono">${esc(hash)}</span></span>` : '';
-        box.innerHTML += `<div class="mb-1"><span class="text-gray-600">[${new Date().toLocaleTimeString()}]</span> <span class="${color}">${esc(msg)}</span>${hashDisplay}</div>`;
+        const entry = document.createElement('div');
+        entry.className = 'mb-1';
+        entry.innerHTML = `<span class="text-gray-600">[${new Date().toLocaleTimeString()}]</span> <span class="${color}">${esc(msg)}</span>${hashDisplay}`;
+        box.appendChild(entry);
         box.scrollTop = box.scrollHeight;
     },
 
