@@ -520,7 +520,7 @@ app.get('/api/wallets/me', requireAuth, async (req, res) => {
 app.get('/api/wallets/pending', requireAuth, requireRole('ADMIN'), async (req, res) => {
     try {
         const wallets = await Wallet.find({ status: 'ACTIVE', role: { $ne: 'NGƯỜI XEM' } })
-            .select('address alias email phone requestedRole lastActive').lean();
+            .select('address alias email phone requestedRole lastActive').sort({ lastActive: -1 }).lean();
         // Check rank TRỰC TIẾP trên contract (không qua getRoleRank — fallback DB
         // của nó không dùng được ở đây). RPC lỗi → giữ những ví đã gửi yêu cầu
         // (requestedRole) để khay không trống khi mạng Sepolia chập chờn

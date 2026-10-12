@@ -77,6 +77,7 @@ async function renderNotifPanel() {
         ApiService.getNotifications(), ApiService.getSessions()
     ]);
 
+    listEl.scrollTop = 0; // luôn neo về thông báo mới nhất (đã sort createdAt desc)
     listEl.innerHTML = notifications.length === 0
         ? '<div class="px-4 py-6 text-center text-gray-600 text-xs">Chưa có thông báo nào.</div>'
         : notifications.map(n => {
@@ -203,6 +204,7 @@ async function renderPendingPanel() {
         listEl.innerHTML = '<div class="px-4 py-6 text-center text-gray-600 text-xs">Chỉ ADMIN mới xem được.</div>';
         return;
     }
+    listEl.scrollTop = 0; // neo về ví chờ mới nhất
     listEl.innerHTML = wallets.length === 0
         ? '<div class="px-4 py-6 text-center text-gray-600 text-xs">Không có ví nào đang chờ.</div>'
         : wallets.map(w => {

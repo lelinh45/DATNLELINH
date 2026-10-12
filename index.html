@@ -157,15 +157,15 @@
                             <i class="fa-regular fa-bell"></i>
                             <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center flex">0</span>
                         </button>
-                        <div id="notif-dropdown" class="hidden absolute right-0 top-11 w-[380px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-[#0b0f19] border border-gray-800 rounded-xl shadow-2xl z-[200]">
-                            <div class="flex justify-between items-center px-4 py-3 border-b border-gray-800 sticky top-0 bg-[#0b0f19]">
+                        <div id="notif-dropdown" class="hidden absolute right-0 top-11 w-[440px] h-[480px] flex flex-col overflow-hidden bg-[#0b0f19] border border-gray-800 rounded-xl shadow-2xl z-[200]">
+                            <div class="flex justify-between items-center px-4 py-3 border-b border-gray-800 shrink-0 bg-[#0b0f19]">
                                 <span class="text-xs font-bold text-gray-300 uppercase tracking-wider">Thông báo</span>
                                 <button id="btn-notif-readall" class="text-[10px] text-blue-400 hover:text-blue-300 font-bold">Đánh dấu đã đọc</button>
                             </div>
-                            <div id="notif-list" class="divide-y divide-gray-800/60"></div>
-                            <div class="px-4 py-3 border-t border-gray-800 sticky bottom-0 bg-[#0b0f19]">
+                            <div id="notif-list" class="divide-y divide-gray-800/60 flex-1 min-h-0 overflow-y-auto custom-scrollbar"></div>
+                            <div class="px-4 py-3 border-t border-gray-800 shrink-0 bg-[#0b0f19]">
                                 <div class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Thiết bị đang đăng nhập</div>
-                                <div id="session-list" class="space-y-1.5"></div>
+                                <div id="session-list" class="space-y-1.5 max-h-[110px] overflow-y-auto custom-scrollbar"></div>
                             </div>
                         </div>
                     </div>
@@ -176,12 +176,12 @@
                             <i class="fa-solid fa-user-clock"></i>
                             <span id="pending-badge" class="hidden absolute -top-1 -right-1 bg-amber-500 text-black text-[9px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center flex">0</span>
                         </button>
-                        <div id="pending-dropdown" class="hidden absolute right-0 top-11 w-[400px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-[#0b0f19] border border-gray-800 rounded-xl shadow-2xl z-[200]">
-                            <div class="px-4 py-3 border-b border-gray-800 sticky top-0 bg-[#0b0f19]">
+                        <div id="pending-dropdown" class="hidden absolute right-0 top-11 w-[460px] h-[400px] flex flex-col overflow-hidden bg-[#0b0f19] border border-gray-800 rounded-xl shadow-2xl z-[200]">
+                            <div class="px-4 py-3 border-b border-gray-800 shrink-0 bg-[#0b0f19]">
                                 <span class="text-xs font-bold text-amber-300 uppercase tracking-wider"><i class="fa-solid fa-user-clock mr-1"></i> Ví mới chờ cấp quyền</span>
                                 <p class="text-[10px] text-gray-500 mt-1">Ví đã đăng nhập nhưng chưa có quyền on-chain. Bấm "Duyệt" để điền sẵn form cấp quyền.</p>
                             </div>
-                            <div id="pending-list" class="divide-y divide-gray-800/60"></div>
+                            <div id="pending-list" class="divide-y divide-gray-800/60 flex-1 min-h-0 overflow-y-auto custom-scrollbar"></div>
                         </div>
                     </div>
                     <!-- KHỐI ĐỒNG HỒ (Đã chỉnh kích thước và giao diện đồng bộ với System Online) -->
