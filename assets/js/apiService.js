@@ -54,11 +54,14 @@ function getDeviceLabel() {
     else if (/Mac OS X/i.test(ua)) os = 'macOS';
     else if (/Linux/i.test(ua)) os = 'Linux';
     let browser = 'Browser';
-    if (/Edg\//i.test(ua)) browser = 'Edge';
-    else if (/Chrome\//i.test(ua)) browser = 'Chrome';
-    else if (/Firefox\//i.test(ua)) browser = 'Firefox';
-    else if (/Safari\//i.test(ua)) browser = 'Safari';
-    return `${browser} · ${os}`;
+    let ver = '';
+    let m;
+    if ((m = ua.match(/Edg\/(\d+)/i))) browser = 'Edge';
+    else if ((m = ua.match(/Chrome\/(\d+)/i))) browser = 'Chrome';
+    else if ((m = ua.match(/Firefox\/(\d+)/i))) browser = 'Firefox';
+    else if ((m = ua.match(/Version\/(\d+).*Safari/i))) browser = 'Safari';
+    if (m) ver = ' ' + m[1];
+    return `${browser}${ver} · ${os}`;
 }
 
 export const ApiService = {

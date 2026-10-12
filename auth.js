@@ -152,8 +152,8 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                                 await notificationModel.create({
                                     address: key, type: 'device_pending',
                                     title: 'Thiết bị mới chờ phê duyệt',
-                                    message: `Thiết bị "${label}" vừa đăng nhập và đang chờ phê duyệt. Mở chuông thông báo để Phê duyệt hoặc Từ chối.`,
-                                    meta: { deviceId: dev, deviceLabel: label }
+                                    message: `Thiết bị "${label}"${clientIp ? ` — IP ${clientIp}` : ''} vừa đăng nhập và đang chờ phê duyệt. Mở chuông thông báo để Phê duyệt hoặc Từ chối.`,
+                                    meta: { deviceId: dev, deviceLabel: label, ip: clientIp }
                                 });
                             }
                         } catch (e) { console.warn('[AUTH] Lỗi tạo thông báo pending:', e.message); }
@@ -195,8 +195,8 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                             await notificationModel.create(everLoggedIn ? {
                                 address: key, type: 'new_device',
                                 title: 'Đăng nhập trên thiết bị mới',
-                                message: `Ví của bạn vừa đăng nhập từ thiết bị: ${label} (các phiên trước đã hết/bị thu hồi nên tự động duyệt). Nếu không phải bạn, hãy thu hồi phiên đó ngay.`,
-                                meta: { deviceId: dev, deviceLabel: label }
+                                message: `Ví của bạn vừa đăng nhập từ thiết bị: ${label}${clientIp ? ` — IP ${clientIp}` : ''} (các phiên trước đã hết/bị thu hồi nên tự động duyệt). Nếu không phải bạn, hãy thu hồi phiên đó ngay.`,
+                                meta: { deviceId: dev, deviceLabel: label, ip: clientIp }
                             } : {
                                 address: key, type: 'new_device',
                                 title: 'Phiên đăng nhập đầu tiên được ghi nhận',
