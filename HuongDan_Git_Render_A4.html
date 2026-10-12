@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hướng dẫn Git &amp; Render — Đề tài NCKH</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  @page { size:A4; margin:16mm 18mm; }
+  body { font-family:'Times New Roman',Times,serif; font-size:12.5pt; color:#000;
+         background:#5a5a5a; }
+  .page { width:210mm; min-height:297mm; background:#fff; margin:10px auto;
+          padding:16mm 18mm; box-shadow:0 2px 14px rgba(0,0,0,.4); }
+  .center { text-align:center; }
+  .school { font-size:12pt; }
+  h1 { font-size:15pt; margin:10px 0 4px; text-align:center; text-transform:uppercase; }
+  .sub { text-align:center; font-style:italic; font-size:11.5pt; margin-bottom:10px; }
+  hr { border:none; border-top:1px solid #000; margin:8px 0 12px; }
+  h2 { font-size:13pt; margin:12px 0 6px; text-transform:uppercase; }
+  ul,ol { padding-left:26px; }
+  li { margin-bottom:4px; line-height:1.45; text-align:justify; }
+  p { line-height:1.45; text-align:justify; }
+  pre { font-family:Consolas,'Courier New',monospace; font-size:10.5pt;
+        background:#f2f2f2; border:1px solid #999; padding:8px 10px;
+        margin:6px 0 8px; line-height:1.5; white-space:pre-wrap; }
+  code { font-family:Consolas,'Courier New',monospace; font-size:11pt; }
+  table { width:100%; border-collapse:collapse; margin:6px 0 10px; font-size:11.5pt; }
+  th,td { border:1px solid #000; padding:4px 7px; vertical-align:top; text-align:left; }
+  th { background:#e8e8e8; }
+  .note { border:1px solid #000; padding:6px 10px; margin-top:10px; font-size:11.5pt; }
+  .no-print { position:fixed; top:6px; left:50%; transform:translateX(-50%);
+              background:#333; color:#fff; font-family:Arial; font-size:11px;
+              padding:6px 14px; border-radius:14px; }
+  @media print { body{background:#fff} .page{margin:0;box-shadow:none} .no-print{display:none} }
+</style>
+</head>
+<body>
+<div class="no-print">Ctrl+P → Lưu PDF hoặc in — Khổ A4, lề Mặc định</div>
+<div class="page">
+
+  <p class="center school">TRƯỜNG ĐẠI HỌC ĐIỆN LỰC — KHOA CÔNG NGHỆ THÔNG TIN</p>
+  <hr>
+  <h1>Hướng dẫn vận hành: đẩy code lên GitHub và xử lý lỗi Render</h1>
+  <p class="sub">Hệ thống xác thực &amp; chống giả mạo dữ liệu số bằng Blockchain — blockchain-data-integrity.onrender.com</p>
+
+  <h2>I. Dùng hàng ngày</h2>
+  <ul>
+    <li>Chỉ cần mở link web <b>blockchain-data-integrity.onrender.com</b> — đăng nhập MetaMask, upload, xác thực, duyệt thiết bị đều làm trên giao diện.</li>
+    <li><b>Không cần</b> mở VS Code hay chạy lệnh nào cho việc sử dụng thông thường.</li>
+  </ul>
+
+  <h2>II. Khi sửa code xong muốn đẩy lên web (Render tự deploy)</h2>
+  <p>Mở terminal trong VS Code (Ctrl + `) rồi chạy lần lượt:</p>
+  <pre>cd D:\NCKH26\Thu-muc-lon\blockchain-data-integrity
+
+git status            # xem file nào đã sửa (chữ đỏ = chưa lưu)
+git add -A            # gom hết thay đổi
+git commit -m "ghi chú ngắn về thay đổi"
+git push              # đẩy lên GitHub → Render tự build + deploy</pre>
+  <ul>
+    <li>Sau khi <code>git push</code>: chờ khoảng 1–3 phút, rồi bấm <b>Ctrl + F5</b> trên trang web để tải bản mới (bỏ cache trình duyệt).</li>
+    <li>Trạng thái deploy xem tại <b>render.com → Dashboard → project → Events</b>: thấy "Deploy live" là xong.</li>
+  </ul>
+
+  <h2>III. Kiểm tra web có đang sống không</h2>
+  <pre># Mong đợi kết quả: 200
+curl -s -o /dev/null -w "%{http_code}" https://blockchain-data-integrity.onrender.com/</pre>
+  <ul>
+    <li>Xem server đang báo lỗi gì: <b>Render → Dashboard → project → Logs</b> (tìm dòng <code>Error</code> màu đỏ).</li>
+  </ul>
+
+  <h2>IV. Bảng xử lý lỗi thường gặp</h2>
+  <table>
+    <tr><th>Triệu chứng</th><th>Nguyên nhân thường gặp</th><th>Cách xử lý</th></tr>
+    <tr><td>Web không vào được, quay vòng</td><td>Render gói free ngủ khi không ai dùng</td><td>Đợi 30–60 giây rồi F5 lại</td></tr>
+    <tr><td>Sửa code xong web vẫn cũ</td><td>Trình duyệt giữ bản cũ trong cache</td><td>Ctrl + F5, hoặc mở tab ẩn danh thử</td></tr>
+    <tr><td>Push xong web vẫn bản cũ</td><td>Deploy chưa xong</td><td>Render → Events, đợi "Deploy live"</td></tr>
+    <tr><td>Báo 429 Too many requests</td><td>Bấm đăng nhập/thao tác quá nhanh</td><td>Dừng bấm, đợi 1–5 phút rồi thử lại</td></tr>
+    <tr><td>MetaMask ký mãi không xong</td><td>Ví đang ở sai mạng</td><td>Chuyển MetaMask sang mạng <b>Sepolia</b></td></tr>
+    <tr><td>Màn hình "Thiết bị mới — chờ phê duyệt"</td><td>Trình duyệt/máy mới chưa được duyệt</td><td>Mở máy đã đăng nhập → chuông 🔔 → "Thiết bị đang đăng nhập" → Duyệt</td></tr>
+    <tr><td>Lỗi lạ không hiểu</td><td>—</td><td>Render → Logs, chụp dòng lỗi gửi nhờ hỗ trợ</td></tr>
+  </table>
+
+  <h2>V. Redeploy thủ công khi cần (không sửa code)</h2>
+  <ul>
+    <li>Vào <b>Render → Dashboard → project → Manual Deploy → Deploy latest commit</b>.</li>
+    <li>Dùng khi: vừa sửa biến môi trường (SMTP...), hoặc build trước lỗi giữa chừng muốn chạy lại.</li>
+    <li>Biến môi trường sửa tại <b>Render → project → Environment</b> — sửa xong bắt buộc redeploy mới có hiệu lực.</li>
+  </ul>
+
+  <h2>VI. Lệnh hay dùng để xem lại</h2>
+  <pre>git log --oneline -5     # xem 5 commit gần nhất
+git diff                 # xem chi tiết đang sửa những gì</pre>
+
+  <div class="note">
+    <b>Lưu ý quan trọng:</b> không dùng <code>git push -f</code> (ép đẩy) và không xóa file
+    <code>.env</code> (chứa khóa hệ thống). Nếu lỡ làm gì không chắc, chạy
+    <code>git status</code> và chụp màn hình để hỏi trước khi tiếp tục.
+  </div>
+
+</div>
+</body>
+</html>
