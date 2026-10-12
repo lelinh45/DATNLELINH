@@ -774,15 +774,9 @@ function waitForDeviceApproval(account) {
             // OTP không khả dụng (ví chưa có email / SMTP chết) → khoá khu vực Cách 2, nói rõ lý do
             if (!st.otpAvailable) {
                 const btn = document.getElementById('btn-send-otp');
-                const box = document.getElementById('otp-msg');
                 if (btn && !btn.disabled) {
                     btn.disabled = true;
                     btn.classList.add('opacity-40', 'cursor-not-allowed');
-                }
-                if (box) {
-                    box.classList.remove('hidden');
-                    box.className = 'text-[11px] mt-2 text-amber-400';
-                    box.textContent = 'Ví chưa đăng ký email (hoặc server chưa cấu hình gửi mail) — duyệt theo Cách 1, hoặc giữ trang này chờ: thiết bị tự được duyệt sau 24 giờ.';
                 }
             }
             if (st.status === 'active') finish(true);
