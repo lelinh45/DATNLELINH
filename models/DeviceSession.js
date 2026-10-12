@@ -10,6 +10,8 @@ const deviceSessionSchema = new mongoose.Schema({
     address: { type: String, required: true, index: true },
     deviceId: { type: String, required: true },
     deviceLabel: { type: String, default: 'Thiết bị không rõ' },
+    ip: { type: String, default: '' },        // IP client lúc đăng nhập (qua trust proxy)
+    userAgent: { type: String, default: '' }, // UA thô — phân biệt được 2 máy cùng "Chrome · Windows"
     status: { type: String, enum: ['pending', 'active', 'revoked'], default: 'active' },
     createdAt: { type: Number, default: Date.now },
     lastSeen: { type: Number, default: Date.now },

@@ -109,7 +109,7 @@ async function renderNotifPanel() {
             return `<div class="flex items-center justify-between bg-gray-900/50 border ${isPending ? 'border-orange-900/50' : 'border-gray-800'} rounded-lg px-3 py-2">
                 <div class="min-w-0">
                     <div class="text-[11px] font-bold text-gray-300 truncate">${esc(s.deviceLabel)}${s.current ? ' <span class="text-emerald-400 text-[9px]">(thiết bị này)</span>' : ''}</div>
-                    <div class="text-[10px] ${isPending ? 'text-orange-400' : 'text-gray-600'}">${isPending ? 'Chờ phê duyệt' : 'Hoạt động'}: ${esc(window.formatTimeForce(s.lastSeen))}</div>
+                    <div class="text-[10px] ${isPending ? 'text-orange-400' : 'text-gray-600'}">${isPending ? 'Chờ phê duyệt' : 'Hoạt động'}: ${esc(window.formatTimeForce(s.lastSeen))}${s.ip ? ` · IP ${esc(s.ip)}` : ''}</div>
                 </div>
                 ${actions}
             </div>`;

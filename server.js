@@ -922,6 +922,7 @@ app.get('/api/sessions', requireAuth, async (req, res) => {
             success: true,
             sessions: sessions.map(s => ({
                 deviceId: s.deviceId, deviceLabel: s.deviceLabel,
+                ip: s.ip || '', userAgent: s.userAgent || '',
                 createdAt: s.createdAt, lastSeen: s.lastSeen,
                 status: s.revoked === true ? 'revoked' : (s.status || 'active'),
                 current: s.deviceId === req.user.dev

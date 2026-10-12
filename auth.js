@@ -132,6 +132,8 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
             if (dev && sessionModel) {
                 try {
                     const label = (typeof deviceLabel === 'string' ? deviceLabel : '').slice(0, 120) || 'Thiết bị không rõ';
+                    const clientIp = (req.ip || '').slice(0, 60);
+                    const clientUa = String(req.headers['user-agent'] || '').slice(0, 300);
                     const existing = await sessionModel.findOne({ address: key, deviceId: dev });
                     // status undefined = phiên tạo trước khi có cơ chế duyệt → coi như active
                     const isActive = (s) => s && s.status !== 'pending' && s.status !== 'revoked' && s.revoked !== true;
@@ -165,6 +167,8 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                         // Cùng thiết bị đăng nhập lại → chỉ gia hạn, không cần duyệt
                         existing.lastSeen = Date.now();
                         existing.deviceLabel = label;
+                        existing.ip = clientIp;
+                        existing.userAgent = clientUa;
                         await existing.save();
                     } else if (activeCount === 0) {
                         // Không còn THIẾT BỊ KHÁC nào đang hoạt động (fresh) — ví có
@@ -174,7 +178,7 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                         if (mailer && mailer.sendOtp && w && w.email) {
                             await sessionModel.findOneAndUpdate(
                                 { address: key, deviceId: dev },
-                                { $set: { deviceLabel: label, status: 'pending', revoked: false, lastSeen: Date.now() }, $setOnInsert: { createdAt: Date.now() } },
+                                { $set: { deviceLabel: label, status: 'pending', revoked: false, lastSeen: Date.now(), ip: clientIp, userAgent: clientUa }, $setOnInsert: { createdAt: Date.now() } },
                                 { upsert: true }
                             );
                             return await denyPending(existing && existing.status === 'pending');
@@ -183,7 +187,7 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                         const everLoggedIn = existing || await sessionModel.exists({ address: key });
                         await sessionModel.findOneAndUpdate(
                             { address: key, deviceId: dev },
-                            { $set: { deviceLabel: label, status: 'active', revoked: false, lastSeen: Date.now() }, $setOnInsert: { createdAt: Date.now() } },
+                            { $set: { deviceLabel: label, status: 'active', revoked: false, lastSeen: Date.now(), ip: clientIp, userAgent: clientUa }, $setOnInsert: { createdAt: Date.now() } },
                             { upsert: true }
                         );
                         if (notificationModel) {
@@ -204,12 +208,14 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                         // Thiết bị mới, hoặc phiên bị thu hồi/pending đăng nhập lại → chờ duyệt
                         const wasPending = existing && existing.status === 'pending' && !existing.revoked;
                         if (!existing) {
-                            await sessionModel.create({ address: key, deviceId: dev, deviceLabel: label, status: 'pending' });
+                            await sessionModel.create({ address: key, deviceId: dev, deviceLabel: label, status: 'pending', ip: clientIp, userAgent: clientUa });
                         } else {
                             existing.status = 'pending';
                             existing.revoked = false;
                             existing.deviceLabel = label;
                             existing.lastSeen = Date.now();
+                            existing.ip = clientIp;
+                            existing.userAgent = clientUa;
                             await existing.save();
                         }
                         return await denyPending(wasPending);
