@@ -59,12 +59,19 @@ const NOTIF_ICON = {
 
 async function refreshNotifBadge() {
     if (!ApiService.hasValidToken()) return;
-    const { unread } = await ApiService.getNotifications();
+    // Badge = thông báo chưa đọc + thiết bị đang chờ duyệt — một thiết bị pending
+    // chỉ tạo 1 thông báo (chống spam), sau khi đã đọc thì badge vẫn phải còn
+    // chừng nào thiết bị đó chưa được duyệt/từ chối.
+    const [{ unread }, { sessions }] = await Promise.all([
+        ApiService.getNotifications(), ApiService.getSessions()
+    ]);
+    const pendingN = (sessions || []).filter(s => s.status === 'pending').length;
+    const total = unread + pendingN;
     const badge = document.getElementById('notif-badge');
     if (!badge) return;
-    badge.textContent = unread > 99 ? '99+' : unread;
-    badge.classList.toggle('hidden', !unread);
-    badge.classList.toggle('flex', !!unread);
+    badge.textContent = total > 99 ? '99+' : total;
+    badge.classList.toggle('hidden', !total);
+    badge.classList.toggle('flex', !!total);
 }
 
 async function renderNotifPanel() {
