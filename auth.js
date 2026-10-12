@@ -141,11 +141,12 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                         lastSeen: { $gte: Date.now() - SESSION_FRESH_MS }
                     });
 
-                    const denyPending = async () => {
+                    const denyPending = async (alreadyPending) => {
                         // Cô lập notification trong try riêng — lỗi ghi thông báo KHÔNG được
-                        // làm rơi xuống catch ngoài rồi chạy tiếp xuống cấp JWT (fail-open)
+                        // làm rơi xuống catch ngoài rồi chạy tiếp xuống cấp JWT (fail-open).
+                        // Thiết bị đã pending từ trước (user bấm đăng nhập lại) → không spam thông báo
                         try {
-                            if (notificationModel) {
+                            if (notificationModel && !alreadyPending) {
                                 await notificationModel.create({
                                     address: key, type: 'device_pending',
                                     title: 'Thiết bị mới chờ phê duyệt',
@@ -173,16 +174,16 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                         if (mailer && mailer.sendOtp && w && w.email) {
                             await sessionModel.findOneAndUpdate(
                                 { address: key, deviceId: dev },
-                                { $set: { deviceLabel: label, status: 'pending', lastSeen: Date.now() }, $setOnInsert: { createdAt: Date.now() } },
+                                { $set: { deviceLabel: label, status: 'pending', revoked: false, lastSeen: Date.now() }, $setOnInsert: { createdAt: Date.now() } },
                                 { upsert: true }
                             );
-                            return await denyPending();
+                            return await denyPending(existing && existing.status === 'pending');
                         }
                         // Thiết bị đầu tiên / không có email → tự duyệt để không khóa vĩnh viễn
                         const everLoggedIn = existing || await sessionModel.exists({ address: key });
                         await sessionModel.findOneAndUpdate(
                             { address: key, deviceId: dev },
-                            { $set: { deviceLabel: label, status: 'active', lastSeen: Date.now() }, $setOnInsert: { createdAt: Date.now() } },
+                            { $set: { deviceLabel: label, status: 'active', revoked: false, lastSeen: Date.now() }, $setOnInsert: { createdAt: Date.now() } },
                             { upsert: true }
                         );
                         if (notificationModel) {
@@ -201,15 +202,17 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                         }
                     } else {
                         // Thiết bị mới, hoặc phiên bị thu hồi/pending đăng nhập lại → chờ duyệt
+                        const wasPending = existing && existing.status === 'pending' && !existing.revoked;
                         if (!existing) {
                             await sessionModel.create({ address: key, deviceId: dev, deviceLabel: label, status: 'pending' });
                         } else {
                             existing.status = 'pending';
+                            existing.revoked = false;
                             existing.deviceLabel = label;
                             existing.lastSeen = Date.now();
                             await existing.save();
                         }
-                        return await denyPending();
+                        return await denyPending(wasPending);
                     }
                 } catch (e) { console.warn('[AUTH] Lỗi ghi session thiết bị:', e.message); }
             }
@@ -281,17 +284,8 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
             if (!sess || sess.status !== 'pending') {
                 return res.status(400).json({ success: false, message: 'Không có phiên chờ duyệt cho thiết bị này' });
             }
-            // OTP chỉ là đường cứu khi KHÔNG còn thiết bị nào khác đang hoạt động
-            // (fresh <24h) — còn máy active thì bắt buộc duyệt từ máy đó; phiên
-            // cũ chết lâu ngày không được chặn đường cứu này
-            const otherActive = await sessionModel.countDocuments({
-                address: key, deviceId: { $ne: deviceId },
-                status: { $nin: ['pending', 'revoked'] }, revoked: { $ne: true },
-                lastSeen: { $gte: Date.now() - SESSION_FRESH_MS }
-            });
-            if (otherActive > 0) {
-                return res.status(403).json({ success: false, code: 'OTP_BLOCKED', message: 'Ví còn thiết bị đang hoạt động — hãy phê duyệt từ thiết bị cũ qua chuông 🔔. OTP chỉ dùng khi không còn thiết bị nào khả dụng.' });
-            }
+            // Người dùng tự chọn phương thức: duyệt từ thiết bị cũ HOẶC OTP email —
+            // hai cách song song, OTP không bị chặn khi ví còn thiết bị khác đang hoạt động
             const w = walletModel ? await walletModel.findOne({ address: key }).lean() : null;
             if (!w || !w.email) {
                 return res.status(400).json({ success: false, code: 'NO_EMAIL', message: 'Ví chưa đăng ký email — chỉ có thể duyệt từ thiết bị đã đăng nhập' });
@@ -332,21 +326,13 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
             if ((sess.otpAttempts || 0) >= OTP_MAX_ATTEMPTS) {
                 return res.status(429).json({ success: false, message: 'Nhập sai quá nhiều lần — hãy gửi lại mã mới' });
             }
-            // Guard lần 2: lỡ giữa lúc gửi mã và nhập mã có thiết bị khác được duyệt → cũng chặn
-            const otherActive = await sessionModel.countDocuments({
-                address: key, deviceId: { $ne: deviceId },
-                status: { $nin: ['pending', 'revoked'] }, revoked: { $ne: true },
-                lastSeen: { $gte: Date.now() - SESSION_FRESH_MS }
-            });
-            if (otherActive > 0) {
-                return res.status(403).json({ success: false, code: 'OTP_BLOCKED', message: 'Ví đã có thiết bị đang hoạt động — hãy phê duyệt từ thiết bị đó.' });
-            }
             if (!await verifyOtpHash(code, sess.otpHash)) {
                 sess.otpAttempts = (sess.otpAttempts || 0) + 1;
                 await sess.save();
                 return res.status(401).json({ success: false, message: 'Mã OTP không đúng' });
             }
             sess.status = 'active';
+            sess.revoked = false;
             sess.otpHash = '';
             sess.otpExpires = 0;
             await sess.save();

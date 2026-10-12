@@ -32,6 +32,18 @@ function getDeviceId() {
     return id;
 }
 
+// Đọc body JSON an toàn — proxy/rate-limiter đôi khi trả text thuần ("Too many requests") hoặc HTML lỗi,
+// JSON.parse trực tiếp sẽ văng lỗi khó hiểu "Unexpected token ... is not valid JSON"
+async function readJson(res) {
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch {
+        if (res.status === 429)
+            throw new Error('Bạn thao tác quá nhanh — máy chủ đang giới hạn lượt truy cập. Đợi vài phút rồi thử lại.');
+        throw new Error(`Máy chủ trả về phản hồi không hợp lệ (HTTP ${res.status}). Thử tải lại trang.`);
+    }
+}
+
 // Nhãn thân thiện cho thiết bị — "Chrome · Windows 10" — suy ra từ userAgent
 function getDeviceLabel() {
     const ua = navigator.userAgent || '';
@@ -58,7 +70,7 @@ export const ApiService = {
     async loginWithWallet(signer, address) {
         const addr = String(address).toLowerCase();
         const chRes = await fetch(`${CONFIG.API_BASE}/auth/challenge?address=${addr}`);
-        const chData = await chRes.json();
+        const chData = await readJson(chRes);
         if (!chRes.ok || !chData.challenge) throw new Error(chData.message || 'Không lấy được challenge đăng nhập');
 
         const signature = await signer.signMessage(chData.challenge);
@@ -67,7 +79,7 @@ export const ApiService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ address: addr, signature, challenge: chData.challenge, deviceId: getDeviceId(), deviceLabel: getDeviceLabel() })
         });
-        const data = await res.json();
+        const data = await readJson(res);
         // Thiết bị mới chưa được duyệt → trả về cờ pending để UI hiện màn chờ/OTP
         if (res.status === 403 && data.code === 'DEVICE_PENDING') {
             return { pending: true, deviceId: getDeviceId(), message: data.message };
@@ -120,8 +132,10 @@ export const ApiService = {
                 if (xhr.status === 200) {
                     resolve(JSON.parse(xhr.responseText));
                 } else {
-                    const err = JSON.parse(xhr.responseText || '{}');
-                    reject(new Error(err.message || "Lỗi từ chối tải lên từ máy chủ Backend."));
+                    let errMsg = "Lỗi từ chối tải lên từ máy chủ Backend.";
+                    try { errMsg = JSON.parse(xhr.responseText).message || errMsg; }
+                    catch { if (xhr.status === 429) errMsg = "Máy chủ đang giới hạn lượt tải lên — đợi vài phút rồi thử lại."; }
+                    reject(new Error(errMsg));
                 }
             };
 
@@ -139,7 +153,7 @@ export const ApiService = {
         if (secretKey) formData.append("secretKey", secretKey);
 
         const response = await fetch(`${CONFIG.API_BASE}/verify`, { method: "POST", body: formData });
-        return await response.json();
+        return await readJson(response);
     },
 
     // =====================================================================

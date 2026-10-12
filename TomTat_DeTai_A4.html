@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Tóm tắt chức năng &amp; cách sử dụng — Đề tài NCKH</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  @page { size:A4; margin:18mm 20mm; }
+  body { font-family:'Times New Roman',Times,serif; font-size:13pt; color:#000;
+         background:#5a5a5a; }
+  .page { width:210mm; min-height:297mm; background:#fff; margin:10px auto;
+          padding:18mm 20mm; box-shadow:0 2px 14px rgba(0,0,0,.4); }
+  .center { text-align:center; }
+  .school { font-size:12pt; }
+  h1 { font-size:15pt; margin:10px 0 4px; text-align:center; text-transform:uppercase; }
+  .sub { text-align:center; font-style:italic; font-size:12pt; margin-bottom:10px; }
+  .meta { font-size:12pt; margin-bottom:10px; line-height:1.5; }
+  hr { border:none; border-top:1px solid #000; margin:8px 0 12px; }
+  h2 { font-size:13pt; margin:12px 0 6px; text-transform:uppercase; }
+  h3 { font-size:13pt; margin:8px 0 4px; }
+  ul,ol { padding-left:26px; }
+  li { margin-bottom:4px; line-height:1.45; text-align:justify; }
+  p { line-height:1.45; text-align:justify; }
+  .no-print { position:fixed; top:6px; left:50%; transform:translateX(-50%);
+              background:#333; color:#fff; font-family:Arial; font-size:11px;
+              padding:6px 14px; border-radius:14px; }
+  @media print { body{background:#fff} .page{margin:0;box-shadow:none} .no-print{display:none} }
+</style>
+</head>
+<body>
+<div class="no-print">Ctrl+P → Lưu PDF hoặc in — Khổ A4, lề Mặc định</div>
+<div class="page">
+
+  <p class="center school">TRƯỜNG ĐẠI HỌC ĐIỆN LỰC — KHOA CÔNG NGHỆ THÔNG TIN</p>
+  <hr>
+  <h1>Tóm tắt chức năng và cách sử dụng hệ thống xác thực, chống giả mạo dữ liệu số bằng Blockchain</h1>
+  <p class="sub">(Đề tài: Tìm hiểu công nghệ Blockchain và áp dụng xây dựng hệ thống xác thực và chống giả mạo dữ liệu số)</p>
+
+  <div class="meta">
+    <b>GVHD:</b> ThS. Đỗ Đức Cường &emsp;·&emsp; <b>CNĐT:</b> Lê Hồng Linh — 22810310058<br>
+    <b>Thành viên:</b> Nguyễn Xuân Hoàng Cường · Nguyễn Cao Nguyên · Nguyễn Quang Huy — Lớp D17CNPM1<br>
+    <b>Địa chỉ hệ thống:</b> blockchain-data-integrity.onrender.com &emsp;·&emsp; <b>Hợp đồng (Sepolia):</b> 0xAf1e50C05D6Cf05f2927231dDf418EEc6CC5dF74
+  </div>
+
+  <h2>I. Chức năng của hệ thống</h2>
+  <ul>
+    <li><b>Đăng nhập bằng ví điện tử:</b> xác thực qua chữ ký số MetaMask, không dùng mật khẩu; hệ thống cấp phiên làm việc JWT có thời hạn.</li>
+    <li><b>Phê duyệt thiết bị:</b> thiết bị đăng nhập lần đầu phải xác nhận qua mã OTP gửi email trước khi được sử dụng.</li>
+    <li><b>Tải tài liệu lên hệ thống:</b> người dùng chọn file, đặt mật khẩu mã hóa và chế độ công khai/riêng tư; hệ thống băm SHA-256, mã hóa AES-256, lưu nội dung mã hóa lên IPFS và ghi dấu vết hash lên blockchain.</li>
+    <li><b>Xem và tải tài liệu về máy:</b> tài liệu được giải mã ngay trên trình duyệt khi nhập đúng mật khẩu mã hóa; hỗ trợ xem trực tiếp nhiều định dạng (PDF, DOCX, hình ảnh, văn bản).</li>
+    <li><b>Xác thực tài liệu:</b> đối chiếu hash của file cần kiểm tra với dấu vết trên blockchain; báo ba kết quả: nguyên vẹn, đã bị thu hồi (kèm lý do), hoặc giả mạo/không tồn tại — với DOCX và ảnh còn chỉ ra vùng nội dung bị sửa.</li>
+    <li><b>Xác thực công khai:</b> người ngoài không cần tài khoản vẫn kiểm tra được file công khai qua đường dẫn riêng.</li>
+    <li><b>Thu hồi tài liệu:</b> người có thẩm quyền đánh dấu tài liệu mất hiệu lực trên blockchain và cơ sở dữ liệu, kèm lý do thu hồi.</li>
+    <li><b>Phân quyền trên blockchain:</b> bốn cấp — Người xem (chỉ đọc), Nhập liệu (tải lên), Quản lý (tải lên + thu hồi, trừ tài liệu của Admin), Admin (toàn quyền, gồm phân quyền và mở tài liệu riêng tư).</li>
+    <li><b>Quản trị:</b> Admin phê duyệt ví mới, đặt tên/bí danh ví, gán vai trò, tạo và thu hồi khóa API cho đối tác.</li>
+    <li><b>Cổng đối tác (API):</b> tổ chức bên ngoài tải và xác thực tài liệu qua khóa API riêng, tách biệt giao diện web.</li>
+    <li><b>Sổ cái minh bạch:</b> mọi giao dịch tra được trên Etherscan — người ghi, thời điểm, phí, trạng thái thu hồi.</li>
+    <li><b>Thông báo:</b> hệ thống nhắc việc qua email và khay thông báo (ví chờ duyệt, thiết bị lạ, kết quả ghi chuỗi).</li>
+  </ul>
+
+  <h2>II. Cách sử dụng</h2>
+
+  <h3>1. Đăng nhập lần đầu</h3>
+  <ol>
+    <li>Mở trang web, nhấn <i>Kết nối ví</i> → chọn tài khoản trong MetaMask.</li>
+    <li>Ký chuỗi thách thức trong cửa sổ MetaMask để chứng minh quyền sở hữu ví.</li>
+    <li>Nếu là thiết bị mới: nhập mã OTP được gửi về email để phê duyệt thiết bị.</li>
+    <li>Ví chưa được cấp quyền sẽ vào khu chờ; chờ Admin phê duyệt và gán vai trò.</li>
+  </ol>
+
+  <h3>2. Tải tài liệu lên</h3>
+  <ol>
+    <li>Vào mục <i>Tải lên</i>, kéo thả hoặc chọn file cần niêm phong.</li>
+    <li>Nhập mật khẩu mã hóa (dùng để giải mã khi xem/tải sau này) và chọn chế độ công khai hoặc riêng tư.</li>
+    <li>Xác nhận trong MetaMask để ký giao dịch ghi hash lên blockchain (phí gas trên mạng Sepolia).</li>
+    <li>Chờ thông báo ghi thành công; tài liệu xuất hiện trong danh sách kèm mã giao dịch và liên kết Etherscan.</li>
+  </ol>
+
+  <h3>3. Xem và tải tài liệu</h3>
+  <ol>
+    <li>Vào danh sách tài liệu, chọn file cần xem.</li>
+    <li>Nhập mật khẩu mã hóa → hệ thống tải ciphertext từ IPFS và giải mã ngay trên trình duyệt.</li>
+    <li>Xem trực tiếp hoặc tải về máy bản đã giải mã.</li>
+  </ol>
+
+  <h3>4. Xác thực một tài liệu</h3>
+  <ol>
+    <li>Vào mục <i>Xác thực</i> (hoặc trang công khai nếu không có tài khoản), kéo file cần kiểm vào.</li>
+    <li>Hệ thống tự băm file và đối chiếu blockchain, sau đó báo: <i>Nguyên vẹn</i>, <i>Đã thu hồi</i>, hay <i>Không khớp — giả mạo</i>.</li>
+    <li>Với file giả mạo định dạng DOCX/ảnh, xem bản đồ nhiệt chỉ ra vùng nội dung bị sửa.</li>
+  </ol>
+
+  <h3>5. Thu hồi tài liệu (Quản lý trở lên)</h3>
+  <ol>
+    <li>Chọn tài liệu trong danh sách, nhấn <i>Thu hồi</i>, nhập lý do.</li>
+    <li>Ký giao dịch thu hồi trong MetaMask.</li>
+    <li>Từ thời điểm đó, mọi lượt xác thực file này đều báo <i>Đã thu hồi</i> kèm lý do.</li>
+  </ol>
+
+  <h3>6. Quản trị (Admin)</h3>
+  <ul>
+    <li>Duyệt ví mới trong khay chờ, gán vai trò Người xem/Nhập liệu/Quản lý/Admin — vai trò ghi trực tiếp lên blockchain.</li>
+    <li>Tạo, đặt tên, thu hồi khóa API cho đối tác trong mục quản lý.</li>
+    <li>Theo dõi sổ cái giao dịch và thông báo hệ thống.</li>
+  </ul>
+
+  <h3>7. Đối tác tích hợp qua API</h3>
+  <ul>
+    <li>Gửi yêu cầu kèm khóa API trong phần đầu <i>X-API-Key</i> để tải tài liệu và tra cứu dấu vết, không cần ví MetaMask.</li>
+  </ul>
+
+  <p style="margin-top:14px"><i>Ghi chú: hệ thống chạy trên mạng thử nghiệm Sepolia — ETH trong ví chỉ là ETH test, không có giá trị tiền thật.</i></p>
+
+</div>
+</body>
+</html>

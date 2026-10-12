@@ -1,0 +1,15 @@
+Luu 6 anh chup man hinh vao thu muc nay voi dung ten file (PNG):
+
+hinh-3-1-upload.png       -> Man hinh tab Upload: vung keo-tha file + dialog nhap mat khau AES/chon Cong khai-Rieng tu
+hinh-3-2-metamask.png     -> Popup MetaMask dang yeu cau ky giao dich addDocuments (chup khi popup hien)
+hinh-3-3-ledger.png       -> Tab Truy xuat: bang so cai co cot phi ETH va link Etherscan
+hinh-3-4-verify-ok.png    -> Ket qua verify tai lieu NGUYEN VEN (chu xanh)
+hinh-3-5-verify-fail.png  -> Ket qua verify PHAT HIEN GIA MAO (chu do) + ban do nhiet/diff neu co
+hinh-3-6-pending.png      -> Khay "Vi cho duyet" cua admin (icon nguoi dung + badge do) hoac thong bao phe duyet thiet bi
+
+Cach chup nhanh: mo app (localhost:3000 hoac trang Render), Win+Shift+S,
+luu vao thu muc nay. Chi can dung ten file la bao cao tu hien anh.
+
+Luu y: khi nop file BaoCao_DeTai.html cho ai, phai kem ca thu muc
+_screenshots nay — neu khong anh se bi vo. Muon file doc lap 1 khoi,
+bao Devin nhet anh dang base64 vao HTML luon.

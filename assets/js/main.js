@@ -764,12 +764,6 @@ function waitForDeviceApproval(account) {
 
         let pollTimer = setInterval(async () => {
             const st = await ApiService.checkPendingStatus(account, deviceId);
-            const hint = document.getElementById('pending-active-hint');
-            if (hint) {
-                hint.innerHTML = st.activeDevices.length
-                    ? `Ví đang có phiên hoạt động trên: <b>${st.activeDevices.map(d => esc(d.label)).join(', ')}</b> — hãy mở máy đó và duyệt.`
-                    : `Không còn thiết bị nào khác đang hoạt động — có thể dùng <b>Cách 2 (OTP email)</b>.`;
-            }
             if (st.status === 'active') finish(true);
             else if (st.status === 'revoked' || st.status === 'unknown') {
                 finish(false);
@@ -788,7 +782,7 @@ function waitForDeviceApproval(account) {
                     </div>
                     <div class="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
                         <div class="font-bold text-blue-400 text-xs mb-1">CÁCH 2 — Mã OTP về email chủ ví</div>
-                        <p class="text-xs text-gray-400 mb-2">Gửi mã 6 số về email đã đăng ký. <b>Chỉ dùng khi không còn thiết bị nào hoạt động</b> — nếu ví còn máy online, server sẽ từ chối và bắt dùng Cách 1.</p>
+                        <p class="text-xs text-gray-400 mb-2">Gửi mã 6 số về email đã đăng ký — <b>dùng được mọi lúc</b>, không cần thiết bị cũ. Chọn cách nào tiện.</p>
                         <button id="btn-send-otp" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded transition">Gửi mã OTP về email</button>
                         <div id="otp-input-box" class="hidden mt-2 flex gap-2">
                             <input id="otp-code" maxlength="6" placeholder="••••••" class="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-center text-white tracking-[0.4em] font-mono text-sm outline-none focus:border-blue-500">
@@ -796,7 +790,7 @@ function waitForDeviceApproval(account) {
                         </div>
                         <div id="otp-msg" class="text-[11px] mt-2 hidden"></div>
                     </div>
-                    <p id="pending-active-hint" class="text-[11px] text-amber-300/90 text-center"></p>
+                    <p id="pending-active-hint" class="hidden"></p>
                     <p class="text-[11px] text-gray-500 text-center"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang chờ phê duyệt...</p>
                 </div>`,
             background: '#111827', color: '#fff', width: 480,

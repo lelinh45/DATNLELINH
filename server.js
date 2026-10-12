@@ -941,7 +941,7 @@ app.post('/api/sessions/approve', requireAuth, async (req, res) => {
         }
         const r = await DeviceSession.findOneAndUpdate(
             { address: req.user.address, deviceId, status: 'pending' },
-            { $set: { status: 'active', lastSeen: Date.now() } },
+            { $set: { status: 'active', revoked: false, lastSeen: Date.now() } },
             { returnDocument: 'after' }
         );
         if (!r) return res.status(404).json({ success: false, message: 'Không tìm thấy phiên chờ duyệt' });
