@@ -18,7 +18,9 @@ const deviceSessionSchema = new mongoose.Schema({
     // OTP email cho thiết bị pending — lưu hash, không lưu mã thật
     otpHash: { type: String, default: '' },
     otpExpires: { type: Number, default: 0 },
-    otpAttempts: { type: Number, default: 0 }
+    otpAttempts: { type: Number, default: 0 },
+    // SMTP gửi mã thất bại → đường email "chết" — mở điều kiện đường thoát chờ 24h
+    otpFailed: { type: Boolean, default: false }
 });
 
 deviceSessionSchema.index({ address: 1, deviceId: 1 }, { unique: true });

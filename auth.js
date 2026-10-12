@@ -44,6 +44,11 @@ const SESSION_FRESH_MS = 24 * 60 * 60 * 1000;
 const OTP_RESEND_MS = 60 * 1000;    // tối thiểu 60s giữa 2 lần gửi
 const OTP_MAX_ATTEMPTS = 5;
 
+// Đường thoát cuối cùng: thiết bị pending quá 24h + ví không còn thiết bị nào
+// active + đường email chết (không email / SMTP lỗi) → tự duyệt.
+// Chậm nhưng không khóa ví vĩnh viễn; 24h vẫn đủ để chủ phát hiện & từ chối nếu còn máy.
+const PENDING_FALLBACK_MS = 24 * 60 * 60 * 1000;
+
 export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlMs = CHALLENGE_TTL_MS, challengeStore, sessionModel, notificationModel, mailer }) {
     // roleProvider: async (addressLowercase) => 0..3 — thường là contract.userRoles(address)
     const router = express.Router();
@@ -259,7 +264,7 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
             if (!/^0x[a-f0-9]{40}$/.test(address) || !/^[a-z0-9_-]{8,64}$/i.test(deviceId) || !sessionModel) {
                 return res.status(400).json({ success: false, message: 'Thiếu tham số hợp lệ' });
             }
-            const s = await sessionModel.findOne({ address, deviceId }).lean();
+            const s = await sessionModel.findOne({ address, deviceId });
             if (!s) return res.json({ success: true, status: 'unknown' });
             // Kèm danh sách thiết bị đang hoạt động (fresh) để màn chờ chỉ rõ
             // cho user biết phải mở máy nào để duyệt
@@ -271,11 +276,26 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
             // Báo trước cho UI: OTP chỉ dùng được khi ví CÓ email và SMTP sống —
             // tránh nút "Gửi OTP" trông bấm được nhưng thực tế vô dụng
             const w = walletModel ? await walletModel.findOne({ address }).select('email').lean() : null;
+            const emailUsable = !!(mailer && mailer.sendOtp && w && w.email && !s.otpFailed);
+            // Đường thoát 24h: chờ quá hạn + không còn máy nào + đường email chết → tự duyệt
+            if (s.status === 'pending' && !s.revoked && actives.length === 0 && !emailUsable
+                && (Date.now() - (s.lastSeen || s.createdAt || 0)) >= PENDING_FALLBACK_MS) {
+                s.status = 'active'; s.revoked = false; s.lastSeen = Date.now();
+                await s.save();
+                try {
+                    if (notificationModel) await notificationModel.create({
+                        address, type: 'device_approved',
+                        title: 'Thiết bị được tự động phê duyệt sau 24h chờ',
+                        message: `Thiết bị "${s.deviceLabel}" tự động được phê duyệt sau 24h chờ (ví không còn thiết bị/email nào khả dụng). Nếu không phải bạn, hãy thu hồi ngay.`,
+                        meta: { deviceId, deviceLabel: s.deviceLabel }
+                    });
+                } catch (e) {}
+            }
             res.json({
                 success: true,
                 status: s.revoked === true ? 'revoked' : (s.status || 'active'),
                 activeDevices: actives.map(a => ({ label: a.deviceLabel || 'Thiết bị không rõ' })),
-                otpAvailable: !!(mailer && mailer.sendOtp && w && w.email)
+                otpAvailable: emailUsable
             });
         } catch (e) {
             res.status(500).json({ success: false, message: 'Lỗi kiểm tra trạng thái' });
@@ -312,8 +332,15 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
             sess.otpHash = await hashOtp(code);
             sess.otpExpires = Date.now() + OTP_TTL_MS;
             sess.otpAttempts = 0;
+            try {
+                await mailer.sendOtp(w.email, code, sess.deviceLabel);
+            } catch (mailErr) {
+                // SMTP chết → đánh dấu đường email hỏng để đường thoát 24h có thể mở
+                sess.otpFailed = true;
+                await sess.save();
+                throw mailErr;
+            }
             await sess.save();
-            await mailer.sendOtp(w.email, code, sess.deviceLabel);
             res.json({ success: true, maskedEmail: w.email.replace(/^(.{2}).+(@.+)$/, '$1***$2') });
         } catch (e) {
             console.warn('[AUTH] Lỗi gửi OTP:', e.message);

@@ -775,7 +775,7 @@ function waitForDeviceApproval(account) {
                 if (box) {
                     box.classList.remove('hidden');
                     box.className = 'text-[11px] mt-2 text-amber-400';
-                    box.textContent = 'Ví chưa đăng ký email (hoặc server chưa cấu hình gửi mail) — chỉ duyệt được theo Cách 1.';
+                    box.textContent = 'Ví chưa đăng ký email (hoặc server chưa cấu hình gửi mail) — duyệt theo Cách 1, hoặc giữ trang này chờ: thiết bị tự được duyệt sau 24 giờ.';
                 }
             }
             if (st.status === 'active') finish(true);
