@@ -275,7 +275,7 @@ s = slide(); header(s, '04', 'CÁC CHỨC NĂNG NỔI BẬT'); footer(s, 11)
 bullets(s, Emu(700000), Emu(1350000), Emu(5300000), Emu(5000000), [
     ('Phân quyền RBAC trên chuỗi', 'Ba cấp quyền kế thừa lũy tiến NHẬP LIỆU (rank 1) → QUẢN LÝ (rank 2) → ADMIN (rank 3) được lưu và kiểm tra trực tiếp trên contract; vai trò NGƯỜI XEM chỉ đọc bổ sung ở tầng backend. Mọi quyền ghi do chính contract chặn — sửa database cũng không leo thang được quyền.'),
     ('Đăng nhập bằng chữ ký ví', 'Không dùng mật khẩu: server gửi một thử thách ngẫu nhiên, ví ký bằng khóa riêng, hệ thống xác minh và cấp phiên JWT — loại bỏ hoàn toàn nguy cơ rò rỉ mật khẩu.'),
-    ('Phê duyệt thiết bị lạ', 'Mỗi thiết bị đăng nhập mới phải được một thiết bị đang hoạt động phê duyệt, hoặc xác nhận qua mã OTP gửi email — ngăn đăng nhập trái phép kể cả khi lộ khóa.'),
+    ('Phê duyệt thiết bị lạ', 'Thiết bị mới phải được một thiết bị đang hoạt động duyệt, hoặc OTP về email khi không còn máy nào online — mỗi phiên ghi nhãn trình duyệt kèm phiên bản, IP và User-Agent để chủ ví nhận diện máy lạ. Khi mất hết neo tin cậy, cơ chế chờ 24 giờ giữ cho ví không bị khóa vĩnh viễn.'),
 ], 14, 8)
 bullets(s, Emu(6400000), Emu(1350000), Emu(5100000), Emu(5000000), [
     ('Chia sẻ Công khai / Riêng tư', 'Tài liệu công khai: mọi ví đã đăng nhập được server cấp lại khóa và xem trực tiếp. Tài liệu riêng tư: chỉ chủ sở hữu và Admin được cấp khóa, người khác chỉ thấy metadata.'),
@@ -311,7 +311,7 @@ bullets(s, Emu(700000), Emu(3400000), Emu(10800000), Emu(2900000), [
     ('Kiến trúc chống mất dữ liệu',
      'Metadata lưu MongoDB qua endpoint ghi lũy đẳng kèm hàng đợi tự phục hồi phía client; cache sự kiện on-chain chỉ tiến con trỏ trên đoạn quét liền kề nên bản ghi không bao giờ bị bỏ sót.'),
     ('Bảo mật nhiều lớp phối hợp',
-     'Chữ ký ví thay mật khẩu, phiên JWT có thời hạn, phê duyệt thiết bị bằng OTP, phân quyền ngay trong contract, mã hóa AES-256 phía client và bọc khóa bằng khóa chủ phía server.'),
+     'Chữ ký ví thay mật khẩu, phiên JWT có thời hạn, duyệt thiết bị từ máy cũ kèm nhận diện IP–trình duyệt, OTP email làm đường cứu, phân quyền ngay trong contract, mã hóa AES-256 phía client và bọc khóa bằng khóa chủ phía server.'),
 ], 14, 8)
 
 # ============ S13 — DEMO ============
