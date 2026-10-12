@@ -360,6 +360,7 @@ window.setWalletAlias = async function(address, currentAlias) {
     const { value: newAlias } = await Swal.fire({
         title: 'ĐẶT TÊN NHÂN VIÊN',
         input: 'text',
+        inputAttributes: { autocomplete: 'off' },
         inputValue: currentAlias && currentAlias !== 'null' ? currentAlias : '',
         inputPlaceholder: 'VD: User 1, Kế toán trưởng, Nguyễn Văn A...',
         showCancelButton: true,
@@ -1533,6 +1534,7 @@ async function handleVerify() {
                 title: 'GIẢI MÃ ĐỂ ĐỐI CHIẾU', 
                 text: 'Nếu tài liệu gốc trên hệ thống được bảo mật bằng AES-256, vui lòng nhập khóa bí mật:',
                 input: 'password', inputPlaceholder: 'Nhập khóa bí mật...', 
+                inputAttributes: { autocomplete: 'new-password' },
                 background: '#111827', color: '#fff',
                 confirmButtonColor: '#2563eb', showCancelButton: true, cancelButtonText: 'Hủy đối chiếu'
             });
@@ -1683,7 +1685,8 @@ window.revokeDoc = async (docId) => {
 
     const { value: reason } = await Swal.fire({
         title: 'THU HỒI TÀI LIỆU', text: `Bạn đang vô hiệu hóa tài liệu ID: ${esc(docId)}`, 
-        input: 'text', inputPlaceholder: 'Nhập lý do thu hồi (Bắt buộc)...',
+        input: 'text', inputAttributes: { autocomplete: 'off' },
+        inputPlaceholder: 'Nhập lý do thu hồi (Bắt buộc)...',
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Xác nhận Thu hồi', cancelButtonText: 'Hủy', 
         background: '#111827', color: '#fff', confirmButtonColor: '#dc2626',
         inputValidator: (value) => { if (!value) return 'Vui lòng nhập lý do thu hồi!'; }
@@ -1695,19 +1698,23 @@ window.revokeDoc = async (docId) => {
             // 2. GHI THU HỒI LÊN BLOCKCHAIN TRƯỚC — chain là nguồn sự thật cho verify.
             // Ghi chain trước để nếu MetaMask từ chối thì MongoDB cũng không bị ghi nhầm.
             UI.updateProgress(40, "Đang gửi lệnh thu hồi lên Blockchain (duyệt trên MetaMask)...", "REVOKING");
+            let onChainDone = false;
             try {
                 await web3.revokeDocument(docId, reason);
+                onChainDone = true;
             } catch (chainErr) {
                 const m = String((chainErr && (chainErr.info?.error?.message || chainErr.message)) || chainErr);
-                // Doc không có trên chain (bản ghi off-chain cũ) hoặc đã thu hồi sẵn
-                // → vẫn cho phép đồng bộ cờ thu hồi trong MongoDB.
+                // Doc không có trên chain (bản ghi off-chain cũ / merkle-batch contract cũ)
+                // hoặc đã thu hồi sẵn → vẫn cho phép đồng bộ cờ thu hồi trong MongoDB.
                 // Lỗi quyền ("khong co quyen") KHÔNG được nuốt → throw để chặn cả 2 nguồn.
                 if (!/khong ton tai|da bi thu hoi/i.test(m)) throw chainErr;
             }
 
             // 3. ĐỒNG BỘ MONGODB — lịch sử, audit, hoàn trả dung lượng (server tự trừ)
             if (isBatchFile) {
-                UI.updateProgress(75, "Đã ghi on-chain! Đang đồng bộ trạng thái vào Database...", "SYNCING");
+                UI.updateProgress(75, onChainDone
+                    ? "Đã ghi on-chain! Đang đồng bộ trạng thái vào Database..."
+                    : "Không có bản ghi trên contract hiện tại — đồng bộ cờ thu hồi vào Database...", "SYNCING");
                 // JWT đi kèm header — server tự lấy revokedBy từ token, không tin body
                 await ApiService.revokeBatchFile(docId, reason);
                 await new Promise(resolve => setTimeout(resolve, 800));
@@ -1722,7 +1729,12 @@ window.revokeDoc = async (docId) => {
 
             UI.updateProgress(100, "Thu hồi hoàn tất!", "SUCCESS");
             
-            Swal.fire({ title: 'Thành công', text: 'Tài liệu đã bị thu hồi và hoàn trả dung lượng.', icon: 'success', background: '#111827', color: '#fff' });
+            Swal.fire({
+                title: 'Thành công', icon: 'success', background: '#111827', color: '#fff',
+                text: onChainDone
+                    ? 'Tài liệu đã bị thu hồi trên Blockchain và hoàn trả dung lượng.'
+                    : 'Tài liệu này không có bản ghi trên contract hiện tại — đã ghi cờ thu hồi trong Database (off-chain).'
+            });
             
             loadTransactionHistory();
             loadRevokedHistory();
@@ -2040,7 +2052,8 @@ async function generateNewApiKey() {
     const { value: appName } = await Swal.fire({
         title: 'Tạo API Key mới',
         text: 'Nhập tên hệ thống/đối tác cần cấp API Key:',
-        input: 'text', inputPlaceholder: 'VD: Trường cấp 3 ABC, Bệnh viện XYZ...',
+        input: 'text', inputAttributes: { autocomplete: 'off' },
+        inputPlaceholder: 'VD: Trường cấp 3 ABC, Bệnh viện XYZ...',
         background: '#111827', color: '#fff',
         confirmButtonColor: '#2563eb', showCancelButton: true, cancelButtonText: 'Hủy'
     });
@@ -2882,6 +2895,7 @@ window.sendBulkNotification = async function() {
         title: 'GỬI THÔNG BÁO ĐIỀU HÀNH',
         html: `Soạn tin nhắn gửi tới <b>${esc(count)} nhân viên</b> đã chọn:`,
         input: 'textarea',
+        inputAttributes: { autocomplete: 'off' },
         inputPlaceholder: 'Nhập nội dung thông báo (VD: Yêu cầu cập nhật chứng từ tháng này)...',
         showCancelButton: true,
         confirmButtonText: '<i class="fa-solid fa-paper-plane mr-1"></i> Gửi thông báo',
@@ -3044,6 +3058,7 @@ async function resolveDocKey(docId, originalFileName) {
         title: 'GIẢI MÃ TÀI LIỆU',
         text: `Tài liệu "${esc(originalFileName)}" đang được mã hóa. Vui lòng nhập khóa bí mật (AES-256):`,
         input: 'password',
+        inputAttributes: { autocomplete: 'new-password' },
         inputPlaceholder: 'Nhập mật khẩu...',
         background: '#111827', color: '#fff',
         confirmButtonColor: '#10b981', showCancelButton: true, cancelButtonText: 'Hủy'
