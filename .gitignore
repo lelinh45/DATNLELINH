@@ -33,3 +33,4 @@
 # Runtime
 server.log
 nul
+_backup_*.json
