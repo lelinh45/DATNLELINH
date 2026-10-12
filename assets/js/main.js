@@ -305,9 +305,21 @@ function initPendingWalletsUI() {
 // ĐỒNG BỘ TIẾN TRÌNH VỚI CỬA SỔ TERMINAL (HỘP ĐEN)
 // =====================================================================
 const originalUpdateProgress = UI.updateProgress;
+let progressIdleTimer = null;
+const PROGRESS_TERMINAL = ['SUCCESS', 'VERIFIED', 'FAILED', 'ERROR', 'REVOKED', 'NOT FOUND'];
 UI.updateProgress = function(percent, message, status) {
     if (originalUpdateProgress) {
         originalUpdateProgress.call(UI, percent, message, status);
+    }
+
+    // Trạng thái kết thúc (100% hoặc lỗi/dừng) → tự trả về "đang rảnh" sau 4s,
+    // trừ khi một tiến trình mới đã bắt đầu trước đó (timer bị hủy ở mọi lần gọi).
+    if (progressIdleTimer) { clearTimeout(progressIdleTimer); progressIdleTimer = null; }
+    if (status !== 'STANDBY' && (percent === 100 || PROGRESS_TERMINAL.includes(status))) {
+        progressIdleTimer = setTimeout(() => {
+            progressIdleTimer = null;
+            originalUpdateProgress.call(UI, 0, "Hệ thống đang rảnh", "STANDBY");
+        }, 4000);
     }
 
     const consoleBox = document.getElementById('consoleBox');
