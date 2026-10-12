@@ -56,7 +56,12 @@ function getDeviceLabel() {
     let browser = 'Browser';
     let ver = '';
     let m;
-    if ((m = ua.match(/Edg\/(\d+)/i))) browser = 'Edge';
+    // Thứ tự quan trọng: các trình duyệt Chromium (Cốc Cốc, Brave, Edge, Opera)
+    // đều có chuỗi "Chrome/x" trong UA — phải soi token riêng TRƯỚC Chrome
+    if (/coc_coc/i.test(ua)) { browser = 'Cốc Cốc'; m = ua.match(/coc_coc_browser\/(\d+)/i); }
+    else if (/brave/i.test(ua)) { browser = 'Brave'; m = ua.match(/Chrome\/(\d+)/i); }
+    else if ((m = ua.match(/OPR\/(\d+)/i))) browser = 'Opera';
+    else if ((m = ua.match(/Edg\/(\d+)/i))) browser = 'Edge';
     else if ((m = ua.match(/Chrome\/(\d+)/i))) browser = 'Chrome';
     else if ((m = ua.match(/Firefox\/(\d+)/i))) browser = 'Firefox';
     else if ((m = ua.match(/Version\/(\d+).*Safari/i))) browser = 'Safari';
