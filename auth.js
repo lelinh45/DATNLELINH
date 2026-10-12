@@ -268,10 +268,14 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
                 status: { $nin: ['pending', 'revoked'] }, revoked: { $ne: true },
                 lastSeen: { $gte: Date.now() - SESSION_FRESH_MS }
             }).select('deviceLabel').lean();
+            // Báo trước cho UI: OTP chỉ dùng được khi ví CÓ email và SMTP sống —
+            // tránh nút "Gửi OTP" trông bấm được nhưng thực tế vô dụng
+            const w = walletModel ? await walletModel.findOne({ address }).select('email').lean() : null;
             res.json({
                 success: true,
                 status: s.revoked === true ? 'revoked' : (s.status || 'active'),
-                activeDevices: actives.map(a => ({ label: a.deviceLabel || 'Thiết bị không rõ' }))
+                activeDevices: actives.map(a => ({ label: a.deviceLabel || 'Thiết bị không rõ' })),
+                otpAvailable: !!(mailer && mailer.sendOtp && w && w.email)
             });
         } catch (e) {
             res.status(500).json({ success: false, message: 'Lỗi kiểm tra trạng thái' });

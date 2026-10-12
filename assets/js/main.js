@@ -764,6 +764,20 @@ function waitForDeviceApproval(account) {
 
         let pollTimer = setInterval(async () => {
             const st = await ApiService.checkPendingStatus(account, deviceId);
+            // OTP không khả dụng (ví chưa có email / SMTP chết) → khoá khu vực Cách 2, nói rõ lý do
+            if (!st.otpAvailable) {
+                const btn = document.getElementById('btn-send-otp');
+                const box = document.getElementById('otp-msg');
+                if (btn && !btn.disabled) {
+                    btn.disabled = true;
+                    btn.classList.add('opacity-40', 'cursor-not-allowed');
+                }
+                if (box) {
+                    box.classList.remove('hidden');
+                    box.className = 'text-[11px] mt-2 text-amber-400';
+                    box.textContent = 'Ví chưa đăng ký email (hoặc server chưa cấu hình gửi mail) — chỉ duyệt được theo Cách 1.';
+                }
+            }
             if (st.status === 'active') finish(true);
             else if (st.status === 'revoked' || st.status === 'unknown') {
                 finish(false);
