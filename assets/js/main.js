@@ -1132,6 +1132,7 @@ async function handleUpload() {
             if (existingDocId && existingDocId !== "") {
                 const docData = await contract.getDocument(existingDocId);
                 const isRevoked = docData[4];
+                fileData.knownDup = true; // đã xử lý qua bảng xung đột — không hỏi lại ở bước kiểm tra sau
                 if (isRevoked) window.uploadQueue.revokedFiles.push(fileData);
                 else window.uploadQueue.activeFiles.push(fileData);
             } else {
@@ -1338,7 +1339,9 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
                 const h = norm(ev.args[1]);
                 if (h) onChain[h] = ev.args[0];
             }
-            const dups = fileDataArray.filter(f => onChain[norm(f.hash)]);
+            // Bỏ qua file đã được người dùng duyệt qua bảng xung đột ở bước quét —
+            // chỉ cảnh báo file "mới" bất ngờ xuất hiện trên chain sau đó (race).
+            const dups = fileDataArray.filter(f => onChain[norm(f.hash)] && !f.knownDup);
             if (dups.length) {
                 const list = dups.map(f => `• ${esc(f.fileObj.name)} <span class="text-gray-500">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 40))}…)</span>`).join('<br>');
                 const dupHtml = `${dups.length} tệp có nội dung đã được đóng dấu trên blockchain:<br><br>${list}<br><br>Vẫn tạo bản ghi mới cho các tệp này?`;
