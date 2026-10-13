@@ -1289,18 +1289,19 @@ async function promptPasswordAndUpload() {
         if (dups.length) {
             const shortA = a => a ? `${a.slice(0, 8)}…${a.slice(-4)}` : '—';
             const list = (await Promise.all(dups.map(async f => {
+                const nameHtml = `<span style="display:block;max-width:22rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600" title="${esc(f.fileObj.name)}">• ${esc(f.fileObj.name)}</span>`;
                 try {
                     const d = await web3.contract.getDocument(onChain[norm(f.hash)]);
-                    return `• ${esc(f.fileObj.name)} <span class="text-gray-500">— ví ${esc(shortA(String(d[3])))} đóng dấu ${esc(window.formatTimeForce(Number(d[2]) * 1000))}</span>`;
+                    return `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">— ví ${esc(shortA(String(d[3])))} đóng dấu ${esc(window.formatTimeForce(Number(d[2]) * 1000))}</span></div>`;
                 } catch {
-                    return `• ${esc(f.fileObj.name)} <span class="text-gray-500">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 30))}…)</span>`;
+                    return `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 30))}…)</span></div>`;
                 }
-            }))).join('<br>');
-            const dupHtml = `${dups.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br>${list}<br><br>Vẫn tạo bản ghi mới cho các tệp này?`;
+            }))).join('');
+            const dupHtml = `<div style="max-width:22rem;margin:0 auto;text-align:left">${dups.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br>${list}<br>Vẫn tạo bản ghi mới cho các tệp này?</div>`;
             const res = await Swal.fire({
                 title: 'Phát hiện tài liệu trùng nội dung',
                 html: dupHtml,
-                icon: 'warning', showCancelButton: true,
+                icon: 'warning', showCancelButton: true, width: '28rem',
                 confirmButtonText: 'Vẫn upload', cancelButtonText: 'Hủy',
                 background: '#111827', color: '#fff'
             });
