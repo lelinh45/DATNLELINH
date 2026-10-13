@@ -290,7 +290,7 @@ stats = [
     ('2', 'Smart Contract\nđã triển khai trên Sepolia'),
     ('117', 'Test tự động\n79 unit + 38 e2e đều đạt'),
     ('24/7', 'Vận hành thực tế\nRender · Atlas · Pinata'),
-    ('4', 'Vai trò RBAC\nthực thi trong contract'),
+    ('3+1', 'Vai trò RBAC\n3 trong contract + 1 chỉ-đọc ở server'),
 ]
 for i, (n, t) in enumerate(stats):
     x = Emu(800000 + i * 2700000)
