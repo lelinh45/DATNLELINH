@@ -285,35 +285,34 @@ bullets(s, Emu(6400000), Emu(1350000), Emu(5100000), Emu(5000000), [
 ], 14, 8)
 
 # ============ S12 — 05 KẾT QUẢ ============
-s = slide(); header(s, '05', 'KẾT QUẢ NGHIÊN CỨU'); footer(s, 12)
-stats = [
-    ('2', 'Smart Contract\nđã triển khai trên Sepolia'),
-    ('117', 'Test tự động\n79 unit + 38 e2e đều đạt'),
-    ('24/7', 'Vận hành thực tế\nRender · Atlas · Pinata'),
-    ('3+1', 'Vai trò RBAC\n3 trong contract + 1 chỉ-đọc ở server'),
+s = slide(); header(s, '05', 'KẾT QUẢ NGHIÊN CỨU — ĐÓNG GÓP NỔI BẬT'); footer(s, 12)
+contrib = [
+    ('01', 'Hệ thống hoàn chỉnh trên môi trường thật',
+     'Toàn bộ vòng đời tài liệu — đóng dấu, kiểm chứng, thu hồi — vận hành 24/7 trên Sepolia + IPFS; mọi giao dịch tra công khai trên Etherscan.'),
+    ('02', 'Kiến trúc hash on-chain, nội dung off-chain',
+     'SHA-256 và quyền RBAC trong Smart Contract; nội dung AES-256 trên IPFS; khóa ủy thác bọc AES-256-GCM — tách rõ phần công khai và phần bảo mật.'),
+    ('03', 'Xác thực không mật khẩu',
+     'Đăng nhập bằng chữ ký ví MetaMask, phiên JWT theo thiết bị, duyệt máy lạ và OTP email — loại bỏ hoàn toàn rủi ro rò rỉ mật khẩu truyền thống.'),
+    ('04', 'Nghiệp vụ đầy đủ, kiểm chứng bằng test tự động',
+     'Upload lô một lần ký MetaMask, kiểm soát trùng nội dung hai lớp, khóa và chế độ chia sẻ riêng từng file, xem trước DOCX/PDF, API cho đối tác — bao phủ 117 ca test.'),
 ]
-for i, (n, t) in enumerate(stats):
-    x = Emu(800000 + i * 2700000)
-    box = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, Emu(1500000), Emu(2400000), Emu(1500000))
+for i, (n, t, body) in enumerate(contrib):
+    col, row = i % 2, i // 2
+    x = Emu(700000 + col * 5500000)
+    y = Emu(1450000 + row * 2450000)
+    box = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, Emu(5300000), Emu(2250000))
     box.fill.solid(); box.fill.fore_color.rgb = NAVY2
     box.line.color.rgb = CYAN; box.line.width = Pt(1.25); box.shadow.inherit = False
-    tf = box.text_frame; tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-    p = tf.paragraphs[0]; p.alignment = PP_ALIGN.CENTER
-    r = p.add_run(); r.text = n
-    r.font.name = FONT; r.font.size = Pt(40); r.font.bold = True; r.font.color.rgb = ORANGE
-    p2 = tf.add_paragraph(); p2.alignment = PP_ALIGN.CENTER
-    r2 = p2.add_run(); r2.text = t
+    tf = box.text_frame; tf.word_wrap = True
+    tf.margin_left = Emu(220000); tf.margin_right = Emu(220000); tf.margin_top = Emu(160000)
+    p = tf.paragraphs[0]
+    r = p.add_run(); r.text = n + '  '
+    r.font.name = FONT; r.font.size = Pt(16); r.font.bold = True; r.font.color.rgb = ORANGE
+    r = p.add_run(); r.text = t
+    r.font.name = FONT; r.font.size = Pt(15); r.font.bold = True; r.font.color.rgb = WHITE
+    p2 = tf.add_paragraph(); p2.space_before = Pt(8); p2.line_spacing = 1.2
+    r2 = p2.add_run(); r2.text = body
     r2.font.name = FONT; r2.font.size = Pt(12); r2.font.color.rgb = LIGHT
-bullets(s, Emu(700000), Emu(3400000), Emu(10800000), Emu(2900000), [
-    ('Hệ thống chạy trên môi trường thật',
-     'Contract 0xAf1e…dF74 đang hoạt động trên Sepolia; giao diện triển khai tại blockchain-data-integrity.onrender.com. Toàn bộ luồng tải lên — đóng dấu — kiểm chứng — thu hồi đều thao tác trực tiếp được.'),
-    ('Phát hiện giả mạo ở mức bit',
-     'Mọi chỉnh sửa dù nhỏ nhất đều bị phát hiện: verify so sánh SHA-256 của file nộp với bản ghi on-chain — đổi một ký tự là đổi toàn bộ dấu vân tay. Tài liệu đã thu hồi được cảnh báo riêng kèm lý do thay vì chỉ báo đúng/sai.'),
-    ('Kiến trúc chống mất dữ liệu',
-     'Metadata lưu MongoDB qua endpoint ghi lũy đẳng kèm hàng đợi tự phục hồi phía client; cache sự kiện on-chain chỉ tiến con trỏ trên đoạn quét liền kề nên bản ghi không bao giờ bị bỏ sót.'),
-    ('Bảo mật nhiều lớp phối hợp',
-     'Chữ ký ví thay mật khẩu, phiên JWT có thời hạn, duyệt thiết bị từ máy cũ kèm nhận diện IP–trình duyệt, OTP email làm đường cứu, phân quyền ngay trong contract, mã hóa AES-256 phía client và bọc khóa bằng khóa chủ phía server.'),
-], 14, 8)
 
 # ============ S13 — DEMO ============
 s = slide(); header(s, '05', 'KỊCH BẢN TRÌNH DIỄN'); footer(s, 13)
