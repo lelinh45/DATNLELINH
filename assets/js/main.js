@@ -1111,6 +1111,17 @@ async function handleUpload() {
     try {
         if (!contract) throw new Error("Chưa kết nối ví");
 
+        // Bản đồ DocumentAdded events — bổ sung cho hashToDocId vì contract
+        // XÓA mapping khi revoke; nhờ vậy tài liệu đã thu hồi vẫn vào bảng đỏ.
+        const normHash = h => String(h || '').replace(/^0x/i, '').toLowerCase();
+        const addedMap = {};
+        try {
+            for (const ev of (await web3.queryHistory() || [])) {
+                const h = normHash(ev.args[1]);
+                if (h && !addedMap[h]) addedMap[h] = ev.args[0];
+            }
+        } catch (e) { console.warn('Không đọc được event lịch sử:', e); }
+
         // Quét từng file để phân loại
         const seenHashes = new Set();   // chống trùng hash trong cùng một lô (contract revert cả lô nếu trùng)
         const skippedDupes = [];
@@ -1125,18 +1136,24 @@ async function handleUpload() {
             seenHashes.add(currentHash);
 
             const existingDocId = await contract.getDocIdByHash(currentHash);
-            
-            let fSize = file.size >= 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + ' MB' : (file.size / 1024).toFixed(2) + ' KB';
-            const fileData = { fileObj: file, hash: currentHash, name: file.name, size: fSize, oldId: existingDocId };
+            // mapping trống nhưng event còn → nội dung từng được ghi (đa phần đã thu hồi)
+            const lookupId = (existingDocId && existingDocId !== "") ? existingDocId : (addedMap[normHash(currentHash)] || "");
 
-            if (existingDocId && existingDocId !== "") {
-                const docData = await contract.getDocument(existingDocId);
-                const isRevoked = docData[4];
-                fileData.knownDup = true; // đã xử lý qua bảng xung đột — không hỏi lại ở bước kiểm tra sau
-                fileData.oldUploader = String(docData[3] || '');   // ví đã đóng dấu
-                fileData.oldTime = Number(docData[2]) * 1000;      // timestamp on-chain (giây → ms)
-                if (isRevoked) window.uploadQueue.revokedFiles.push(fileData);
-                else window.uploadQueue.activeFiles.push(fileData);
+            let fSize = file.size >= 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + ' MB' : (file.size / 1024).toFixed(2) + ' KB';
+            const fileData = { fileObj: file, hash: currentHash, name: file.name, size: fSize, oldId: lookupId };
+
+            if (lookupId) {
+                try {
+                    const docData = await contract.getDocument(lookupId);
+                    const isRevoked = docData[4];
+                    fileData.knownDup = true; // đã xử lý qua bảng xung đột — không hỏi lại ở bước kiểm tra sau
+                    fileData.oldUploader = String(docData[3] || '');   // ví đã đóng dấu
+                    fileData.oldTime = Number(docData[2]) * 1000;      // timestamp on-chain (giây → ms)
+                    if (isRevoked) window.uploadQueue.revokedFiles.push(fileData);
+                    else window.uploadQueue.activeFiles.push(fileData);
+                } catch {
+                    window.uploadQueue.newFiles.push(fileData); // RPC lỗi → coi như mới, lớp sau lo tiếp
+                }
             } else {
                 window.uploadQueue.newFiles.push(fileData);
             }
@@ -1285,19 +1302,26 @@ async function promptPasswordAndUpload() {
             const h = norm(ev.args[1]);
             if (h) onChain[h] = ev.args[0];
         }
-        const dups = finalFiles.filter(f => onChain[norm(f.hash)] && !f.knownDup);
-        if (dups.length) {
+        // Bản ghi đã thu hồi (isRevoked) không báo — contract cho phép nạp lại
+        // nội dung đó, và file đã qua bảng đỏ nếu lớp quét bắt được.
+        const dupEntries = [];
+        for (const f of finalFiles) {
+            const docId = onChain[norm(f.hash)];
+            if (!docId || f.knownDup) continue;
+            let d = null;
+            try { d = await web3.contract.getDocument(docId); } catch {}
+            if (d && d[4]) continue;
+            dupEntries.push({ f, d, docId });
+        }
+        if (dupEntries.length) {
             const shortA = a => a ? `${a.slice(0, 8)}…${a.slice(-4)}` : '—';
-            const list = (await Promise.all(dups.map(async f => {
+            const list = dupEntries.map(({ f, d, docId }) => {
                 const nameHtml = `<span style="display:block;max-width:22rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600" title="${esc(f.fileObj.name)}">• ${esc(f.fileObj.name)}</span>`;
-                try {
-                    const d = await web3.contract.getDocument(onChain[norm(f.hash)]);
-                    return `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">— ví ${esc(shortA(String(d[3])))} đóng dấu ${esc(window.formatTimeForce(Number(d[2]) * 1000))}</span></div>`;
-                } catch {
-                    return `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 30))}…)</span></div>`;
-                }
-            }))).join('');
-            const dupHtml = `<div style="max-width:22rem;margin:0 auto;text-align:left">${dups.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br><div style="max-height:10rem;overflow-y:auto;padding-right:6px">${list}</div><br>Vẫn tạo bản ghi mới cho các tệp này?</div>`;
+                return d
+                    ? `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">— ví ${esc(shortA(String(d[3])))} đóng dấu ${esc(window.formatTimeForce(Number(d[2]) * 1000))}</span></div>`
+                    : `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">(đã đóng dấu: ${esc(docId.slice(0, 30))}…)</span></div>`;
+            }).join('');
+            const dupHtml = `<div style="max-width:22rem;margin:0 auto;text-align:left">${dupEntries.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br><div style="max-height:10rem;overflow-y:auto;padding-right:6px">${list}</div><br>Vẫn tạo bản ghi mới cho các tệp này?</div>`;
             const res = await Swal.fire({
                 title: 'Phát hiện tài liệu trùng nội dung',
                 html: dupHtml,
