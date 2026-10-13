@@ -1337,26 +1337,68 @@ async function promptPasswordAndUpload() {
         }
     } catch (e) { console.warn('Bỏ qua kiểm tra trùng (RPC lỗi):', e); }
 
+    // Danh sách file được duyệt — mỗi file chọn chế độ riêng, tùy chọn khóa riêng
+    const rowsHtml = finalFiles.map((f, i) => `
+        <div class="bdi-file-row" data-i="${Number(i)}" style="display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid #1f2937;border-radius:8px;margin-bottom:6px;background:#0b0f19;text-align:left">
+            <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#e5e7eb" title="${esc(f.name)}">${esc(f.name)}</span>
+                <select class="bdi-vis" style="padding:4px 6px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:11px;cursor:pointer;flex-shrink:0">
+                    <option value="private" selected>🔒 Riêng tư</option>
+                    <option value="public">🌐 Công khai</option>
+                </select>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#9ca3af;cursor:pointer;width:fit-content">
+                <input type="checkbox" class="bdi-ownkey" style="accent-color:#2563eb;cursor:pointer"> Đặt khóa riêng (không dùng khóa chung)
+            </label>
+            <input type="password" class="bdi-key" placeholder="Nhập khóa riêng cho tệp này..." autocomplete="new-password" style="display:none;width:100%;box-sizing:border-box;padding:6px 10px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:12px;outline:none">
+        </div>`).join('');
+
+    const aesHtml = `<style>
+            #swal-vis{width:88%;margin:4px 0 0;padding:9px 12px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:14px;outline:none;cursor:pointer}
+            #swal-vis option,.bdi-vis option{color:#111827;background:#ffffff}
+        </style>
+        <div class="text-left text-sm text-gray-300 mb-1">Khóa mã hóa chung cho ${finalFiles.length} tệp đã được xét duyệt:</div>
+        <input id="swal-key" type="password" placeholder="Nhập khóa bí mật chung..." class="swal2-input" style="width:88%;margin-top:8px">
+        <div class="text-left text-sm text-gray-300 mt-3 mb-1">Chế độ chia sẻ mặc định:</div>
+        <select id="swal-vis">
+            <option value="private" selected>🔒 Riêng tư — mình tôi &amp; Admin được xem</option>
+            <option value="public">🌐 Công khai — mọi người dùng đều xem được</option>
+        </select>
+        <div class="text-left text-sm text-gray-300 mt-3 mb-1">Tùy chỉnh từng tệp:</div>
+        <div style="max-height:11rem;overflow-y:auto;padding-right:4px">${rowsHtml}</div>`;
+
     const { value: formValues } = await Swal.fire({
         title: 'BẢO MẬT AES-256',
-        html: `<style>
-                #swal-vis{width:88%;margin:4px 0 0;padding:9px 12px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:14px;outline:none;cursor:pointer}
-                #swal-vis option{color:#111827;background:#ffffff;font-size:14px;padding:8px}
-            </style>
-            <div class="text-left text-sm text-gray-300 mb-1">Nhập mật khẩu mã hóa cho ${finalFiles.length} tệp tin đã được xét duyệt:</div>
-            <input id="swal-key" type="password" placeholder="Nhập khóa bí mật..." class="swal2-input" style="width:88%;margin-top:8px">
-            <div class="text-left text-sm text-gray-300 mt-3 mb-1">Chế độ chia sẻ tài liệu:</div>
-            <select id="swal-vis">
-                <option value="private" selected>🔒 Riêng tư — mình tôi &amp; Admin được xem</option>
-                <option value="public">🌐 Công khai — mọi người dùng đều xem được</option>
-            </select>`,
+        html: aesHtml,
+        width: '32rem',
         focusConfirm: false,
         background: '#111827', color: '#fff',
         confirmButtonColor: '#2563eb', showCancelButton: true, cancelButtonText: 'Hủy',
-        preConfirm: () => ({
-            key: document.getElementById('swal-key').value,
-            vis: document.getElementById('swal-vis').value
-        })
+        didOpen: () => {
+            document.querySelectorAll('.bdi-ownkey').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const inp = cb.closest('.bdi-file-row').querySelector('.bdi-key');
+                    inp.style.display = cb.checked ? 'block' : 'none';
+                    if (cb.checked) inp.focus();
+                });
+            });
+        },
+        preConfirm: () => {
+            const key = document.getElementById('swal-key').value;
+            if (!key) { Swal.showValidationMessage('Vui lòng nhập khóa chung'); return false; }
+            const vis = document.getElementById('swal-vis').value;
+            const perFile = [];
+            let missingName = null;
+            document.querySelectorAll('.bdi-file-row').forEach(row => {
+                const i = Number(row.dataset.i);
+                const own = row.querySelector('.bdi-ownkey').checked;
+                const k = row.querySelector('.bdi-key').value;
+                if (own && !k) missingName = finalFiles[i].name;
+                perFile[i] = { key: own ? k : null, vis: row.querySelector('.bdi-vis').value };
+            });
+            if (missingName) { Swal.showValidationMessage(`Tệp "${esc(missingName)}" đã chọn khóa riêng nhưng chưa nhập`); return false; }
+            return { key, vis, perFile };
+        }
     });
 
     // Nếu bấm Hủy hoặc không nhập khóa -> Bắt buộc mở khóa hệ thống
@@ -1364,6 +1406,14 @@ async function promptPasswordAndUpload() {
         isProcessing = false;
         return;
     }
+
+    // Gắn cài đặt riêng vào từng file — file không đặt khóa riêng dùng khóa chung
+    formValues.perFile.forEach((pf, i) => {
+        if (pf && finalFiles[i]) {
+            finalFiles[i]._key = pf.key;
+            finalFiles[i]._vis = pf.vis;
+        }
+    });
 
     // Bật khóa chống click đúp
     isProcessing = true;
@@ -1418,7 +1468,8 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
                 binaryString += String.fromCharCode.apply(null, uint8Array.subarray(off, off + CHUNK));
             }
 
-            const encryptedData = CryptoJS.AES.encrypt(btoa(binaryString), secretKey).toString();
+            const fileKey = fileItem._key || secretKey; // khóa riêng nếu có, không thì khóa chung
+            const encryptedData = CryptoJS.AES.encrypt(btoa(binaryString), fileKey).toString();
             const encryptedBlob = new Blob([encryptedData], { type: 'text/plain' });
             const encryptedFile = new File([encryptedBlob], file.name + '.enc', { type: 'text/plain' });
 
@@ -1437,8 +1488,8 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
                 fileName: file.name,
                 fileSize: fileItem.size,
                 qrCode: qrCodeBase64,
-                encKey: secretKey, // khóa AES — chỉ gửi lên server bọc trong MongoDB, TUYỆT ĐỐI không đưa vào manifest IPFS
-                visibility
+                encKey: fileKey, // khóa AES — chỉ gửi lên server bọc trong MongoDB, TUYỆT ĐỐI không đưa vào manifest IPFS
+                visibility: fileItem._vis || visibility
             });
         }
 
