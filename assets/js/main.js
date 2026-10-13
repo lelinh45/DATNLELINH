@@ -3111,9 +3111,8 @@ async function resolveDocKey(docId, originalFileName) {
     return secretKey || null;
 }
 
-// Tải file mã hóa từ IPFS (nhiều gateway dự phòng) rồi giải mã AES → trả Blob gốc
-async function fetchDecryptedBlob(ipfsCID, secretKey, originalFileName) {
-    let encryptedText = "";
+// Bước 1: chỉ TẢI ciphertext từ IPFS (nhiều gateway dự phòng)
+async function fetchEncryptedText(ipfsCID) {
     let response = null;
 
     // ĐƯỜNG DẪN GỐC TỚI CỔNG VIP CỦA BẠN TRÊN PINATA
@@ -3139,19 +3138,19 @@ async function fetchDecryptedBlob(ipfsCID, secretKey, originalFileName) {
         throw new Error("SYNC_DELAY");
     }
 
-    encryptedText = await response.text();
+    return await response.text();
+}
 
+// Bước 2: giải mã AES → Blob gốc (tách riêng để nhập lại khóa không phải tải lại file)
+function decryptToBlob(encryptedText, secretKey, originalFileName) {
     UI.updateProgress(70, "Đã vượt tường lửa lấy được tệp. Đang giải mã...", "DECRYPTING");
 
-    // 5. Giải mã dữ liệu
     const decryptedBytes = CryptoJS.AES.decrypt(encryptedText, secretKey);
     const base64File = decryptedBytes.toString(CryptoJS.enc.Utf8);
 
     if (!base64File) throw new Error("WRONG_PASSWORD");
 
     UI.updateProgress(90, "Đang khôi phục định dạng...", "PROCESSING");
-
-    // 6. Chuyển đổi dữ liệu để tải
     const binaryString = atob(base64File);
     const uint8Array = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -3167,6 +3166,30 @@ async function fetchDecryptedBlob(ipfsCID, secretKey, originalFileName) {
     else if (fname.endsWith('.docx')) mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     return { blob: new Blob([uint8Array], { type: mimeType }), mimeType };
+}
+
+// Tải ciphertext 1 lần rồi giải mã — sai khóa cho nhập lại tối đa 3 lần
+// (khóa escrow có thể không khớp nếu tệp từng được tải lên với khóa khác)
+async function retrieveDecryptedBlob(ipfsCID, secretKey, originalFileName) {
+    const encryptedText = await fetchEncryptedText(ipfsCID);
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            return decryptToBlob(encryptedText, secretKey, originalFileName);
+        } catch (e) {
+            if (e.message !== 'WRONG_PASSWORD' || attempt === 2) throw e;
+            const { value: retryKey } = await Swal.fire({
+                title: 'Sai Khóa Giải Mã',
+                text: 'Khóa không khớp với tệp này. Nếu tệp được mã hóa bằng khóa khác lúc tải lên, hãy nhập khóa đó:',
+                input: 'password',
+                inputAttributes: { autocomplete: 'new-password' },
+                inputPlaceholder: 'Nhập lại khóa AES...',
+                background: '#111827', color: '#fff',
+                confirmButtonColor: '#10b981', showCancelButton: true, cancelButtonText: 'Hủy'
+            });
+            if (!retryKey) throw e;
+            secretKey = retryKey;
+        }
+    }
 }
 
 // Tải file về máy bằng anchor download — KHÔNG dùng window.open sau await
@@ -3200,7 +3223,7 @@ window.previewDocument = async (ipfsCID, originalFileName, docId) => {
         const secretKey = await resolveDocKey(docId, originalFileName);
         if (!secretKey) { win.close(); isProcessing = false; return; }
 
-        const { blob, mimeType } = await fetchDecryptedBlob(ipfsCID, secretKey, originalFileName);
+        const { blob, mimeType } = await retrieveDecryptedBlob(ipfsCID, secretKey, originalFileName);
         const url = URL.createObjectURL(blob);
         if (/^(application\/pdf|image\/|text\/)/.test(mimeType)) {
             win.location = url; // trình duyệt render PDF/ảnh/text trực tiếp
@@ -3258,7 +3281,7 @@ window.downloadAndDecrypt = async (ipfsCID, originalFileName, docId) => {
     isProcessing = true;
     UI.updateProgress(30, "Đang kết nối qua trạm trung chuyển...", "DOWNLOADING");
     try {
-        const { blob } = await fetchDecryptedBlob(ipfsCID, secretKey, originalFileName);
+        const { blob } = await retrieveDecryptedBlob(ipfsCID, secretKey, originalFileName);
         saveBlob(blob, originalFileName);
         UI.updateProgress(100, "Truy xuất thành công!", "SUCCESS");
         Swal.fire({
