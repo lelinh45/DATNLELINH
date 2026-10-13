@@ -1297,7 +1297,7 @@ async function promptPasswordAndUpload() {
                     return `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 30))}…)</span></div>`;
                 }
             }))).join('');
-            const dupHtml = `<div style="max-width:22rem;margin:0 auto;text-align:left">${dups.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br>${list}<br>Vẫn tạo bản ghi mới cho các tệp này?</div>`;
+            const dupHtml = `<div style="max-width:22rem;margin:0 auto;text-align:left">${dups.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br><div style="max-height:10rem;overflow-y:auto;padding-right:6px">${list}</div><br>Vẫn tạo bản ghi mới cho các tệp này?</div>`;
             const res = await Swal.fire({
                 title: 'Phát hiện tài liệu trùng nội dung',
                 html: dupHtml,
