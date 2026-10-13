@@ -3244,14 +3244,27 @@ window.previewDocument = async (ipfsCID, originalFileName, docId) => {
                 <div id="docx-view"></div>
             </body></html>`);
             win.document.close();
-            // Nạp lib vào tab con (script chạy trong context tab → docx render đúng document)
-            const loadLib = (src) => new Promise((res, rej) => {
-                const s = win.document.createElement('script');
-                s.src = src; s.onload = res; s.onerror = rej;
-                win.document.head.appendChild(s);
+            // Nạp lib vào tab con (script chạy trong context tab → docx render đúng document).
+            // Server chỉ serve /assets → nguồn chính là assets/vendor, fallback CDN pin đúng version.
+            const loadLib = (srcs) => new Promise((res, rej) => {
+                const tryNext = (i) => {
+                    if (i >= srcs.length) return rej(new Error('Không tải được thư viện xem DOCX'));
+                    const s = win.document.createElement('script');
+                    s.src = srcs[i];
+                    s.onload = res;
+                    s.onerror = () => tryNext(i + 1);
+                    win.document.head.appendChild(s);
+                };
+                tryNext(0);
             });
-            await loadLib(`${location.origin}/node_modules/jszip/dist/jszip.min.js`);
-            await loadLib(`${location.origin}/node_modules/docx-preview/dist/docx-preview.min.js`);
+            await loadLib([
+                `${location.origin}/assets/vendor/jszip.min.js`,
+                'https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js'
+            ]);
+            await loadLib([
+                `${location.origin}/assets/vendor/docx-preview.min.js`,
+                'https://cdn.jsdelivr.net/npm/docx-preview@0.4.1/dist/docx-preview.min.js'
+            ]);
             await win.docx.renderAsync(arrayBuffer, win.document.getElementById('docx-view'), null, {
                 className: 'docx-wrapper', inWrapper: true, breakPages: true
             });
@@ -3304,7 +3317,7 @@ function handleRetrieveError(error) {
     } else if (error.message === "WRONG_PASSWORD") {
         Swal.fire({ title: 'Sai Mật Khẩu!', text: 'Mật khẩu giải mã không chính xác.', icon: 'error', background: '#111827', color: '#fff' });
     } else {
-        Swal.fire({ title: 'Lỗi', text: esc(error.message), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Lỗi', text: esc(error?.message || String(error)), icon: 'error', background: '#111827', color: '#fff' });
     }
 }
 window.closeStorageModal = function() { document.getElementById('storage-modal-overlay').classList.add('hidden'); };
