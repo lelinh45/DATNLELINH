@@ -1269,6 +1269,36 @@ window.cancelConflict = function() {
 // =====================================================================
 async function promptPasswordAndUpload() {
     const finalFiles = window.uploadQueue.approvedFiles;
+
+    // Kiểm tra trùng lần cuối TRƯỚC khi hỏi khóa — file "mới" bất ngờ xuất hiện
+    // trên chain sau khi quét (race với uploader khác). File đã duyệt qua bảng
+    // xung đột (knownDup) không hỏi lại.
+    try {
+        const norm = h => String(h || '').replace(/^0x/i, '').toLowerCase();
+        const onChain = {};
+        for (const ev of (await web3.queryHistory() || [])) {
+            const h = norm(ev.args[1]);
+            if (h) onChain[h] = ev.args[0];
+        }
+        const dups = finalFiles.filter(f => onChain[norm(f.hash)] && !f.knownDup);
+        if (dups.length) {
+            const list = dups.map(f => `• ${esc(f.fileObj.name)} <span class="text-gray-500">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 40))}…)</span>`).join('<br>');
+            const dupHtml = `${dups.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br>${list}<br><br>Vẫn tạo bản ghi mới cho các tệp này?`;
+            const res = await Swal.fire({
+                title: 'Phát hiện tài liệu trùng nội dung',
+                html: dupHtml,
+                icon: 'warning', showCancelButton: true,
+                confirmButtonText: 'Vẫn upload', cancelButtonText: 'Hủy',
+                background: '#111827', color: '#fff'
+            });
+            if (!res.isConfirmed) {
+                isProcessing = false;
+                UI.updateProgress(0, "Đã hủy — không tạo bản ghi trùng", "STANDBY");
+                return;
+            }
+        }
+    } catch (e) { console.warn('Bỏ qua kiểm tra trùng (RPC lỗi):', e); }
+
     const { value: formValues } = await Swal.fire({
         title: 'BẢO MẬT AES-256',
         html: `<style>
@@ -1329,35 +1359,8 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         // Token JWT hết hạn/đổi ví giữa chừng → xin challenge và ký lại trước khi ghi dữ liệu
         await ApiService.ensureAuth(web3.signer, web3.currentAccount);
 
-        // Cảnh báo trùng nội dung: fileHash đã ghi on-chain trước đây → hỏi lại
-        // trước khi mã hóa/upload (tránh vô tình tạo bản ghi thứ hai tốn gas).
-        // docId luôn khác nhau theo timestamp nên contract không tự chặn.
-        try {
-            const norm = h => String(h || '').replace(/^0x/i, '').toLowerCase();
-            const onChain = {};
-            for (const ev of (await web3.queryHistory() || [])) {
-                const h = norm(ev.args[1]);
-                if (h) onChain[h] = ev.args[0];
-            }
-            // Bỏ qua file đã được người dùng duyệt qua bảng xung đột ở bước quét —
-            // chỉ cảnh báo file "mới" bất ngờ xuất hiện trên chain sau đó (race).
-            const dups = fileDataArray.filter(f => onChain[norm(f.hash)] && !f.knownDup);
-            if (dups.length) {
-                const list = dups.map(f => `• ${esc(f.fileObj.name)} <span class="text-gray-500">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 40))}…)</span>`).join('<br>');
-                const dupHtml = `${dups.length} tệp có nội dung đã được đóng dấu trên blockchain:<br><br>${list}<br><br>Vẫn tạo bản ghi mới cho các tệp này?`;
-                const res = await Swal.fire({
-                    title: 'Phát hiện tài liệu trùng nội dung',
-                    html: dupHtml,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Vẫn upload',
-                    cancelButtonText: 'Hủy',
-                    background: '#111827', color: '#fff'
-                });
-                if (!res.isConfirmed) { UI.updateProgress(0, "Đã hủy — không tạo bản ghi trùng", "STANDBY"); return; }
-            }
-        } catch (e) { console.warn('Bỏ qua kiểm tra trùng (RPC lỗi):', e); }
-
+        // (Kiểm tra trùng nội dung đã dời lên trước bước nhập khóa —
+        // file qua bảng xung đột được đánh dấu knownDup không hỏi lại)
         let uploadedDocs = [];
         let leaves = [];
 
