@@ -447,7 +447,7 @@
     <p>Từ các tác nhân đó, yêu cầu chức năng được đặc tả như sau:</p>
     <ul>
         <li><b>Đăng nhập và quản lý danh tính:</b> xác thực bằng chữ ký ví, không dùng mật khẩu; ghi nhận từng thiết bị; thiết bị mới bắt buộc phê duyệt từ thiết bị cũ — OTP email chỉ mở khi ví không còn thiết bị nào hoạt động.</li>
-        <li><b>Upload tài liệu:</b> người dùng chọn file, đặt mật khẩu mã hóa và chế độ công khai/riêng tư; hệ thống băm file gốc, mã hóa nội dung, đưa lên IPFS, ghi bằng chứng on-chain và phát sinh mã QR tra cứu.</li>
+        <li><b>Upload tài liệu:</b> người dùng chọn một hoặc nhiều file; hệ thống quét trùng nội dung trên sổ cái và phân loại trước khi nhập khóa; mỗi file chọn chế độ công khai/riêng tư riêng và có thể đặt khóa AES riêng thay vì dùng khóa chung của cả lô; hệ thống băm file gốc, mã hóa nội dung, đưa lên IPFS, ghi bằng chứng on-chain và phát sinh mã QR tra cứu.</li>
         <li><b>Xem và tải tài liệu:</b> hiển thị danh sách từ sự kiện on-chain; tài liệu riêng tư của người khác chỉ hiện tên kèm ổ khóa; xem trước PDF/ảnh/văn bản/DOCX sau khi giải mã client-side.</li>
         <li><b>Xác thực tài liệu:</b> công khai, không cần đăng nhập; trả kết quả nguyên vẹn / giả mạo / đã thu hồi, kèm phân tích diff và báo cáo pháp y AI khi phát hiện sai khác.</li>
         <li><b>Thu hồi tài liệu:</b> QUẢN LÝ trở lên thu hồi on-chain kèm lý do — trừ tài liệu do ví ADMIN upload, chỉ ADMIN được thu hồi; bản ghi thu hồi bất biến như bản ghi gốc.</li>
@@ -575,8 +575,10 @@
 
     <h3>2.4.1. Luồng upload tài liệu (người dùng web)</h3>
     <ol>
-        <li>Người dùng chọn một hoặc nhiều file — bằng hộp chọn file <b>hoặc kéo-thả trực tiếp</b> vào vùng nhận (dropzone đổi màu viền khi có file kéo qua; file thả nhầm ra ngoài trang bị chặn để không mất phiên làm việc) — rồi nhập mật khẩu AES, chọn chế độ <b>Riêng tư</b> (mặc định) hoặc <b>Công khai</b>.</li>
-        <li>Trình duyệt đọc byte gốc của từng file, tính SHA-256, rồi mã hóa nội dung bằng AES-256.</li>
+        <li>Người dùng chọn một hoặc nhiều file — bằng hộp chọn file <b>hoặc kéo-thả trực tiếp</b> vào vùng nhận (dropzone đổi màu viền khi có file kéo qua; file thả nhầm ra ngoài trang bị chặn để không mất phiên làm việc).</li>
+        <li><b>Quét trùng nội dung trước khi nhập liệu:</b> băm SHA-256 từng file và đối chiếu ngay với sổ cái — mapping <span class="mono">hashToDocId</span> bắt bản ghi đang hoạt động, còn sự kiện <span class="mono">DocumentAdded</span> bắt cả bản ghi đã thu hồi (contract xóa mapping lúc thu hồi nên chỉ event còn làm dấu). File trùng được đưa vào bảng quyết định hai mục: <b>Đã từng thu hồi</b> — tick để tải lại, và <b>Bị trùng lặp</b> (đang hoạt động) — tick "vẫn ghi lại" để tạo thêm bản ghi mới (bản ghi cũ bất biến, không bị ghi đè); mỗi dòng hiện ví đã đóng dấu và thời điểm ghi trên chuỗi.</li>
+        <li>Popup bảo mật liệt kê rõ các tệp được duyệt: nhập <b>khóa AES chung</b> và <b>chế độ mặc định</b> Riêng tư/Công khai — đồng thời <b>từng file có thể đổi chế độ hoặc đặt khóa riêng</b> thay cho khóa chung.</li>
+        <li>Trình duyệt đọc byte gốc của từng file, tính SHA-256, rồi mã hóa nội dung bằng AES-256 (khóa riêng nếu file được đặt riêng, không thì khóa chung).</li>
         <li>Ciphertext gửi lên <span class="mono">POST /api/upload</span>; backend kiểm tra quota IPFS thật từ Pinata rồi pin file, trả về CID và mã QR chứa documentId.</li>
         <li>Frontend gọi contract <span class="mono">addDocuments</span> qua MetaMask — người dùng tự ký và trả gas; một giao dịch ghi được cả lô nhiều tài liệu.</li>
         <li>Frontend gửi metadata lên <span class="mono">POST /api/batches</span>; khóa AES được server bọc bằng MASTER_KEY trước khi ghi MongoDB.</li>
@@ -601,7 +603,7 @@
             <rect x="300" y="192" width="140" height="28" rx="6"/><rect x="300" y="350" width="140" height="28" rx="6"/>
         </g>
         <g font-size="9.5" text-anchor="middle">
-            <text x="180" y="53">Chọn file · nhập khóa AES · chọn Công khai / Riêng tư</text>
+            <text x="180" y="53">Chọn file · quét trùng · nhập khóa AES · chế độ từng file</text>
             <text x="180" y="103">Đọc byte → SHA-256(file gốc) → mã hóa AES-256</text>
             <text x="180" y="153">POST /api/upload — kiểm tra quota IPFS thật</text>
             <text x="180" y="210">Đủ quota?</text><text x="283" y="200" font-size="8.5">Không</text>
@@ -817,6 +819,7 @@
 
     <h2>3.4. Cài đặt nghiệp vụ upload — verify — thu hồi</h2>
     <p><b>Upload (<span class="mono">POST /api/upload</span>):</b> nhận ciphertext từ client, tính lại SHA-256 phía server (không tin hash client gửi), sinh documentId từ tên file đã lọc ký tự lạ cộng timestamp. Trước khi pin, gọi <span class="mono">checkIpfsQuota</span> đọc dung lượng thật từ Pinata — vượt quota thì từ chối 403 ngay, không pin mù. Pin thành công trả CID và QR code (thư viện qrcode) chứa documentId để in ấn tra cứu nhanh.</p>
+    <p><b>Kiểm tra trùng hai lớp trước khi ghi:</b> lớp thứ nhất chạy ngay khi người dùng chọn file — đối chiếu SHA-256 của từng file với sổ cái qua hai nguồn bổ sung nhau: mapping <span class="mono">hashToDocId</span> (bản ghi đang hoạt động) và lịch sử sự kiện <span class="mono">DocumentAdded</span> (bắt cả bản ghi đã thu hồi vì contract xóa mapping lúc thu hồi). File trùng được đưa vào modal phân loại có checkbox từng dòng: mục đỏ "Đã từng thu hồi" cho phép tải lại, mục vàng "Bị trùng lặp" cho phép ghi thêm bản ghi song song — mỗi dòng đều hiển thị ví đã đóng dấu và thời điểm ghi lấy trực tiếp từ contract. Lớp thứ hai chạy lại ngay trước khi nhập khóa để bắt trường hợp hiếm: nội dung vừa được ví khác đóng dấu <i>sau</i> thời điểm quét (race condition); file đã qua modal được đánh dấu để không hỏi lặp, còn bản ghi đã thu hồi không bị cảnh báo nhầm vì nạp lại là hành vi hợp lệ theo thiết kế contract.</p>
     <p><b>Verify (<span class="mono">POST /api/verify</span>):</b> nhận file + documentId, băm file nộp, đọc bản ghi on-chain. Ba trạng thái kết quả: <i>nguyên vẹn</i> (hash khớp, chưa thu hồi), <i>giả mạo</i> (hash lệch), <i>đã thu hồi</i> (cờ on-chain). Khi giả mạo, backend tải bản gốc qua gateway Pinata riêng (ưu tiên hơn ipfs.io vì cổng công cộng hay trả 429), giải mã nếu có khóa, rồi: so từng ký tự văn bản để liệt kê điểm khác, so từng pixel ảnh để vẽ bản đồ nhiệt vùng thay đổi, và gọi Gemini tổng hợp báo cáo pháp y. Endpoint chịu rate limit 10 lần/5 phút/IP; quá hạn → IP ban 15 phút + ghi cảnh báo vào log máy chủ.</p>
     <p><b>Thu hồi:</b> QUẢN LÝ/ADMIN gọi <span class="mono">revokeDocument(docId, reason)</span> trên contract — giao dịch ghi do người đó ký, nên danh tính người thu hồi cũng nằm on-chain. Contract kiểm tra thêm quyền của <i>uploader</i>: tài liệu do ví ADMIN upload thì chỉ ADMIN được thu hồi — QUẢN LÝ gọi sẽ bị revert ngay trên chain, và frontend cũng chặn trước khi mở MetaMask để khỏi tốn gas. Backend <span class="mono">/api/batches/revoke</span> kiểm tra lại quy tắc này lần nữa khi đồng bộ cờ vào MongoDB. MongoDB đồng bộ cờ isRevoked để giao diện hiển thị ngay mà không cần chờ quét chain. Khi verify tài liệu đã thu hồi, kết quả báo "TÀI LIỆU ĐÃ BỊ THU HỒI" kèm lý do thay vì chỉ đúng/sai — phù hợp nghiệp vụ thực tế (bằng cũ không còn giá trị dù nội dung nguyên vẹn).</p>
 
@@ -824,7 +827,7 @@
     <p>Hai hàm <span class="mono">wrapKey</span>/<span class="mono">unwrapKey</span> cài đặt mô hình escrow đã thiết kế ở mục 2.7: bọc khóa AES của file bằng AES-256-GCM với khóa master suy ra từ biến môi trường (MASTER_KEY, fallback JWT_SECRET trong môi trường dev). Chuỗi kết quả <span class="mono">iv:ciphertext:tag</span> lưu trong <span class="mono">files[].encKey</span>; khi <span class="mono">unwrapKey</span> thất bại (dữ liệu hỏng/bị sửa) trả null thay vì throw — an toàn.</p>
     <p>Endpoint cấp khóa thực thi chính sách visibility:</p>
     <ul>
-        <li>Tìm file trong Batch theo docId; không có encKey → 404 (client fallback nhập mật khẩu thủ công).</li>
+        <li>Tìm file trong Batch theo docId; không có encKey → 404 (client fallback nhập mật khẩu thủ công). Khi giải mã báo sai khóa — dù khóa lấy từ escrow hay nhập tay — ciphertext chỉ tải từ IPFS đúng một lần và người dùng được nhập lại khóa tối đa ba lần thay vì bắt đầu lại.</li>
         <li><span class="mono">visibility = 'public'</span> → mọi request có JWT hợp lệ đều được trả khóa.</li>
         <li><span class="mono">visibility = 'private'</span> (gồm cả tài liệu cũ thiếu trường) → chỉ uploader hoặc role ADMIN; QUẢN LÝ bị từ chối 403.</li>
     </ul>
@@ -851,8 +854,8 @@
     <h2>3.7. Xây dựng giao diện người dùng</h2>
     <p>Giao diện một trang (<span class="mono">index.html</span>) với các module JavaScript tách vai trò: <span class="mono">config.js</span> (hằng số, ABI, gateway), <span class="mono">web3Service.js</span> (kết nối MetaMask, contract, event, receipt), <span class="mono">apiService.js</span> (gọi backend kèm JWT), <span class="mono">sanitize.js</span> (hàm esc chống XSS), <span class="mono">uiHandler.js</span> (thành phần hiển thị), <span class="mono">main.js</span> (luồng nghiệp vụ).</p>
     <p><b>Tab Truy xuất:</b> quét sự kiện ghi tài liệu từ contract theo chunk 9000 block (cache trong localStorage, khóa cache gắn theo địa chỉ contract để deploy contract mới không trộn sự kiện cũ), đối chiếu metadata từ batches, render bảng gồm tên file, hash rút gọn link IPFS, uploader, thời gian, <b>cột PHÍ (ETH)</b> — giá trị thật tính từ <span class="mono">gasUsed × gasPrice</span> của transaction receipt, link tới sepolia.etherscan.io, cache vĩnh viễn vì phí không bao giờ đổi. Khi nhiều file chung một giao dịch, cùng hiện phí tổng — đúng thực tế và được dedupe để chỉ gọi RPC một lần mỗi txHash. Điểm kỹ thuật then chốt của cache: con trỏ <span class="mono">lastScanned</span> <b>chỉ tiến tới block cuối cùng của đoạn liền kề quét thành công</b> — một chunk RPC lỗi thì dừng lại và quét tiếp lần sau, tuyệt đối không đánh dấu "đã quét" phần chưa đọc được (tránh lỗ hổng sự kiện vĩnh viễn trong cache — lỗi thực tế khiến tài liệu/thu hồi hiển thị sai so với chuỗi).</p>
-    <p><b>Xem trước:</b> sau khi có khóa (escrow hoặc nhập tay), client giải mã ciphertext tải từ IPFS; PDF/ảnh/văn bản mở tab mới với Blob URL; DOCX mở tab riêng render bằng <b>docx-preview</b> + JSZip — giữ font, bảng, lề, ngắt trang gần giống Word thay vì chỉ trích text như giải pháp trích xuất thuần túy. Giới hạn đã ghi nhận: SmartArt, textbox và hiệu ứng phức tạp có thể khác bản gốc.</p>
-    <p><b>Các tab khác:</b> Upload với dialog nhập mật khẩu AES + chọn riêng tư/công khai + tiến trình từng bước (băm → mã hóa → IPFS → chờ ký → xác nhận), hỗ trợ kéo-thả file vào dropzone (đổi màu viền khi kéo qua, lấy nhiều file một lúc, nút xóa từng file khỏi danh sách); Verify cũng có dropzone riêng (lấy file đầu tiên) với vùng kết quả có bản đồ nhiệt và báo cáo AI; Quản lý ví hiển thị dung lượng thật dạng "x MB / 1024 MB"; Quản lý API key hiển thị plaintext đúng một lần trong modal kèm nút copy (danh sách tự tải lại khi mở tab và sau đăng nhập); Cài đặt có cặp ô email + SĐT chủ ví với nút hai trạng thái "Lưu/Thay đổi" — đã lưu thì khóa ô cho tới khi chủ động sửa; chuông thông báo duyệt thiết bị và khay ví chờ cấp quyền riêng (badge đếm, poll 30s, nút Duyệt tự điền form).</p>
+    <p><b>Xem trước:</b> sau khi có khóa (escrow hoặc nhập tay), client giải mã ciphertext tải từ IPFS; PDF/ảnh/văn bản mở tab mới với Blob URL; DOCX mở tab riêng render bằng <b>docx-preview</b> + JSZip — hai thư viện được vendor sẵn vào <span class="mono">assets/vendor</span> để phục vụ trực tiếp từ server (fallback CDN jsdelivr pin đúng version) — giữ font, bảng, lề, ngắt trang gần giống Word thay vì chỉ trích text như giải pháp trích xuất thuần túy. Giới hạn đã ghi nhận: SmartArt, textbox và hiệu ứng phức tạp có thể khác bản gốc.</p>
+    <p><b>Các tab khác:</b> Upload với modal phân loại trùng hai mục (đã thu hồi → tải lại / đang hoạt động → ghi thêm) hiển thị ví và thời điểm đóng dấu từng file, rồi dialog bảo mật liệt kê rõ từng tệp được duyệt — khóa AES chung cho cả lô kèm tùy chọn đặt khóa riêng và chọn chế độ riêng tư/công khai theo từng tệp — + tiến trình từng bước (băm → mã hóa → IPFS → chờ ký → xác nhận), hỗ trợ kéo-thả file vào dropzone (đổi màu viền khi kéo qua, lấy nhiều file một lúc, nút xóa từng file khỏi danh sách); Verify cũng có dropzone riêng (lấy file đầu tiên) với vùng kết quả có bản đồ nhiệt và báo cáo AI; Quản lý ví hiển thị dung lượng thật dạng "x MB / 1024 MB"; Quản lý API key hiển thị plaintext đúng một lần trong modal kèm nút copy (danh sách tự tải lại khi mở tab và sau đăng nhập); Cài đặt có cặp ô email + SĐT chủ ví với nút hai trạng thái "Lưu/Thay đổi" — đã lưu thì khóa ô cho tới khi chủ động sửa; chuông thông báo duyệt thiết bị và khay ví chờ cấp quyền riêng (badge đếm, poll 30s, nút Duyệt tự điền form).</p>
     <p><b>Tìm kiếm hai chế độ:</b> ô lọc ở bảng Truy xuất và Danh sách hủy bỏ mặc định là tìm mờ (chứa chuỗi) trên docId/tên file/ví/thời gian/hash; nhưng khi chuỗi nhập bắt đầu bằng <span class="mono">0x</span> thì chuyển sang so khớp <b>chính xác toàn bộ địa chỉ ví uploader</b> — một ký tự sai lệch là không còn kết quả, phù hợp tra cứu theo danh tính chứ không phải từ khóa.</p>
     <p><b>Chống vỡ layout:</b> bảng dữ liệu nằm trong container cuộn ngang, tên file cắt bằng ellipsis kèm tooltip đầy đủ, panel tiến trình blockchain thu nhỏ — kiểm tra trên màn hình hẹp không tràn.</p>
     <p>Các hình 3.1 đến 3.6 chụp giao diện thật của hệ thống đang vận hành trên môi trường triển khai Render + Sepolia testnet:</p>
@@ -901,7 +904,7 @@
     <p>Chương này trình bày phương pháp kiểm thử, kết quả thu được và đánh giá trung thực về mức độ đạt được của hệ thống — bao gồm cả những điểm hoạt động đúng lẫn các hạn chế còn tồn tại.</p>
 
     <h2>4.1. Môi trường và phương pháp kiểm thử</h2>
-    <p><b>Môi trường kiểm thử thực tế:</b> backend Node.js chạy tại cổng 3000; MongoDB Atlas lưu 5 ví và 20 lô tài liệu thật; contract trên mạng Sepolia truy cập qua RPC công khai; tài khoản Pinata gói free với quota 1GB — tại thời điểm đánh giá có 79 pin (bao gồm các file mã hóa và manifest của từng lô). Toàn bộ giao dịch đều là giao dịch thật, tra được trên sepolia.etherscan.io.</p>
+    <p><b>Môi trường kiểm thử thực tế:</b> backend Node.js chạy tại cổng 3000; MongoDB Atlas lưu 6 ví và 6 lô tài liệu thật; contract trên mạng Sepolia truy cập qua RPC công khai; tài khoản Pinata gói free với quota 1GB — tại thời điểm đánh giá có 87 pin (bao gồm các file mã hóa và manifest của từng lô). Toàn bộ giao dịch đều là giao dịch thật, tra được trên sepolia.etherscan.io.</p>
     <p><b>Phương pháp kiểm thử gồm hai lớp bổ sung nhau:</b></p>
     <ul>
         <li><b>Bộ test tự động</b> (<span class="mono">node --test</span>) gồm 79 ca: test contract trên mạng Hardhat giả lập; test tính nhất quán giữa các quyết định thiết kế; test rò rỉ bí mật (quét repo tìm khóa riêng/key bị commit nhầm); test XSS (quét các biến render trần); test module xác thực với dependency mock.</li>
@@ -926,13 +929,16 @@
         <tr><td>OTP: sai mã / hết hạn / quá 5 lần / gửi lại sớm</td><td>401 / hết hạn / 429 / 429 — đúng ngưỡng thiết kế</td></tr>
         <tr><td>Xin OTP khi ví còn thiết bị đang hoạt động</td><td>403 OTP_BLOCKED — bắt buộc duyệt từ thiết bị cũ</td></tr>
         <tr><td>Thu hồi tài liệu rồi verify lại</td><td>Báo TÀI LIỆU ĐÃ BỊ THU HỒI kèm lý do</td></tr>
+        <tr><td>Upload nội dung trùng / đã thu hồi</td><td>Modal phân loại đúng hai mục — đã thu hồi → tải lại, đang hoạt động → ghi thêm — kèm ví và thời điểm đóng dấu on-chain</td></tr>
+        <tr><td>Giải mã sai khóa AES</td><td>Cho nhập lại tối đa 3 lần, ciphertext không phải tải lại từ IPFS</td></tr>
+        <tr><td>Xem trước DOCX trên bản deploy</td><td>Render đúng layout bằng docx-preview + JSZip vendor sẵn</td></tr>
     </table>
     <p class="caption">Bảng 4.1. Kết quả kiểm thử chức năng chính</p>
     <p><b>Một số kết quả đáng chú ý trong quá trình kiểm thử thật:</b></p>
     <ul>
         <li>Gateway tải file ưu tiên cổng riêng của tài khoản Pinata thay vì cổng công cộng ipfs.io — không chịu giới hạn tần suất nên download luôn ổn định.</li>
         <li>API key định dạng sai bị middleware từ chối ngay ở bước kiểm tra format, trước cả khi tra DB — đúng hướng fail-fast.</li>
-        <li>Xác nhận số dung lượng Pinata đọc trực tiếp từ API: <span class="mono">pin_size_total = 30,167,238 bytes ≈ 28.77MB</span> — con số quota hiển thị và chặn là số thật, không phải ước tính.</li>
+        <li>Xác nhận số dung lượng Pinata đọc trực tiếp từ API: <span class="mono">pin_size_total = 39,732,202 bytes ≈ 37.89MB</span> — con số quota hiển thị và chặn là số thật, không phải ước tính.</li>
         <li><b>Khả năng phục hồi metadata đã được kiểm chứng:</b> dựng lại được toàn bộ tên file, dung lượng và visibility của các lô tài liệu chỉ từ manifest trên IPFS đối chiếu sự kiện DocumentAdded trên chuỗi — minh chứng ba lớp bảo vệ hoạt động: hàng đợi orphanedBatches tự xả, endpoint lưu batch lũy đẳng, và quét sự kiện không để lỗ hổng.</li>
     </ul>
 

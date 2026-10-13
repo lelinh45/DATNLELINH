@@ -241,8 +241,8 @@ bullets(s, Emu(6300000), Emu(1350000), Emu(5200000), Emu(5000000), [
 # ============ S9 — LUỒNG UPLOAD ============
 s = slide(); header(s, '04', 'LUỒNG ĐÓNG DẤU TÀI LIỆU'); footer(s, 9)
 steps = [
-    'Chọn file\n(kéo-thả,\n≤100/lô)', 'Băm SHA-256\nnội dung gốc', 'Nhập khóa\nAES-256',
-    'Mã hóa\ntoàn bộ file', 'Đẩy ciphertext\nlên IPFS → CID', 'MetaMask ký\naddDocuments', 'Ghi metadata\n→ MongoDB',
+    'Chọn file\n(kéo-thả,\n≤100/lô)', 'Quét trùng\nsổ cái on-chain', 'Khóa AES +\nchế độ\ntừng file',
+    'Băm SHA-256\n+ mã hóa file', 'Đẩy ciphertext\nlên IPFS → CID', 'MetaMask ký\naddDocuments', 'Ghi metadata\n→ MongoDB',
 ]
 y = Emu(2050000)
 for i, t in enumerate(steps):
@@ -252,7 +252,8 @@ for i, t in enumerate(steps):
         arrow(s, Emu(1810000 + i * 1620000), Emu(2450000), Emu(200000), Emu(300000))
 txt(s, Emu(700000), Emu(3700000), Emu(10800000), Emu(2700000),
     'Những điểm mấu chốt của thiết kế:\n'
-    '• Trước khi upload, hệ thống đối chiếu hash của file với sổ cái — nếu nội dung đã từng được đóng dấu, người dùng được cảnh báo để tránh ghi trùng tốn phí gas.\n'
+    '• Trước khi nhập khóa, hệ thống đối chiếu hash từng file với sổ cái — bảng phân loại hiển thị ví và thời điểm đã đóng dấu: tài liệu đã thu hồi cho phép tải lại, tài liệu đang hoạt động chỉ tạo thêm bản ghi mới, không bao giờ ghi đè.\n'
+    '• Popup bảo mật liệt kê rõ từng tệp được duyệt: một khóa AES chung cho cả lô, và mỗi file có thể đổi chế độ Công khai/Riêng tư hoặc đặt khóa riêng.\n'
     '• Một giao dịch duy nhất có thể đóng dấu tới 100 tài liệu (hàm addDocuments) — người dùng chỉ cần ký MetaMask một lần cho cả lô, tiết kiệm gas và thời gian thao tác.\n'
     '• Giao dịch blockchain được ghi xong mới lưu metadata vào MongoDB; nếu bước lưu bị lỗi, hàng đợi trong trình duyệt sẽ tự động thử lại ở phiên đăng nhập sau, tránh mất dấu tài liệu.',
     14, False, LIGHT)
@@ -278,8 +279,8 @@ bullets(s, Emu(700000), Emu(1350000), Emu(5300000), Emu(5000000), [
     ('Phê duyệt thiết bị lạ', 'Thiết bị mới phải được một thiết bị đang hoạt động duyệt, hoặc OTP về email khi không còn máy nào online — mỗi phiên ghi nhãn trình duyệt kèm phiên bản, IP và User-Agent để chủ ví nhận diện máy lạ. Khi mất hết neo tin cậy, cơ chế chờ 24 giờ giữ cho ví không bị khóa vĩnh viễn.'),
 ], 14, 8)
 bullets(s, Emu(6400000), Emu(1350000), Emu(5100000), Emu(5000000), [
-    ('Chia sẻ Công khai / Riêng tư', 'Tài liệu công khai: mọi ví đã đăng nhập được server cấp lại khóa và xem trực tiếp. Tài liệu riêng tư: chỉ chủ sở hữu và Admin được cấp khóa, người khác chỉ thấy metadata.'),
-    ('Cảnh báo upload trùng', 'Trước khi ghi chuỗi, hệ thống so sánh hash file với các bản ghi hiện có và cảnh báo kèm mã tài liệu cũ — người dùng quyết định có tiếp tục hay không.'),
+    ('Chia sẻ Công khai / Riêng tư từng file', 'Chế độ hiển thị và khóa AES đặt riêng cho từng file trong cùng một lô. Tài liệu công khai: mọi ví đã đăng nhập được server cấp lại khóa và xem trực tiếp. Tài liệu riêng tư: chỉ chủ sở hữu và Admin được cấp khóa, người khác chỉ thấy metadata.'),
+    ('Kiểm soát trùng nội dung hai lớp', 'Bảng phân loại trước khi nhập khóa: mục "đã thu hồi" cho tải lại, mục "đang hoạt động" cho ghi thêm bản ghi — mỗi dòng hiện ví và thời điểm đóng dấu on-chain. Lớp kiểm tra lần cuối còn bắt trường hợp nội dung vừa được đóng dấu sau khi quét.'),
     ('API key cho đối tác', 'Hệ thống bên ngoài có thể tải tài liệu tự động qua API key riêng; server tự sinh khóa AES-256, bọc bằng khóa chủ và ghi chuỗi như người dùng thường.'),
 ], 14, 8)
 
@@ -318,7 +319,7 @@ bullets(s, Emu(700000), Emu(3400000), Emu(10800000), Emu(2900000), [
 s = slide(); header(s, '05', 'KỊCH BẢN TRÌNH DIỄN'); footer(s, 13)
 steps = [
     ('1', 'Đăng nhập bằng MetaMask — ký thử thách, phê duyệt thiết bị lần đầu'),
-    ('2', 'Kéo-thả tài liệu — chọn chế độ Công khai/Riêng tư, nhập khóa AES'),
+    ('2', 'Kéo-thả nhiều tài liệu — bảng phân loại trùng trước, rồi đặt chế độ và khóa AES riêng cho từng file'),
     ('3', 'Theo dõi tiến trình: băm → mã hóa → IPFS → ký on-chain → đồng bộ MongoDB'),
     ('4', 'Xác thực file nguyên bản → VERIFIED; sửa 1 byte rồi verify lại → FAILED'),
     ('5', 'Thu hồi tài liệu — MetaMask ký giao dịch; verify lần nữa → REVOKED'),
