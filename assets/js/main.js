@@ -1133,6 +1133,8 @@ async function handleUpload() {
                 const docData = await contract.getDocument(existingDocId);
                 const isRevoked = docData[4];
                 fileData.knownDup = true; // đã xử lý qua bảng xung đột — không hỏi lại ở bước kiểm tra sau
+                fileData.oldUploader = String(docData[3] || '');   // ví đã đóng dấu
+                fileData.oldTime = Number(docData[2]) * 1000;      // timestamp on-chain (giây → ms)
                 if (isRevoked) window.uploadQueue.revokedFiles.push(fileData);
                 else window.uploadQueue.activeFiles.push(fileData);
             } else {
@@ -1170,6 +1172,7 @@ function showConflictModal() {
     const secActive = document.getElementById('section-active-conflict');
     const tbodyRevoked = document.getElementById('revoked-conflict-tbody');
     const tbodyActive = document.getElementById('active-conflict-tbody');
+    const shortA = a => a ? `${a.slice(0, 8)}…${a.slice(-4)}` : '—';
 
     // Render Bảng Đã Xóa
     if (window.uploadQueue.revokedFiles.length > 0) {
@@ -1184,6 +1187,7 @@ function showConflictModal() {
                         <span class="text-[10px] text-gray-500 font-mono">${esc(f.size)}</span>
                     </div>
                     <div class="text-[9px] text-gray-500 font-mono truncate max-w-[250px]">ID cũ: ${esc(f.oldId)}</div>
+                    <div class="text-[9px] text-gray-400 mt-0.5">Đóng dấu bởi ví <span class="font-mono">${esc(shortA(f.oldUploader))}</span> · ${esc(window.formatTimeForce(f.oldTime))}</div>
                 </td>
             </tr>
         `).join('');
@@ -1205,6 +1209,7 @@ function showConflictModal() {
                         <span class="text-[10px] text-gray-500 font-mono">${esc(f.size)}</span>
                     </div>
                     <div class="text-[9px] text-gray-500 font-mono truncate max-w-[250px]">ID gốc: ${esc(f.oldId)}</div>
+                    <div class="text-[9px] text-gray-400 mt-0.5">Đang được đóng dấu bởi ví <span class="font-mono">${esc(shortA(f.oldUploader))}</span> · ${esc(window.formatTimeForce(f.oldTime))}</div>
                 </td>
             </tr>
         `).join('');
@@ -1282,7 +1287,15 @@ async function promptPasswordAndUpload() {
         }
         const dups = finalFiles.filter(f => onChain[norm(f.hash)] && !f.knownDup);
         if (dups.length) {
-            const list = dups.map(f => `• ${esc(f.fileObj.name)} <span class="text-gray-500">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 40))}…)</span>`).join('<br>');
+            const shortA = a => a ? `${a.slice(0, 8)}…${a.slice(-4)}` : '—';
+            const list = (await Promise.all(dups.map(async f => {
+                try {
+                    const d = await web3.contract.getDocument(onChain[norm(f.hash)]);
+                    return `• ${esc(f.fileObj.name)} <span class="text-gray-500">— ví ${esc(shortA(String(d[3])))} đóng dấu ${esc(window.formatTimeForce(Number(d[2]) * 1000))}</span>`;
+                } catch {
+                    return `• ${esc(f.fileObj.name)} <span class="text-gray-500">(đã đóng dấu: ${esc(onChain[norm(f.hash)].slice(0, 30))}…)</span>`;
+                }
+            }))).join('<br>');
             const dupHtml = `${dups.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br>${list}<br><br>Vẫn tạo bản ghi mới cho các tệp này?`;
             const res = await Swal.fire({
                 title: 'Phát hiện tài liệu trùng nội dung',
