@@ -2472,7 +2472,9 @@ window.loadWalletRoles = async function() {
                 if (!realStorageMap[owner]) realStorageMap[owner] = 0;
                 
                 batch.files.forEach(f => {
-                    if (!f.isRevoked && f.fileSize) {
+                    // Tính cả file đã thu hồi — ciphertext vẫn pin trên IPFS,
+                    // vẫn chiếm quota Pinata (khớp công thức phía server)
+                    if (f.fileSize) {
                         let size = 0;
                         if (f.fileSize.includes('MB')) size = parseFloat(f.fileSize);
                         else if (f.fileSize.includes('KB')) size = parseFloat(f.fileSize) / 1024;
