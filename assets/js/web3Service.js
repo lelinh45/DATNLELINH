@@ -29,9 +29,34 @@ export class Web3Service {
         return eth;
     }
 
+    // Một số trình duyệt/extension inject window.ethereum trễ hoặc không inject
+    // (site access "on click", vừa bật extension...). Thử EIP-6963 announce và
+    // poll ngắn trước khi kết luận "chưa cài ví" — tránh báo lỗi giả.
+    async getInjectedProvider(timeoutMs = 2500) {
+        const found = this.pickInjectedProvider();
+        if (found) return found;
+        return await new Promise(resolve => {
+            const announced = [];
+            const onAnnounce = (e) => { if (e && e.detail && e.detail.provider) announced.push(e.detail.provider); };
+            try {
+                window.addEventListener('eip6963:announceProvider', onAnnounce);
+                window.dispatchEvent(new Event('eip6963:requestProvider'));
+            } catch {}
+            const t0 = Date.now();
+            const tick = setInterval(() => {
+                const again = this.pickInjectedProvider();
+                if (again || announced.length || Date.now() - t0 > timeoutMs) {
+                    clearInterval(tick);
+                    window.removeEventListener('eip6963:announceProvider', onAnnounce);
+                    resolve(again || announced.find(p => p.isMetaMask) || announced[0] || null);
+                }
+            }, 150);
+        });
+    }
+
     async connectWallet() {
-        const injected = this.pickInjectedProvider();
-        if (!injected) throw new Error("Không tìm thấy ví MetaMask. Vui lòng cài đặt tiện ích!");
+        const injected = await this.getInjectedProvider();
+        if (!injected) throw new Error("Không tìm thấy ví MetaMask. Nếu đã cài tiện ích, hãy tải lại trang (F5) và kiểm tra MetaMask được phép truy cập trang này.");
         try {
             await injected.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CONFIG.HARDHAT_CHAIN_ID }] });
         } catch (switchError) {

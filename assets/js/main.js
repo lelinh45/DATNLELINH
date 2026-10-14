@@ -605,14 +605,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const addr = document.getElementById('gate-wallet-address')?.innerText || '';
         if (addr) navigator.clipboard?.writeText(addr).catch(() => {});
     });
-    // Ví bị từ chối muốn xin lại — mở lại form khai thông tin (chưa đến hạn chặn)
+    // Ví bị từ chối muốn xin lại — chỉ mở form khai lại thông tin. Hint "Đã lưu"
+    // bị ẩn để tránh hiểu nhầm đã gửi rồi; "đang chờ" cũng chưa hiện vì chưa gửi.
     document.getElementById('btn-gate-rerequest')?.addEventListener('click', () => {
         window.__rerequesting = true;
         document.getElementById('gate-rejected')?.classList.add('hidden');
-        document.getElementById('gate-wait-card')?.classList.remove('hidden');
+        document.getElementById('gate-saved-hint')?.classList.add('hidden');
         document.getElementById('gate-form-card')?.classList.remove('hidden');
         const t = document.getElementById('page-title');
-        if (t) t.innerText = 'Chờ cấp quyền';
+        if (t) t.innerText = 'Gửi lại yêu cầu cấp quyền';
     });
     document.getElementById('btn-gate-save')?.addEventListener('click', async () => {
         const alias = (document.getElementById('gate-alias')?.value || '').trim();
@@ -643,7 +644,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (profileName) profileName.innerText = alias;
                 }
             }
-            window.__rerequesting = false; // đã gửi lại xong — poll phải hiện lại gate nếu bị từ chối tiếp
+            if (window.__rerequesting) {
+                window.__rerequesting = false; // đã gửi lại xong — poll phải hiện lại gate nếu bị từ chối tiếp
+                document.getElementById('gate-wait-card')?.classList.remove('hidden'); // giờ mới thật sự "đang chờ duyệt"
+            }
             document.getElementById('gate-saved-hint')?.classList.remove('hidden');
             Swal.fire({ title: 'Đã lưu thông tin', text: 'Admin sẽ thấy thông tin này trong khay chờ duyệt.', icon: 'success', background: '#111827', color: '#fff', timer: 1800, showConfirmButton: false });
         } catch (e) {
@@ -871,6 +875,24 @@ function isPendingGateVisible() {
     return t && !t.classList.contains('hidden');
 }
 
+// Liên hệ admin thật cho ví bị từ chối — thay câu "liên hệ quản trị viên" mơ hồ
+let _adminContactCache = undefined;
+async function loadAdminContactLine() {
+    const el = document.getElementById('gate-admin-contact');
+    if (!el) return;
+    if (_adminContactCache === undefined) _adminContactCache = (await ApiService.getAdminContact()) || {};
+    const a = _adminContactCache;
+    const parts = [];
+    if (a.alias) parts.push(a.alias);
+    if (a.address) parts.push(`ví ${a.address.slice(0, 8)}…${a.address.slice(-4)}`);
+    if (a.email) parts.push(`email ${a.email}`);
+    if (a.phone) parts.push(`SĐT ${a.phone}`);
+    if (parts.length) {
+        el.innerText = 'Quản trị viên: ' + parts.join(' · ');
+        el.classList.remove('hidden');
+    }
+}
+
 // Ví bị Admin từ chối: ẩn form chờ, hiện thông báo từ chối.
 // Bị từ chối ≥3 lần → cấm xin lại 30 phút (hiện đồng hồ còn lại thay nút gửi lại)
 function applyRejectedGate(me) {
@@ -878,6 +900,7 @@ function applyRejectedGate(me) {
     document.getElementById('gate-wait-card')?.classList.add('hidden');
     document.getElementById('gate-form-card')?.classList.add('hidden');
     document.getElementById('gate-rejected')?.classList.remove('hidden');
+    loadAdminContactLine();
     const blockedLeft = ((me && me.rejectBlockedUntil) || 0) - Date.now();
     const note = document.getElementById('gate-blocked-note');
     const btnRe = document.getElementById('btn-gate-rerequest');

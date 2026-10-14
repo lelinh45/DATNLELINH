@@ -330,6 +330,15 @@ export const ApiService = {
         return data;
     },
 
+    // Liên hệ admin — ví bị từ chối/chờ duyệt cần biết gọi ai
+    async getAdminContact() {
+        try {
+            const res = await fetch(`${CONFIG.API_BASE}/wallets/admin-contact`, { headers: authHeaders() });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) { return null; }
+    },
+
     // Hồ sơ của chính ví đang đăng nhập — mọi rank đều đọc được (kể cả khách rank 0)
     async getMyWallet() {
         try {

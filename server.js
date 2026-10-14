@@ -516,6 +516,17 @@ app.get('/api/wallets/me', requireAuth, async (req, res) => {
     }
 });
 
+// Liên hệ admin — ví bị từ chối cần biết gọi ai. Chỉ lộ alias/email/phone/địa chỉ.
+app.get('/api/wallets/admin-contact', requireAuth, async (req, res) => {
+    try {
+        const w = await Wallet.findOne({ role: 'ADMIN', status: 'ACTIVE' })
+            .select('address alias email phone').lean();
+        res.json(w || {});
+    } catch (e) {
+        res.status(500).json({ message: 'Lỗi lấy liên hệ admin' });
+    }
+});
+
 // Ví đã đăng nhập nhưng quyền on-chain vẫn là 0 — khay "chờ cấp quyền" của ADMIN
 app.get('/api/wallets/pending', requireAuth, requireRole('ADMIN'), async (req, res) => {
     try {

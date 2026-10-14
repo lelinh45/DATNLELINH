@@ -113,6 +113,8 @@ console.log('== G. SECURITY NHANH ==');
 { const r = await get('/batches'); ok('/batches không token → 401', r.st === 401); }
 { const r = await get('/wallets', { Authorization: 'Bearer fake.jwt.here' }); ok('JWT giả → 401', r.st === 401); }
 { const r = await post('/wallets/sync', { address: 'not-an-address' }, HP); ok('Sync địa chỉ xấu → 400', r.st === 400); }
+{ const r = await get('/wallets/admin-contact', HP); ok('/wallets/admin-contact (ví thường) → 200', r.st === 200); }
+{ const r = await get('/wallets/admin-contact'); ok('/wallets/admin-contact không token → 401', r.st === 401); }
 
 console.log('\n========== ĐỘ TRỄ TỪNG ENDPOINT ==========');
 timings.forEach(([n, v]) => console.log(`  ${String(v).padStart(5)} ms  ${n}`));
