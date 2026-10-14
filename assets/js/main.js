@@ -2986,6 +2986,9 @@ window.openRoleModal = async function () {
     setCnt('role-count-nl', countOf('NHẬP LIỆU'));
     setCnt('role-count-ql', countOf('QUẢN LÝ'));
     setCnt('role-count-nx', countOf('NGƯỜI XEM'));
+    // Nút "Tất cả" = tổng ví được ủy quyền + admin gốc (admin cũng được cấp sẵn)
+    const adminCount = __roleModalWallets.filter(w => w.status === 'ACTIVE' && w.role === 'ADMIN').length;
+    setCnt('role-count-all', granted.length + adminCount);
 };
 
 function showView(which) {
@@ -2998,8 +3001,6 @@ function showView(which) {
 window.showRolePicker = () => showView('roles');
 
 window.showRoleList = function (role) {
-    const meta = ROLE_LIST_META[role];
-    if (!meta) return;
     // Admin/quản lý: nhảy thẳng xuống tab Quản Lý Quyền Ví và áp đúng chip lọc —
     // xem trong bảng chung để thao tác tiếp được luôn (hồ sơ, dung lượng, menu quản lý)
     const navRoles = document.getElementById('nav-roles');
@@ -3013,14 +3014,19 @@ window.showRoleList = function (role) {
         return;
     }
     // Ví chỉ-đọc (không có tab quản lý): xem danh sách ngay trong popup
+    const meta = role === 'ALL'
+        ? { color: 'text-gray-200', badge: 'bg-gray-800 text-gray-300 border-gray-600', icon: 'fa-users' }
+        : ROLE_LIST_META[role];
+    if (!meta) return;
     document.getElementById('role-list-title').innerHTML =
-        `<i class="fa-solid ${meta.icon} mr-1.5 ${meta.color}"></i><span class="${meta.color}">${esc(role)}</span>`;
-    const rows = __roleModalWallets.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && w.role === role);
+        `<i class="fa-solid ${meta.icon} mr-1.5 ${meta.color}"></i><span class="${meta.color}">${role === 'ALL' ? 'TẤT CẢ' : esc(role)}</span>`;
+    const rows = __roleModalWallets.filter(w => w.status === 'ACTIVE' && (role === 'ALL' || (w.roleGranted === true && w.role === role)));
+    const badgeOf = (r) => ROLE_LIST_META[r]?.badge || meta.badge;
     const body = document.getElementById('role-list-body');
     body.innerHTML = rows.length === 0
         ? `<div class="h-full flex flex-col items-center justify-center text-gray-600 gap-2 py-10">
                <i class="fa-solid fa-users-slash text-2xl"></i>
-               <p class="text-xs">Chưa có ví nào được cấp quyền ${esc(role)}</p>
+               <p class="text-xs">${role === 'ALL' ? 'Chưa có ví nào được ủy quyền' : `Chưa có ví nào được cấp quyền ${esc(role)}`}</p>
            </div>`
         : rows.map(w => `
            <div class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-gray-800/40 border border-gray-700/50 hover:border-gray-600 transition">
@@ -3028,7 +3034,7 @@ window.showRoleList = function (role) {
                    <p class="text-[13px] font-bold text-white truncate">${esc(w.alias || '(Chưa đặt tên)')}</p>
                    <p class="font-mono text-[10px] text-gray-500">${esc(w.address)}</p>
                </div>
-               <span class="shrink-0 ml-3 w-max px-2 py-0.5 rounded text-[10px] font-bold border ${meta.badge}">${esc(w.role)}</span>
+               <span class="shrink-0 ml-3 w-max px-2 py-0.5 rounded text-[10px] font-bold border ${badgeOf(w.role)}">${esc(w.role)}</span>
            </div>`).join('');
     showView('list');
 };
