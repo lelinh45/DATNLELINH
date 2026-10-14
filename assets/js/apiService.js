@@ -206,6 +206,19 @@ export const ApiService = {
         return data;
     },
 
+    // Tra cứu tài liệu theo hash nội dung / tên file — public.
+    // Dùng cho verify không cần gõ mã: thả file → băm → tự tìm docId.
+    async lookupDocument(hash, name) {
+        try {
+            const q = new URLSearchParams();
+            if (hash) q.set('hash', hash);
+            if (name) q.set('name', name);
+            const res = await fetch(`${CONFIG.API_BASE}/documents/lookup?${q}`);
+            if (!res.ok) return null;
+            return await res.json(); // { byHash: [...], byName: [...] }
+        } catch { return null; }
+    },
+
     // Trạng thái thu hồi trong MongoDB — public, để verify đối chiếu 2 nguồn
     async getDocumentStatus(docId) {
         try {

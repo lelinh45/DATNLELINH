@@ -819,6 +819,54 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
     }
 });
 
+// Tra cứu tài liệu theo hash nội dung / tên file — public (hash và docId vốn
+// đã public trong sự kiện DocumentAdded trên chuỗi). Phục vụ verify không cần
+// gõ mã: thả file → băm → tra → tự biết tài liệu nào đang được đối chiếu.
+app.get('/api/documents/lookup', async (req, res) => {
+    try {
+        const hash = String(req.query.hash || '').toLowerCase();
+        const name = String(req.query.name || '').trim().toLowerCase();
+        if (hash && !/^[a-f0-9]{64}$/.test(hash)) {
+            return res.status(400).json({ success: false, message: 'hash không hợp lệ' });
+        }
+        if (!hash && !name) return res.status(400).json({ success: false, message: 'Thiếu tham số tra cứu' });
+        if (name.length > 200) return res.status(400).json({ success: false, message: 'name quá dài' });
+
+        const pick = (f, uploader) => ({
+            docId: f.docId, fileName: f.fileName || '', uploader: uploader || '',
+            isRevoked: !!f.isRevoked, revocationReason: f.revocationReason || ''
+        });
+        const byHash = [], byName = [];
+
+        if (hash) {
+            const batches = await Batch.find({ 'files.fileHash': hash }).select('uploader files').lean();
+            for (const b of batches) for (const f of b.files) {
+                if ((f.fileHash || '').toLowerCase() === hash) byHash.push(pick(f, b.uploader));
+            }
+        }
+        // Chỉ tra theo tên khi hash không khớp — phục vụ phát hiện file bị sửa
+        if (name && byHash.length === 0) {
+            const escRe = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp('^' + escRe + '$', 'i');           // khớp tên file đúng
+            const reDoc = new RegExp('^' + escRe + '_\\d+', 'i');    // khớp docId dạng ten_<epoch>
+            const batches = await Batch.find({
+                $or: [{ 'files.fileName': re }, { 'files.docId': re }, { 'files.docId': reDoc }]
+            }).select('uploader files').limit(20).lean();
+            for (const b of batches) for (const f of b.files) {
+                const base = (f.docId || '').replace(/_\d+$/, '');
+                const dl = (f.docId || '').toLowerCase();
+                if ((f.fileName || '').toLowerCase() === name || dl === name || base === name) {
+                    byName.push(pick(f, b.uploader));
+                    if (byName.length >= 10) break;
+                }
+            }
+        }
+        res.json({ success: true, byHash, byName });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi tra cứu tài liệu' });
+    }
+});
+
 // Trạng thái thu hồi theo MongoDB — public (thông tin này đã public trên chain)
 // để verify đối chiếu 2 nguồn, bắt được cả bản ghi thu hồi off-chain cũ.
 app.get('/api/documents/:docId/status', async (req, res) => {

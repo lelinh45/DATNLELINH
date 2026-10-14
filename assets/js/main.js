@@ -1695,16 +1695,45 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
 // =====================================================================
 async function handleVerify() {
     if (isProcessing) return;
-    
+
     const fileInput = document.getElementById('verifyFile');
-    const docId = document.getElementById('verifyDocId')?.value.trim();
-    
-    if (!fileInput || fileInput.files.length === 0 || !docId) {
-        return Swal.fire({ title: 'Thiếu thông tin', text: 'Vui lòng nhập ID tài liệu và chọn tệp cần kiểm tra!', icon: 'warning', background: '#111827', color: '#fff' });
+    let docId = document.getElementById('verifyDocId')?.value.trim();
+    const file = fileInput && fileInput.files[0];
+
+    if (!file) {
+        return Swal.fire({ title: 'Thiếu thông tin', text: 'Vui lòng chọn tệp cần kiểm tra!', icon: 'warning', background: '#111827', color: '#fff' });
     }
 
     isProcessing = true;
     try {
+        // KHÔNG nhập mã → tự tra cứu: băm file → tìm bản ghi trùng nội dung;
+        // không có thì tìm theo tên file để phát hiện nội dung bị sửa.
+        if (!docId) {
+            UI.updateProgress(15, "Đang băm tệp để tự tra cứu mã tài liệu...", "HASHING");
+            const fileHashProbe = await web3.hashFile(file);
+            UI.updateProgress(30, "Đang tra cứu bản ghi trong hệ thống...", "QUERYING");
+            const lk = await ApiService.lookupDocument(fileHashProbe, file.name);
+
+            if (lk && lk.byHash && lk.byHash.length > 0) {
+                await verifyByHashMatches(file, fileHashProbe, lk.byHash);
+                isProcessing = false;
+                return;
+            }
+            if (lk && lk.byName && lk.byName.length > 0) {
+                // Tên giống tài liệu đã đóng dấu nhưng nội dung khác → chạy tiếp
+                // luồng đối chiếu hash chuẩn (sẽ rơi vào nhánh PHÁT HIỆN GIẢ MẠO)
+                docId = lk.byName[0].docId;
+            } else {
+                UI.updateProgress(0, "Không tìm thấy dữ liệu.", "NOT FOUND");
+                isProcessing = false;
+                return Swal.fire({
+                    title: 'KHÔNG TÌM THẤY', icon: 'warning', background: '#111827', color: '#fff',
+                    html: `<p class="text-sm text-gray-300">Tệp <b>${esc(file.name)}</b> không khớp nội dung lẫn tên của bất kỳ tài liệu nào đã đóng dấu trên hệ thống.<br><span class="text-gray-500 text-xs">Nếu tài liệu đã đổi tên, hãy nhập mã truy xuất (docId) để đối chiếu trực tiếp.</span></p>`,
+                    confirmButtonText: 'Đóng', confirmButtonColor: '#2563eb'
+                });
+            }
+        }
+
         UI.updateProgress(20, "Đang truy xuất sổ cái Smart Contract...", "QUERYING");
         const docData = await web3.getDocumentFromChain(docId);
         const originalHash = docData[0];
@@ -1860,6 +1889,78 @@ async function handleVerify() {
     } finally {
         isProcessing = false;
     }
+}
+
+// =====================================================================
+// VERIFY KHÔNG CẦN MÃ — nội dung file khớp 1+ bản ghi đã đóng dấu.
+// Mỗi bản ghi vẫn được đối chiếu trên chain (nguồn chuẩn) + MongoDB
+// (bắt bản thu hồi off-chain cũ); hiển thị từng bản ghi kèm trạng thái.
+// =====================================================================
+async function verifyByHashMatches(file, fileHash, matches) {
+    const results = [];
+    for (const m of matches) {
+        try {
+            const d = await web3.getDocumentFromChain(m.docId);
+            if (!d[0]) continue; // không có trên chain — bản ghi MongoDB mồ côi, bỏ qua
+            let revoked = !!d[4];
+            let reason = d[5] || '';
+            try {
+                const st = await ApiService.getDocumentStatus(m.docId);
+                if (st && st.isRevoked && !revoked) {
+                    revoked = true;
+                    if (st.revocationReason) reason = st.revocationReason;
+                }
+            } catch (e) {}
+            results.push({
+                docId: m.docId, uploader: d[3],
+                timestamp: new Date(Number(d[2]) * 1000).toLocaleString('vi-VN'),
+                ipfsCID: d[1] ? d[1].replace('ipfs://', '') : '',
+                revoked, reason
+            });
+        } catch (e) {}
+    }
+
+    const fileInput = document.getElementById('verifyFile');
+    if (results.length === 0) {
+        UI.updateProgress(0, "Không tìm thấy dữ liệu.", "NOT FOUND");
+        return Swal.fire({ title: 'Lỗi', text: 'Bản ghi tồn tại trong MongoDB nhưng không đọc được trên chuỗi khối.', icon: 'error', background: '#111827', color: '#fff' });
+    }
+
+    const anyActive = results.some(r => !r.revoked);
+    const rowsHtml = results.map(r => `
+        <div class="p-3 rounded-lg border ${r.revoked ? 'border-red-800/60 bg-red-900/10' : 'border-emerald-800/60 bg-emerald-900/10'} text-left">
+            <div class="flex items-center justify-between gap-2">
+                <span class="font-mono text-[11px] text-gray-300 truncate" title="${esc(r.docId)}">${esc(r.docId)}</span>
+                <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${r.revoked ? 'bg-red-900/40 text-red-400' : 'bg-emerald-900/40 text-emerald-400'}">${r.revoked ? 'ĐÃ THU HỒI' : 'NGUYÊN BẢN'}</span>
+            </div>
+            <p class="text-[10px] text-gray-500 mt-1">Ví tạo: <span class="font-mono text-gray-400">${esc(r.uploader)}</span> · ${esc(r.timestamp)}</p>
+            ${r.revoked && r.reason ? `<p class="text-[10px] text-red-400 mt-1">Lý do thu hồi: ${esc(r.reason)}</p>` : ''}
+        </div>`).join('');
+
+    const firstActive = results.find(r => !r.revoked);
+    if (firstActive) {
+        lastCertData = {
+            docId: firstActive.docId, fileHash: fileHash,
+            ipfsCID: firstActive.ipfsCID || 'On-chain Verified',
+            signerWallet: firstActive.uploader, timestamp: firstActive.timestamp
+        };
+    }
+
+    UI.updateProgress(100, anyActive ? "Kiểm chứng thành công. Dữ liệu khớp 100%." : "Tài liệu nguyên bản nhưng đã bị vô hiệu hóa.", anyActive ? "VERIFIED" : "REVOKED");
+    Swal.fire({
+        title: anyActive ? 'KHỚP 100%' : 'TÀI LIỆU ĐÃ BỊ THU HỒI!',
+        icon: anyActive ? 'success' : 'error', background: '#111827', color: '#fff',
+        html: `
+            <p class="text-gray-300 text-sm mb-3">Mã băm của tệp khớp ${results.length > 1 ? `${results.length} bản ghi` : 'bản ghi'} trên Blockchain${matches.length > results.length ? ' (một số bản ghi không đọc được trên chuỗi)' : ''}:</p>
+            <div class="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">${rowsHtml}</div>
+            ${firstActive ? `<button data-act="pdf" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-bold shadow-md transition">
+                <i class="fa-solid fa-file-pdf mr-2"></i> Tải Báo Cáo Chứng Thực (PDF)
+            </button>` : ''}`,
+        confirmButtonText: 'Đóng', confirmButtonColor: '#2563eb'
+    }).then(() => {
+        UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
+        if (fileInput) { fileInput.value = ''; UI.updateFileName('verifyFile'); }
+    });
 }
 
 // Điền phí gas (ETH) cho từng ô data-txfee — dedupe theo txHash, chạy sau render

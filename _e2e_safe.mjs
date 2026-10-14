@@ -76,6 +76,22 @@ await mdb.connection.db.collection('wallets').updateOne({ address: wView.address
 { const r = await get('/batches', HV); ok('Viewer bị khóa → /batches 403', r.st === 403); }
 await mdb.connection.db.collection('wallets').updateOne({ address: wView.address.toLowerCase() }, { $set: { status: 'ACTIVE' } });
 
+console.log('== D2. TRA CỨU TÀI LIỆU KHÔNG CẦN MÃ (verify bằng hash/tên file) ==');
+const probeHash = crypto.createHash('sha256').update('e2e-noi-dung-thu-nghiem').digest('hex');
+await mdb.connection.db.collection('batches').insertOne({
+    batchId: 'e2e_batch_lookup', uploader: wView.address.toLowerCase(), ipfsCID: 'bafye2e', txHash: '0xabc',
+    files: [
+        { docId: 'hopdong_test.pdf_1700000001', fileName: 'hopdong_test.pdf', fileHash: probeHash, ipfsCID: 'bafy1', fileSize: '1 KB', visibility: 'private' },
+        { docId: 'danhsach.xlsx_1700000002', fileName: 'danhsach.xlsx', fileHash: '0'.repeat(64), ipfsCID: 'bafy2', fileSize: '2 KB', visibility: 'public', isRevoked: true, revocationReason: 'hết hạn' }
+    ]
+});
+{ const r = await get('/documents/lookup?hash=' + probeHash); ok('Lookup theo hash → tìm đúng docId', r.st === 200 && r.byHash && r.byHash[0] && r.byHash[0].docId === 'hopdong_test.pdf_1700000001', JSON.stringify(r).slice(0, 160)); }
+{ const r = await get('/documents/lookup?name=danhsach.xlsx'); ok('Lookup theo tên file → thấy + kèm cờ thu hồi', r.st === 200 && r.byName && r.byName[0] && r.byName[0].isRevoked === true, JSON.stringify(r).slice(0, 160)); }
+{ const r = await get('/documents/lookup?name=hopdong_test.pdf_1700000001'); ok('Lookup theo docId base (tên_<epoch>) → khớp', r.st === 200 && r.byName && r.byName.length === 1); }
+{ const r = await get('/documents/lookup?hash=' + 'f'.repeat(64)); ok('Lookup hash lạ → rỗng (file chưa đóng dấu)', r.st === 200 && r.byHash.length === 0); }
+{ const r = await get('/documents/lookup?hash=nothex'); ok('Lookup hash xấu → 400', r.st === 400); }
+{ const r = await get('/documents/lookup'); ok('Lookup thiếu tham số → 400', r.st === 400); }
+
 console.log('== E. ADMIN THẬT (PRIVATE_KEY rank 3 on-chain) — chỉ test đọc ==');
 if (process.env.PRIVATE_KEY) {
     const admin = new Wallet(process.env.PRIVATE_KEY, provider);
