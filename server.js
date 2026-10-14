@@ -544,14 +544,25 @@ app.post('/api/wallets/reject', requireAuth, requireRole('ADMIN'), async (req, r
         if (target === req.user.address) {
             return res.status(400).json({ success: false, message: 'Không thể từ chối chính ví của mình' });
         }
-        const w = await Wallet.findOneAndUpdate({ address: target }, { $set: { status: 'REVOKED', rejected: true } }, { returnDocument: 'after' });
-        if (!w) return res.status(404).json({ success: false, message: 'Không tìm thấy ví trong hệ thống' });
+        const cur = await Wallet.findOne({ address: target }).select('rejectCount').lean();
+        if (!cur) return res.status(404).json({ success: false, message: 'Không tìm thấy ví trong hệ thống' });
+        // Tích lũy số lần bị từ chối — từ lần thứ 3 trở đi cấm xin lại 30 phút
+        // (chống spam khay duyệt); đếm reset về 0 khi ví được cấp quyền
+        const newCount = (cur.rejectCount || 0) + 1;
+        const blocked = newCount >= 3 ? Date.now() + 30 * 60 * 1000 : 0;
+        const w = await Wallet.findOneAndUpdate(
+            { address: target },
+            { $set: { status: 'REVOKED', rejected: true, rejectCount: newCount, rejectBlockedUntil: blocked } },
+            { returnDocument: 'after' }
+        );
         try {
             await Notification.create({
                 address: target, type: 'system',
                 title: 'Yêu cầu cấp quyền bị từ chối',
-                message: 'Admin đã từ chối cấp quyền cho ví của bạn. Liên hệ quản trị viên nếu cần xem xét lại.',
-                meta: { rejectedBy: req.user.address }
+                message: blocked
+                    ? 'Admin đã từ chối cấp quyền cho ví của bạn. Đây là lần từ chối thứ 3 — ví tạm bị khóa chức năng xin cấp quyền trong 30 phút.'
+                    : 'Admin đã từ chối cấp quyền cho ví của bạn. Liên hệ quản trị viên nếu cần xem xét lại.',
+                meta: { rejectedBy: req.user.address, rejectCount: newCount }
             });
         } catch (e) {}
         res.json({ success: true, message: 'Đã từ chối ví' });
@@ -621,13 +632,16 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
             if ('role' in updateData) {
                 update.roleGranted = true;
                 update.requestedRole = null;
+                // Được duyệt → xóa tích lũy từ chối và mở khóa xin quyền (nếu đang bị chặn)
+                update.rejectCount = 0;
+                update.rejectBlockedUntil = 0;
             }
         }
 
         // Cần đọc doc hiện tại khi ví tự khai thông tin — dùng cho 2 check dưới
         let curDoc = null;
         if (isSelf && ('alias' in update || 'requestedRole' in update)) {
-            curDoc = await Wallet.findOne({ address: target }).select('alias email phone status rejected role').lean();
+            curDoc = await Wallet.findOne({ address: target }).select('alias email phone status rejected role rejectCount rejectBlockedUntil').lean();
         }
 
         // Ví tự đề nghị quyền phải khai đủ Tên + Email + SĐT — thiếu 1 trường
@@ -637,6 +651,14 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
             if (!merged.alias || !merged.email || !merged.phone) {
                 return res.status(400).json({ success: false, message: 'Vui lòng khai đủ Tên, Email và Số điện thoại trước khi xin cấp quyền' });
             }
+        }
+
+        // Ví bị từ chối ≥3 lần đang trong 30 phút cấm — chặn mọi yêu cầu xin lại
+        // (kể cả bypass frontend gọi thẳng API)
+        if (isSelf && curDoc && curDoc.status === 'REVOKED' && curDoc.rejected === true
+            && (curDoc.rejectBlockedUntil || 0) > Date.now()) {
+            const mins = Math.ceil((curDoc.rejectBlockedUntil - Date.now()) / 60000);
+            return res.status(429).json({ success: false, message: `Ví này đã bị từ chối cấp quyền 3 lần — tạm khóa xin quyền, thử lại sau ~${mins} phút.` });
         }
 
         // Ví bị từ chối (rejected) hoặc bị sync cũ đè role BỊ KHÓA dù chưa từng có

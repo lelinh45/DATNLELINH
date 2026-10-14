@@ -605,6 +605,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const addr = document.getElementById('gate-wallet-address')?.innerText || '';
         if (addr) navigator.clipboard?.writeText(addr).catch(() => {});
     });
+    // Ví bị từ chối muốn xin lại — mở lại form khai thông tin (chưa đến hạn chặn)
+    document.getElementById('btn-gate-rerequest')?.addEventListener('click', () => {
+        window.__rerequesting = true;
+        document.getElementById('gate-rejected')?.classList.add('hidden');
+        document.getElementById('gate-wait-card')?.classList.remove('hidden');
+        document.getElementById('gate-form-card')?.classList.remove('hidden');
+        const t = document.getElementById('page-title');
+        if (t) t.innerText = 'Chờ cấp quyền';
+    });
     document.getElementById('btn-gate-save')?.addEventListener('click', async () => {
         const alias = (document.getElementById('gate-alias')?.value || '').trim();
         const email = (document.getElementById('gate-email')?.value || '').trim();
@@ -634,6 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (profileName) profileName.innerText = alias;
                 }
             }
+            window.__rerequesting = false; // đã gửi lại xong — poll phải hiện lại gate nếu bị từ chối tiếp
             document.getElementById('gate-saved-hint')?.classList.remove('hidden');
             Swal.fire({ title: 'Đã lưu thông tin', text: 'Admin sẽ thấy thông tin này trong khay chờ duyệt.', icon: 'success', background: '#111827', color: '#fff', timer: 1800, showConfirmButton: false });
         } catch (e) {
@@ -861,12 +871,25 @@ function isPendingGateVisible() {
     return t && !t.classList.contains('hidden');
 }
 
-// Ví bị Admin từ chối: ẩn form chờ, hiện thông báo từ chối
-function applyRejectedGate() {
+// Ví bị Admin từ chối: ẩn form chờ, hiện thông báo từ chối.
+// Bị từ chối ≥3 lần → cấm xin lại 30 phút (hiện đồng hồ còn lại thay nút gửi lại)
+function applyRejectedGate(me) {
     pendingGateActive = true;
     document.getElementById('gate-wait-card')?.classList.add('hidden');
     document.getElementById('gate-form-card')?.classList.add('hidden');
     document.getElementById('gate-rejected')?.classList.remove('hidden');
+    const blockedLeft = ((me && me.rejectBlockedUntil) || 0) - Date.now();
+    const note = document.getElementById('gate-blocked-note');
+    const btnRe = document.getElementById('btn-gate-rerequest');
+    if (blockedLeft > 0) {
+        note?.classList.remove('hidden');
+        btnRe?.classList.add('hidden');
+        const m = document.getElementById('gate-blocked-mins');
+        if (m) m.innerText = `~${Math.ceil(blockedLeft / 60000)} phút`;
+    } else {
+        note?.classList.add('hidden');
+        btnRe?.classList.remove('hidden');
+    }
     const title = document.getElementById('page-title');
     if (title) title.innerText = 'Yêu cầu bị từ chối';
 }
@@ -888,7 +911,7 @@ function applyPendingGate(account, me) {
     if (me) {
         if (me.rejected === true) {
             switchUI('tab-pending');
-            applyRejectedGate();
+            applyRejectedGate(me);
             return;
         }
         const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
@@ -960,7 +983,8 @@ function startGuestUnlockPoll(account) {
             if (rank === 0 && isPendingGateVisible()) {
                 const me = await ApiService.getMyWallet();
                 if (me && me.rejected === true) {
-                    applyRejectedGate();
+                    // Đang ở form "gửi lại yêu cầu" → không đè form mỗi nhịp poll
+                    if (!window.__rerequesting) applyRejectedGate(me);
                 } else if (me && me.role === 'NGƯỜI XEM') {
                     applyViewerMode(account);
                     Swal.fire({ title: 'Đã được cấp quyền!', text: 'Bạn được cấp quyền Người Xem — có thể xem và xác thực tài liệu (chỉ đọc).', icon: 'success', background: '#111827', color: '#fff' });

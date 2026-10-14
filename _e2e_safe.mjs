@@ -94,6 +94,12 @@ if (process.env.PRIVATE_KEY) {
     // Ví bị từ chối tự khai lại thông tin → quay lại khay chờ duyệt (không tự leo quyền)
     { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Re-request', requestedRole: 'NHẬP LIỆU' }, HP); ok('Ví bị từ chối khai lại → status ACTIVE, rejected=false', r.st === 200 && r.status === 'ACTIVE' && r.rejected === false, JSON.stringify(r).slice(0, 160)); }
     { const r = await get('/wallets/pending', HA); const back = (r.wallets || []).some(w => w.address === wPend.address.toLowerCase()); ok('Ví khai lại → quay lại khay chờ duyệt', r.st === 200 && back); }
+    // Tích lũy từ chối: lần thứ 3 bị cấm xin lại 30 phút (chống spam khay duyệt)
+    { const r = await post('/wallets/reject', { address: wPend.address }, HA); ok('Reject lần 2 → 200', r.st === 200); }
+    { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Re-request', requestedRole: 'NHẬP LIỆU' }, HP); ok('Khai lại sau reject 2 → ACTIVE', r.st === 200 && r.status === 'ACTIVE'); }
+    { const r = await post('/wallets/reject', { address: wPend.address }, HA); ok('Reject lần 3 → 200', r.st === 200); }
+    { const r = await get('/wallets/me', HP); ok('Sau reject 3 → rejectCount=3 + rejectBlockedUntil > now', r.st === 200 && r.rejectCount === 3 && (r.rejectBlockedUntil || 0) > Date.now(), JSON.stringify(r).slice(0, 160)); }
+    { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Blocked', requestedRole: 'NHẬP LIỆU' }, HP); ok('Xin lại khi đang bị chặn 30p → 429', r.st === 429, 'st=' + r.st); }
 } else console.log('  (không có PRIVATE_KEY — bỏ qua)');
 
 console.log('== F. ĐỘ TRỄ RPC ON-CHAIN (đọc — giới hạn UX) ==');
