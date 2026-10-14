@@ -672,13 +672,22 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
             return res.status(429).json({ success: false, message: `Ví này đã bị từ chối cấp quyền 3 lần — tạm khóa xin quyền, thử lại sau ~${mins} phút.` });
         }
 
-        // Ví bị từ chối (rejected) hoặc bị sync cũ đè role BỊ KHÓA dù chưa từng có
-        // quyền on-chain — tự khai lại thông tin → cho quay lại khay chờ duyệt.
+        // Ví bị từ chối (rejected), bị sync cũ đè role BỊ KHÓA dù chưa từng có
+        // quyền on-chain, hoặc bị Admin XÓA (status DELETED) — tự khai lại thông
+        // tin → cho quay lại khay chờ duyệt. Nếu không có nhánh này, ví bị xóa
+        // đăng nhập lại điền form xong vẫn DELETED → khay chờ (chỉ lấy ACTIVE)
+        // không bao giờ thấy yêu cầu — ngõ cụt.
         // Ví bị Admin khóa thủ công (giữ role thật, rejected=false) KHÔNG tự mở được
-        if (curDoc && curDoc.status === 'REVOKED' && (curDoc.rejected === true || curDoc.role === 'BỊ KHÓA')) {
+        if (curDoc && ((curDoc.status === 'REVOKED' && (curDoc.rejected === true || curDoc.role === 'BỊ KHÓA')) || curDoc.status === 'DELETED')) {
             update.status = 'ACTIVE';
             update.rejected = false;
-            if (curDoc.role === 'BỊ KHÓA') update.role = 'NHẬP LIỆU';
+            if (curDoc.role === 'BỊ KHÓA' || curDoc.role === 'ĐÃ XÓA') update.role = 'NHẬP LIỆU';
+            // Ví bị xóa quay lại = người xin mới — xóa sạch tích lũy từ chối/cấm
+            // (nếu giữ nguyên, check chặn 30p ở trên bị nhảy qua vì status ≠ REVOKED)
+            if (curDoc.status === 'DELETED') {
+                update.rejectCount = 0;
+                update.rejectBlockedUntil = 0;
+            }
         }
 
         const updatedWallet = await Wallet.findOneAndUpdate(

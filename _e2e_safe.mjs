@@ -100,6 +100,13 @@ if (process.env.PRIVATE_KEY) {
     { const r = await post('/wallets/reject', { address: wPend.address }, HA); ok('Reject lần 3 → 200', r.st === 200); }
     { const r = await get('/wallets/me', HP); ok('Sau reject 3 → rejectCount=3 + rejectBlockedUntil > now', r.st === 200 && r.rejectCount === 3 && (r.rejectBlockedUntil || 0) > Date.now(), JSON.stringify(r).slice(0, 160)); }
     { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Blocked', requestedRole: 'NHẬP LIỆU' }, HP); ok('Xin lại khi đang bị chặn 30p → 429', r.st === 429, 'st=' + r.st); }
+
+    // Ví bị Admin XÓA (status DELETED) đăng nhập lại + tự khai thông tin →
+    // phải revive về ACTIVE và lọt vào khay chờ, không kẹt ngõ cụt
+    await mdb.connection.db.collection('wallets').updateOne(
+        { address: wPend.address.toLowerCase() },
+        { $set: { status: 'DELETED', role: 'ĐÃ XÓA' } });
+    { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Deleted-back', requestedRole: 'NGƯỜI XEM' }, HP); ok('Ví bị xóa khai lại → revive ACTIVE + role mặc định + xóa đếm từ chối', r.st === 200 && r.status === 'ACTIVE' && r.role === 'NHẬP LIỆU' && r.rejectCount === 0, JSON.stringify(r).slice(0, 200)); }
 } else console.log('  (không có PRIVATE_KEY — bỏ qua)');
 
 console.log('== F. ĐỘ TRỄ RPC ON-CHAIN (đọc — giới hạn UX) ==');
