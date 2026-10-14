@@ -2399,11 +2399,15 @@ window.loadWalletRoles = async function() {
     // =======================================================
 
     // 2. KHÔI PHỤC TỪ BLOCKCHAIN & ĐẨY VÀO MONGODB
-    const latestRankByAddr = {}; // rank mới nhất theo sự kiện — phân biệt "chưa từng được cấp" vs "đã bị tước"
+    const maxRankByAddr = {};    // rank cao nhất ví TỪNG được cấp — ví bị khóa có rank mới nhất = 0 nhưng vẫn từng là ví được quản lý
     try {
         if (web3.contract) {
             const roleEvents = await web3.getEventsInChunks(web3.contract.filters.RoleAssigned(), 'role_events');
-            for (let ev of roleEvents) latestRankByAddr[String(ev.args[1]).toLowerCase()] = Number(ev.args[2]);
+            for (let ev of roleEvents) {
+                const a = String(ev.args[1]).toLowerCase();
+                const r = Number(ev.args[2]);
+                maxRankByAddr[a] = Math.max(maxRankByAddr[a] || 0, r);
+            }
             for (let ev of roleEvents) {
                 const assignedAddr = ev.args[1]; 
                 
@@ -2443,10 +2447,14 @@ window.loadWalletRoles = async function() {
                 const rCode = Number(rRaw);
                 // Ví NGƯỜI XEM giữ rank 0 trên chain — không để sync đè thành BỊ KHÓA
                 const isViewer = rCode === 0 && w.role === 'NGƯỜI XEM';
-                // Rank 0 + chưa từng được cấp rank ≥1 = ví CHỜ DUYỆT (hoặc bị từ chối)
-                // → chỉ nằm ở khay chờ; KHÔNG đè DB thành BỊ KHÓA, KHÔNG hiện trong bảng
-                const everApproved = (latestRankByAddr[w.address.toLowerCase()] || 0) >= 1;
-                if (rCode === 0 && !isViewer && !everApproved) {
+                // Rank 0 + chưa từng được cấp (cả on-chain lẫn DB) = ví CHỜ DUYỆT/bị từ chối
+                // → chỉ nằm ở khay chờ; KHÔNG hiện trong bảng.
+                // Ví BỊ KHÓA: rank mới nhất = 0 nhưng từng được cấp (maxRank ≥1, roleGranted,
+                // hoặc DB đã ghi BỊ KHÓA) → phải giữ trong bảng để admin còn Mở khóa.
+                // Ví bị từ chối: roleGranted=false + role mặc định → vẫn trúng điều kiện pending
+                const everApproved = (maxRankByAddr[w.address.toLowerCase()] || 0) >= 1;
+                const wasManaged = everApproved || w.roleGranted === true || w.role === 'BỊ KHÓA';
+                if (rCode === 0 && !isViewer && !wasManaged) {
                     w.__pending = true;
                     continue;
                 }
