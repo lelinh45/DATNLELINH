@@ -298,7 +298,7 @@
 
     <h2>4. Phương pháp nghiên cứu</h2>
     <p><b>Phương pháp nghiên cứu lý thuyết:</b> khảo sát các tài liệu chính thống (whitepaper Bitcoin, Ethereum, chuẩn FIPS của NIST, tài liệu giao thức IPFS) cùng các công trình liên quan để nắm vững nguyên lý và lựa chọn công nghệ phù hợp. Phân tích so sánh các mô hình lưu trữ on-chain thuần túy, off-chain thuần túy và mô hình lai để rút ra phương án kiến trúc tối ưu.</p>
-    <p><b>Phương pháp thực nghiệm:</b> xây dựng hệ thống hoàn chỉnh và triển khai thật trên môi trường testnet; kiểm thử chức năng bằng bộ test tự động gồm 79 ca kiểm thử bao phủ smart contract, tính nhất quán dữ liệu, rò rỉ bí mật và XSS; kiểm thử end-to-end bằng công cụ dòng lệnh với API key thật và giao dịch on-chain thật có thể đối chiếu trên Etherscan; đánh giá bảo mật theo mô hình mối đe dọa cụ thể thay vì mô tả chung chung.</p>
+    <p><b>Phương pháp thực nghiệm:</b> xây dựng hệ thống hoàn chỉnh và triển khai thật trên môi trường testnet; kiểm thử chức năng bằng bộ test tự động gồm 96 ca kiểm thử bao phủ smart contract, tính nhất quán dữ liệu, rò rỉ bí mật, XSS, hardening HTTP và module xác thực; kiểm thử end-to-end bằng công cụ dòng lệnh với API key thật và giao dịch on-chain thật có thể đối chiếu trên Etherscan; đánh giá bảo mật theo mô hình mối đe dọa cụ thể thay vì mô tả chung chung.</p>
     <p><b>Nguyên tắc xuyên suốt:</b> mọi số liệu hệ thống hiển thị — từ phí giao dịch đến dung lượng lưu trữ — đều phải lấy từ nguồn thật (transaction receipt, API của nhà cung cấp, bản ghi on-chain), tuyệt đối không dùng dữ liệu mô phỏng hay con số minh họa. Đây là yêu cầu đặt ra ngay từ đầu để hệ thống có thể phản ánh đúng thực tế vận hành.</p>
 
     <h2>5. Kết cấu đồ án</h2>
@@ -698,10 +698,20 @@
         <li><b>Phân biệt với ví chờ duyệt:</b> cả hai đều rank 0, nhưng ví chờ là "chưa được cấp gì" (bị chặn ngoài phòng chờ) còn viewer là "được cấp quyền đọc" (vào được hệ thống) — khay chờ duyệt của admin lọc bỏ viewer, và poll 15s tự chuyển ví từ phòng chờ sang chế độ chỉ đọc ngay khi DB cập nhật role.</li>
     </ul>
 
+    <h3>2.4.6. Vòng đời ví: duyệt — khóa — xóa — khôi phục</h3>
+    <p>Ví sau khi vào hệ thống được quản trị theo vòng đời rõ ràng, phân biệt giữa <b>bằng chứng lịch sử trên blockchain</b> (bất biến, chỉ để đối chiếu) và <b>trạng thái hiện tại trong MongoDB</b> (quyết định ví đang chờ duyệt, hoạt động, bị khóa hay đã xóa):</p>
+    <ul>
+        <li><b>Tạm khóa:</b> admin khóa ví bằng <span class="mono">assignRole(0)</span> kèm <span class="mono">status=REVOKED, role=BỊ KHÓA</span>. Ví bị khóa vẫn hiển thị trong bảng quản lý (trạng thái TẠM KHÓA, lọc được bằng chip "Bị khóa") và <b>không thể tự mở khóa</b> — đăng nhập chỉ thấy màn "ví đã bị khóa" kèm liên hệ quản trị, mọi API đều 403. Chỉ admin mở khóa (ký giao dịch cấp lại quyền) ví mới hoạt động trở lại.</li>
+        <li><b>Xóa ví:</b> admin xóa bằng tombstone <span class="mono">status=DELETED</span> — gỡ quyền và ẩn khỏi bảng nhưng giữ hồ sơ nhân diện làm vết kiểm toán; sự kiện <span class="mono">RoleAssigned</span> cũ trên chuỗi vẫn tồn tại vĩnh viễn vì blockchain không cho xóa lịch sử.</li>
+        <li><b>Đăng ký lại sau khi bị xóa:</b> ví đã xóa đăng nhập lại thấy phòng chờ với hồ sơ cũ được điền sẵn; khi gửi lại yêu cầu, hệ thống khôi phục về trạng thái chờ duyệt (<span class="mono">roleGranted=false</span>, xóa sạch cờ từ chối/cấm cũ) — coi như đơn xin mới, <b>sự kiện role cũ trên chuỗi không được dùng để suy ra quyền hiện tại</b>.</li>
+        <li><b>Từ chối và chống spam:</b> admin từ chối đơn → ví nhận trạng thái "bị từ chối" kèm liên hệ quản trị và nút "Gửi lại yêu cầu"; bị từ chối 3 lần thì bị chặn gửi lại trong 30 phút (HTTP 429), chống spam khay chờ.</li>
+        <li><b>Bảng quản lý:</b> chip lọc vai trò (Tất cả / Nhập liệu / Quản lý / Người xem / Bị khóa) ngay trên bảng; card thống kê "Ví được ủy quyền" mở popup đếm theo vai trò, bấm một vai trò (hoặc Tất cả) nhảy thẳng tới bảng đã áp sẵn bộ lọc tương ứng.</li>
+    </ul>
+
     <h2>2.5. Thiết kế cơ sở dữ liệu MongoDB</h2>
     <table>
         <tr><th>Collection</th><th>Các trường chính</th><th>Vai trò</th></tr>
-        <tr><td>Wallet</td><td>address, alias, role, roleGranted, status, email, phone, requestedRole, storageLimit, storageUsed</td><td>Hồ sơ ví: danh tính hiển thị, cờ "đã từng được cấp quyền" (roleGranted — chỉ ví có cờ này mới được phép fallback role từ DB khi RPC lỗi), trạng thái khóa, email nhận OTP, SĐT liên hệ, quyền đề nghị khi chờ duyệt, hạn mức logic</td></tr>
+        <tr><td>Wallet</td><td>address, alias, role, roleGranted, status, email, phone, requestedRole, rejected, rejectCount, rejectBlockedUntil, storageLimit, storageUsed</td><td>Hồ sơ ví: danh tính hiển thị, cờ "đã từng được cấp quyền" (roleGranted — chỉ ví có cờ này mới được phép fallback role từ DB khi RPC lỗi), trạng thái khóa/xóa, email nhận OTP, SĐT liên hệ, quyền đề nghị khi chờ duyệt, cờ từ chối + bộ đếm chặn 30 phút, hạn mức logic</td></tr>
         <tr><td>Batch</td><td>batchId, merkleRoot, ipfsCID, txHash, uploader, files[]</td><td>Lô tài liệu sau khi ghi on-chain; mảng files gồm docId, fileHash, ipfsCID, fileName, fileSize, qrCode, visibility, encKey</td></tr>
         <tr><td>DeviceSession</td><td>address, deviceId, deviceLabel, ip, userAgent, status, revoked, otpHash, otpExpires, otpAttempts, otpFailed, lastSeen</td><td>Phiên đăng nhập từng thiết bị: pending/active/revoked, nhận diện trình duyệt–IP, vật liệu OTP và cờ gửi mail thất bại</td></tr>
         <tr><td>ApiKey</td><td>name, keyHash, createdBy, revoked, lastUsedAt</td><td>API key đối tác — chỉ lưu hash</td></tr>
@@ -907,16 +917,16 @@
     <p><b>Môi trường kiểm thử thực tế:</b> backend Node.js chạy tại cổng 3000; MongoDB Atlas lưu 6 ví và 6 lô tài liệu thật; contract trên mạng Sepolia truy cập qua RPC công khai; tài khoản Pinata gói free với quota 1GB — tại thời điểm đánh giá có 87 pin (bao gồm các file mã hóa và manifest của từng lô). Toàn bộ giao dịch đều là giao dịch thật, tra được trên sepolia.etherscan.io.</p>
     <p><b>Phương pháp kiểm thử gồm hai lớp bổ sung nhau:</b></p>
     <ul>
-        <li><b>Bộ test tự động</b> (<span class="mono">node --test</span>) gồm 79 ca: test contract trên mạng Hardhat giả lập; test tính nhất quán giữa các quyết định thiết kế; test rò rỉ bí mật (quét repo tìm khóa riêng/key bị commit nhầm); test XSS (quét các biến render trần); test module xác thực với dependency mock.</li>
-        <li><b>Bộ kiểm thử end-to-end an toàn</b> (<span class="mono">_e2e_safe.mjs</span>) gồm 38 bước kiểm tra trên server test cổng 3001 với MongoDB cục bộ riêng (không đụng dữ liệu thật): luồng đăng nhập — duyệt thiết bị — OTP; khay ví chờ duyệt (duyệt/từ chối/khai lại); quyền truy cập từng endpoint; độ trễ thực tế từng API và RPC on-chain.</li>
+        <li><b>Bộ test tự động</b> (<span class="mono">node --test</span>) gồm 96 ca: test contract trên mạng Hardhat giả lập; test tính nhất quán giữa các quyết định thiết kế; test rò rỉ bí mật (quét repo tìm khóa riêng/key bị commit nhầm); test XSS (quét các biến render trần); test hardening HTTP (giới hạn file upload, CORS allowlist, rate limit auth); test module xác thực với dependency mock.</li>
+        <li><b>Bộ kiểm thử end-to-end an toàn</b> (<span class="mono">_e2e_safe.mjs</span>) gồm 48 bước kiểm tra trên server test cổng 3001 với MongoDB cục bộ riêng (không đụng dữ liệu thật): luồng đăng nhập — duyệt thiết bị — OTP; khay ví chờ duyệt (duyệt/từ chối/khai lại); ví bị từ chối 3 lần bị chặn xin lại 30 phút; ví bị xóa khai lại quay về khay chờ; ví bị khóa không thể tự mở; quyền truy cập từng endpoint; độ trễ thực tế từng API và RPC on-chain.</li>
     </ul>
     <p>Nguyên tắc kiểm thử được đặt ra ngay từ đầu: không chấp nhận kết quả suy diễn — chức năng nào không chạy được trong môi trường (ví dụ MetaMask headless) thì phải nói rõ là chưa kiểm chứng được, thay vì ngầm giả định đúng.</p>
 
     <h2>4.2. Kết quả kiểm thử chức năng</h2>
     <table>
         <tr><th>Kịch bản kiểm thử</th><th>Kết quả</th></tr>
-        <tr><td>Bộ test tự động: contract, nhất quán dữ liệu, lộ bí mật, XSS, xác thực</td><td>79/79 ca pass</td></tr>
-        <tr><td>Bộ kiểm thử end-to-end an toàn trên server test (xác thực, thiết bị, khay chờ, phân quyền, độ trễ)</td><td>38/38 bước pass</td></tr>
+        <tr><td>Bộ test tự động: contract, nhất quán dữ liệu, lộ bí mật, XSS, hardening HTTP, xác thực</td><td>96/96 ca pass</td></tr>
+        <tr><td>Bộ kiểm thử end-to-end an toàn trên server test (xác thực, thiết bị, khay chờ, phân quyền, vòng đời ví, độ trễ)</td><td>48/48 bước pass</td></tr>
         <tr><td>Upload qua API đối tác → IPFS (CID thật) → on-chain (tx thật trên Sepolia)</td><td>Thành công, trả documentId / fileHash / txHash; tx tra được trên Etherscan</td></tr>
         <tr><td>Verify đúng file nguyên vẹn</td><td>match: true — TÀI LIỆU NGUYÊN VẸN</td></tr>
         <tr><td>Verify file bị sửa 1 ký tự</td><td>match: false — PHÁT HIỆN GIẢ MẠO ngay lập tức</td></tr>
@@ -994,7 +1004,7 @@
         <li><b>Về tính trung thực của dữ liệu:</b> mọi con số hiển thị — phí giao dịch từ transaction receipt, dung lượng từ API Pinata, trạng thái từ bản ghi on-chain — đều lấy từ nguồn thật. Hệ thống không dùng dữ liệu mô phỏng hay con số minh họa ở bất kỳ đâu.</li>
         <li><b>Về bảo mật:</b> defense in depth với escrow khóa AES-256-GCM, OTP scrypt+salt, API key chỉ lưu hash, whitelist chống mass-assignment, escape XSS toàn diện, rate limit nhiều lớp và fail-closed khi dịch vụ ngoài lỗi.</li>
     </ul>
-    <p>Kết quả kiểm thử: 79/79 ca test tự động pass; 38/38 bước kiểm thử end-to-end trên server test pass; kiểm thử API đối tác bằng curl với key thật cho kết quả đúng toàn bộ luồng upload — verify — cách ly — download; các giao dịch thật tra được độc lập trên Etherscan.</p>
+    <p>Kết quả kiểm thử: 96/96 ca test tự động pass; 48/48 bước kiểm thử end-to-end trên server test pass; kiểm thử API đối tác bằng curl với key thật cho kết quả đúng toàn bộ luồng upload — verify — cách ly — download; các giao dịch thật tra được độc lập trên Etherscan.</p>
     <h2>2. Đóng góp của đề tài</h2>
     <p>Đề tài cho thấy việc ứng dụng blockchain vào xác thực tài liệu không chỉ là "ghi hash lên chuỗi" như nhiều mô hình minh họa đơn giản, mà là một bài toán hệ thống đầy đủ: phải giải quyết đồng thời bí mật nội dung, kiểm soát truy cập, danh tính người dùng, giới hạn tài nguyên thật và khả năng tích hợp cho tổ chức không có hạ tầng blockchain. Kiến trúc tách ba lớp "bằng chứng — nội dung — vận hành" mà đề tài áp dụng là mô hình có thể tái sử dụng cho các hệ thống cùng dạng.</p>
     <h2>3. Hướng phát triển</h2>

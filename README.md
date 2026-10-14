@@ -128,7 +128,8 @@ Khuyến nghị thêm `MASTER_KEY` (bọc khóa escrow; để trống dùng JWT_
 ## Kiểm thử
 
 ```bash
-npm test    # 79 ca: contract, auth/OTP, consistency, secrets, XSS, viewer/pending
+npm test    # 80 ca: contract, auth/OTP, consistency, hardening HTTP, secrets, XSS, viewer/pending
+            # (+ 16 ca test module xác thực trong backend-data-integrity)
 ```
 
 E2E an toàn (không ghi chain, không đụng DB production — dùng MongoDB local

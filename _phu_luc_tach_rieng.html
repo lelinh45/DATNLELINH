@@ -93,16 +93,17 @@
 
 <div class="a4 page-break">
     <p class="center no-indent" style="font-size:15pt"><b>PHỤ LỤC C. DANH SÁCH CA KIỂM THỬ TỰ ĐỘNG</b></p>
-    <p>Bộ test chạy bằng <span class="mono">node --test test/*.test.js</span>, tổng 79 ca trong 5 nhóm:</p>
+    <p>Bộ test chạy bằng <span class="mono">node --test test/*.test.js</span>, tổng 80 ca trong 6 file:</p>
     <table>
         <tr><th>File test</th><th>Nhóm kiểm thử</th><th>Nội dung chính</th></tr>
         <tr><td><span class="mono">contract.test.js</span></td><td>Smart contract</td><td>Ghi tài liệu đơn và theo lô; đọc lại đúng bản ghi; thu hồi kèm lý do; phân quyền 0–3; từ chối caller thiếu quyền; sự kiện phát đúng tham số</td></tr>
         <tr><td><span class="mono">auth.test.js</span></td><td>Xác thực</td><td>Challenge cấp/định dạng; chữ ký sai → 401; challenge tái sử dụng → 401; JWT claim dev; session pending bị chặn; OTP đúng/sai/hết hạn/quá lần; thu hồi phiên chặn request</td></tr>
         <tr><td><span class="mono">consistency.test.js</span></td><td>Nhất quán</td><td>Whitelist field khi ghi batch; visibility mặc định private; quyền cấp khóa khớp chính sách; uploader từ JWT không tin body; định dạng blob escrow</td></tr>
+        <tr><td><span class="mono">hardening.test.js</span></td><td>Hardening HTTP</td><td>Giới hạn dung lượng upload qua multer; route upload/verify trả 413 JSON; CORS allowlist không wildcard; rate limit riêng cho /api/auth</td></tr>
         <tr><td><span class="mono">secrets.test.js</span></td><td>Rò rỉ bí mật</td><td>Quét repo: không có private key / API key / mật khẩu thật trong code; .env nằm trong .gitignore; biến môi trường đọc đúng tên</td></tr>
         <tr><td><span class="mono">xss.test.js</span></td><td>XSS</td><td>Quét main.js/uiHandler.js: mọi biến động đi qua esc() trước khi chèn HTML; không điểm render trần nào</td></tr>
     </table>
-    <p>Kết quả cuối cùng tại thời điểm báo cáo: <b>79/79 pass</b>, thời gian chạy ~5 giây, không ca nào bị bỏ qua hay flaky. Riêng bộ end-to-end an toàn (<span class="mono">_e2e_safe.mjs</span>, server test :3001 + MongoDB cục bộ riêng): <b>38/38 bước pass</b>, tự dọn database sau khi chạy.</p>
+    <p>Kết quả cuối cùng tại thời điểm báo cáo: bộ chính <b>80/80 pass</b> cộng thêm <b>16/16 ca</b> test module xác thực backend tách riêng (<span class="mono">backend-data-integrity/test/auth.test.js</span>) — tổng <b>96/96 pass</b>, không ca nào bị bỏ qua hay flaky. Riêng bộ end-to-end an toàn (<span class="mono">_e2e_safe.mjs</span>, server test :3001 + MongoDB cục bộ riêng): <b>48/48 bước pass</b>, bao gồm các ca vòng đời ví (từ chối 3 lần chặn 30 phút, ví xóa khai lại về khay chờ, ví bị khóa không tự mở được), tự dọn database sau khi chạy.</p>
 
     <h2>C.2. Checklist kiểm thử tay trước demo</h2>
     <ul>

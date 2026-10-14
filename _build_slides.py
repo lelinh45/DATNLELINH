@@ -274,7 +274,7 @@ bullets(s, Emu(6400000), Emu(1350000), Emu(5100000), Emu(4900000), [
 # ============ S11 — CHỨC NĂNG ============
 s = slide(); header(s, '04', 'CÁC CHỨC NĂNG NỔI BẬT'); footer(s, 11)
 bullets(s, Emu(700000), Emu(1350000), Emu(5300000), Emu(5000000), [
-    ('Phân quyền RBAC trên chuỗi', 'Ba cấp quyền kế thừa lũy tiến NHẬP LIỆU (rank 1) → QUẢN LÝ (rank 2) → ADMIN (rank 3) được lưu và kiểm tra trực tiếp trên contract; vai trò NGƯỜI XEM chỉ đọc bổ sung ở tầng backend. Mọi quyền ghi do chính contract chặn — sửa database cũng không leo thang được quyền.'),
+    ('Phân quyền RBAC trên chuỗi', 'Ba cấp quyền kế thừa lũy tiến NHẬP LIỆU (rank 1) → QUẢN LÝ (rank 2) → ADMIN (rank 3) được lưu và kiểm tra trực tiếp trên contract; vai trò NGƯỜI XEM chỉ đọc bổ sung ở tầng backend. Vòng đời ví đầy đủ: duyệt — tạm khóa — mở khóa — xóa — đăng ký lại; ví bị khóa không thể tự mở, từ chối 3 lần chặn xin lại 30 phút. Mọi quyền ghi do chính contract chặn — sửa database cũng không leo thang được quyền.'),
     ('Đăng nhập bằng chữ ký ví', 'Không dùng mật khẩu: server gửi một thử thách ngẫu nhiên, ví ký bằng khóa riêng, hệ thống xác minh và cấp phiên JWT — loại bỏ hoàn toàn nguy cơ rò rỉ mật khẩu.'),
     ('Phê duyệt thiết bị lạ', 'Thiết bị mới phải được một thiết bị đang hoạt động duyệt, hoặc OTP về email khi không còn máy nào online — mỗi phiên ghi nhãn trình duyệt kèm phiên bản, IP và User-Agent để chủ ví nhận diện máy lạ. Khi mất hết neo tin cậy, cơ chế chờ 24 giờ giữ cho ví không bị khóa vĩnh viễn.'),
 ], 14, 8)
@@ -294,7 +294,7 @@ contrib = [
     ('03', 'Xác thực không mật khẩu',
      'Đăng nhập bằng chữ ký ví MetaMask, phiên JWT theo thiết bị, duyệt máy lạ và OTP email — loại bỏ hoàn toàn rủi ro rò rỉ mật khẩu truyền thống.'),
     ('04', 'Nghiệp vụ đầy đủ, kiểm chứng bằng test tự động',
-     'Upload lô một lần ký MetaMask, kiểm soát trùng nội dung hai lớp, khóa và chế độ chia sẻ riêng từng file, xem trước DOCX/PDF, API cho đối tác — bao phủ 117 ca test.'),
+     'Upload lô một lần ký MetaMask, kiểm soát trùng nội dung hai lớp, khóa và chế độ chia sẻ riêng từng file, xem trước DOCX/PDF, API cho đối tác — bao phủ 144 ca kiểm thử (96 tự động + 48 end-to-end).'),
 ]
 for i, (n, t, body) in enumerate(contrib):
     col, row = i % 2, i // 2
@@ -322,7 +322,7 @@ steps = [
     ('3', 'Theo dõi tiến trình: băm → mã hóa → IPFS → ký on-chain → đồng bộ MongoDB'),
     ('4', 'Xác thực file nguyên bản → VERIFIED; sửa 1 byte rồi verify lại → FAILED'),
     ('5', 'Thu hồi tài liệu — MetaMask ký giao dịch; verify lần nữa → REVOKED'),
-    ('6', 'Phân quyền: khay chờ duyệt ví mới → cấp vai trò → đối chiếu trên sổ cái'),
+    ('6', 'Phân quyền: khay chờ duyệt ví mới → cấp vai trò → khóa/mở khóa ví → đối chiếu trên sổ cái'),
 ]
 for i, (n, t) in enumerate(steps):
     y = Emu(1350000 + i * 800000)
