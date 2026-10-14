@@ -611,6 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__rerequesting = true;
         document.getElementById('gate-rejected')?.classList.add('hidden');
         document.getElementById('gate-saved-hint')?.classList.add('hidden');
+        document.getElementById('gate-prefill-hint')?.classList.add('hidden');
         document.getElementById('gate-form-card')?.classList.remove('hidden');
         const t = document.getElementById('page-title');
         if (t) t.innerText = 'Gửi lại yêu cầu cấp quyền';
@@ -648,6 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.__rerequesting = false; // đã gửi lại xong — poll phải hiện lại gate nếu bị từ chối tiếp
                 document.getElementById('gate-wait-card')?.classList.remove('hidden'); // giờ mới thật sự "đang chờ duyệt"
             }
+            document.getElementById('gate-prefill-hint')?.classList.add('hidden');
             document.getElementById('gate-saved-hint')?.classList.remove('hidden');
             Swal.fire({ title: 'Đã lưu thông tin', text: 'Admin sẽ thấy thông tin này trong khay chờ duyệt.', icon: 'success', background: '#111827', color: '#fff', timer: 1800, showConfirmButton: false });
         } catch (e) {
@@ -983,7 +985,9 @@ function applyPendingGate(account, me) {
         set('gate-email', me.email);
         set('gate-phone', me.phone);
         if (me.requestedRole) set('gate-req-role', me.requestedRole);
-        if (me.alias || me.email || me.requestedRole) document.getElementById('gate-saved-hint')?.classList.remove('hidden');
+        // Dữ liệu cũ còn trong DB (xóa ví chỉ tombstone) → điền sẵn form nhưng
+        // KHÔNG hiện "Đã lưu" — chỉ note trung tính để không hiểu nhầm vừa lưu
+        if (me.alias || me.email || me.requestedRole) document.getElementById('gate-prefill-hint')?.classList.remove('hidden');
     }
     switchUI('tab-pending');
     const title = document.getElementById('page-title');
