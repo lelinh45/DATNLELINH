@@ -845,23 +845,34 @@ app.get('/api/documents/lookup', async (req, res) => {
             }
         }
         // Chỉ tra theo tên khi hash không khớp — phục vụ phát hiện file bị sửa
+        const bySimilar = [];
         if (name && byHash.length === 0) {
-            const escRe = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const re = new RegExp('^' + escRe + '$', 'i');           // khớp tên file đúng
-            const reDoc = new RegExp('^' + escRe + '_\\d+', 'i');    // khớp docId dạng ten_<epoch>
-            const batches = await Batch.find({
-                $or: [{ 'files.fileName': re }, { 'files.docId': re }, { 'files.docId': reDoc }]
-            }).select('uploader files').limit(20).lean();
+            const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp('^' + escRe(name) + '$', 'i');           // khớp tên file đúng
+            const reDoc = new RegExp('^' + escRe(name) + '_\\d+', 'i');    // khớp docId dạng ten_<epoch>
+            // Tên tương tự: tách token ≥4 ký tự từ phần thân (bỏ đuôi mở rộng) —
+            // bắt được cả trường hợp đổi tên kiểu "bao_cao.docx" → "bao_cao_v2.docx"
+            const tokens = name.replace(/\.[^.]+$/, '').split(/[._\-\s]+/).filter(t => t.length >= 4).map(escRe);
+            const tokenRes = tokens.map(t => new RegExp(t, 'i'));
+            const orClauses = [{ 'files.fileName': re }, { 'files.docId': re }, { 'files.docId': reDoc }];
+            for (const tr of tokenRes) {
+                orClauses.push({ 'files.fileName': tr }, { 'files.docId': tr });
+            }
+            const batches = await Batch.find({ $or: orClauses }).select('uploader files').limit(30).lean();
             for (const b of batches) for (const f of b.files) {
-                const base = (f.docId || '').replace(/_\d+$/, '');
                 const dl = (f.docId || '').toLowerCase();
-                if ((f.fileName || '').toLowerCase() === name || dl === name || base === name) {
+                const fl = (f.fileName || '').toLowerCase();
+                const base = dl.replace(/_\d+$/, '');
+                if (fl === name || dl === name || base === name) {
                     byName.push(pick(f, b.uploader));
                     if (byName.length >= 10) break;
+                } else if (tokenRes.some(tr => tr.test(fl) || tr.test(base))) {
+                    bySimilar.push(pick(f, b.uploader));
+                    if (bySimilar.length >= 10) break;
                 }
             }
         }
-        res.json({ success: true, byHash, byName });
+        res.json({ success: true, byHash, byName, bySimilar });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi tra cứu tài liệu' });
     }

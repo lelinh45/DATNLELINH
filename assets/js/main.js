@@ -1723,6 +1723,16 @@ async function handleVerify() {
                 // Tên giống tài liệu đã đóng dấu nhưng nội dung khác → chạy tiếp
                 // luồng đối chiếu hash chuẩn (sẽ rơi vào nhánh PHÁT HIỆN GIẢ MẠO)
                 docId = lk.byName[0].docId;
+            } else if (lk && lk.bySimilar && lk.bySimilar.length > 0) {
+                // File đổi tên / tên gần giống → gợi ý các bản ghi nghi là "bản gốc bị sửa",
+                // người dùng chọn một bản để đối chiếu hoặc bỏ qua
+                const picked = await pickSimilarDoc(file.name, lk.bySimilar);
+                if (!picked) {
+                    UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
+                    isProcessing = false;
+                    return;
+                }
+                docId = picked;
             } else {
                 UI.updateProgress(0, "Không tìm thấy dữ liệu.", "NOT FOUND");
                 isProcessing = false;
@@ -1889,6 +1899,39 @@ async function handleVerify() {
     } finally {
         isProcessing = false;
     }
+}
+
+// Gợi ý tài liệu tên tương tự để đối chiếu (file bị đổi tên + sửa nội dung)
+// → trả docId được chọn, hoặc null nếu người dùng khẳng định là tài liệu khác
+function pickSimilarDoc(fileName, matches) {
+    return new Promise(resolve => {
+        let done = false;
+        const finish = v => { if (!done) { done = true; resolve(v); } };
+        Swal.fire({
+            title: 'PHÁT HIỆN TÊN TƯƠNG TỰ', icon: 'question',
+            background: '#111827', color: '#fff',
+            html: `
+                <p class="text-sm text-gray-300 text-left mb-3">Nội dung tệp <b>${esc(fileName)}</b> không khớp bản ghi nào, nhưng hệ thống có các tài liệu tên tương tự. Nếu đây là phiên bản đã bị chỉnh sửa của một trong số đó — chọn để đối chiếu:</p>
+                <div class="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar text-left">
+                    ${matches.map((m, i) => `
+                        <button type="button" class="sim-pick w-full text-left p-3 rounded-lg border border-gray-700 hover:border-amber-500 bg-gray-800/40 transition" data-i="${esc(String(i))}">
+                            <div class="font-bold text-amber-300 text-xs truncate">${esc(m.fileName || m.docId)}</div>
+                            <div class="font-mono text-[10px] text-gray-500 truncate">${esc(m.docId)}</div>
+                            ${m.isRevoked ? '<div class="text-[10px] text-red-400 mt-0.5">Đã thu hồi</div>' : ''}
+                        </button>`).join('')}
+                </div>`,
+            showConfirmButton: false, showCancelButton: true,
+            cancelButtonText: 'Không phải — đây là tài liệu khác',
+            cancelButtonColor: '#374151', allowOutsideClick: false,
+            didOpen: () => {
+                Swal.getHtmlContainer().querySelectorAll('.sim-pick').forEach(b =>
+                    b.addEventListener('click', () => {
+                        finish(matches[Number(b.dataset.i)].docId);
+                        Swal.close();
+                    }));
+            }
+        }).then(() => finish(null));
+    });
 }
 
 // =====================================================================

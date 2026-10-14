@@ -88,6 +88,7 @@ await mdb.connection.db.collection('batches').insertOne({
 { const r = await get('/documents/lookup?hash=' + probeHash); ok('Lookup theo hash → tìm đúng docId', r.st === 200 && r.byHash && r.byHash[0] && r.byHash[0].docId === 'hopdong_test.pdf_1700000001', JSON.stringify(r).slice(0, 160)); }
 { const r = await get('/documents/lookup?name=danhsach.xlsx'); ok('Lookup theo tên file → thấy + kèm cờ thu hồi', r.st === 200 && r.byName && r.byName[0] && r.byName[0].isRevoked === true, JSON.stringify(r).slice(0, 160)); }
 { const r = await get('/documents/lookup?name=hopdong_test.pdf_1700000001'); ok('Lookup theo docId base (tên_<epoch>) → khớp', r.st === 200 && r.byName && r.byName.length === 1); }
+{ const r = await get('/documents/lookup?name=' + encodeURIComponent('hopdong_test_v2.pdf')); ok('Lookup tên tương tự (đổi tên) → gợi ý bySimilar', r.st === 200 && r.byName.length === 0 && r.bySimilar && r.bySimilar.some(m => m.docId === 'hopdong_test.pdf_1700000001'), JSON.stringify(r).slice(0, 160)); }
 { const r = await get('/documents/lookup?hash=' + 'f'.repeat(64)); ok('Lookup hash lạ → rỗng (file chưa đóng dấu)', r.st === 200 && r.byHash.length === 0); }
 { const r = await get('/documents/lookup?hash=nothex'); ok('Lookup hash xấu → 400', r.st === 400); }
 { const r = await get('/documents/lookup'); ok('Lookup thiếu tham số → 400', r.st === 400); }
