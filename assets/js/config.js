@@ -4,7 +4,7 @@ export const CONFIG = {
     API_BASE: (typeof location !== 'undefined' && !['5500', '5501'].includes(location.port))
         ? `${location.origin}/api`
         : "http://localhost:3000/api", 
-    CONTRACT_ADDRESS: "0xAf1e50C05D6Cf05f2927231dDf418EEc6CC5dF74", 
+    CONTRACT_ADDRESS: "0x33c43687C0e2438A6BA7F1E7E7332D304B80a1f9", 
     HARDHAT_CHAIN_ID: "0xaa36a7", 
     HARDHAT_CHAIN_NAME: "Sepolia Testnet", 
     RPC_URL: "https://rpc.sepolia.org", 
@@ -27,8 +27,8 @@ export const CONFIG = {
         
         "function userRoles(address) view returns (uint8)",
         "function owner() view returns (address)",
-        "function hashToDocId(string) view returns (string)",
-        "function getDocIdByHash(string _hash) view returns (string)",
+        "function uploaderHashToDocId(address,string) view returns (string)",
+        "function getDocIdByHash(address _uploader, string _hash) view returns (string)",
         "function getMerkleBatch(string _batchId) view returns (bytes32 merkleRoot, string ipfsURI, uint256 timestamp, address uploader)",
         "function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason)"
     ]

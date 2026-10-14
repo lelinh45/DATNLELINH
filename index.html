@@ -738,18 +738,17 @@
                                     <div id="section-active-conflict" class="hidden flex-col border border-yellow-900/30 rounded-xl bg-yellow-900/10 overflow-hidden w-full max-w-[380px] shadow-lg">
                                         <div class="p-4 border-b border-yellow-900/30 bg-yellow-900/20 text-center">
                                             <h4 class="text-yellow-400 font-bold text-sm uppercase tracking-wider mb-1"><i class="fa-solid fa-copy mr-2"></i>Bị Trùng Lặp</h4>
-                                            <p class="text-[11px] text-yellow-300 mb-4 leading-relaxed px-2">Bản gốc đang hoạt động trên hệ thống. Bạn có chắc chắn muốn ghi đè?</p>
+                                            <p class="text-[11px] text-yellow-300 mb-4 leading-relaxed px-2">Bạn đã đóng dấu các nội dung này trước đây — blockchain không cho một ví ghi trùng. Các tệp này sẽ bị bỏ qua; muốn ghi lại hãy thu hồi bản gốc trước.</p>
                                             <div class="flex justify-center gap-2">
-                                                <button onclick="resolveConflict('active', false)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-1.5 rounded-lg text-xs font-bold transition border border-gray-600">Hủy bỏ</button>
-                                                <button onclick="resolveConflict('active', true)" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-lg"><i class="fa-solid fa-check mr-1"></i> Vẫn ghi lại</button>
+                                                <button onclick="cancelConflict()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-1.5 rounded-lg text-xs font-bold transition border border-gray-600">Hủy bỏ</button>
+                                                <button onclick="resolveConflict('active', false)" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-lg"><i class="fa-solid fa-forward mr-1"></i> Bỏ qua các tệp trùng</button>
                                             </div>
                                         </div>
                                         <div class="max-h-60 overflow-y-auto custom-scrollbar">
                                             <table class="w-full text-sm text-left text-gray-400">
                                                 <thead class="text-[10px] text-gray-500 uppercase bg-[#111827] sticky top-0 z-10">
                                                     <tr>
-                                                        <th class="px-3 py-2 w-10 text-center border-b border-gray-800"><input type="checkbox" id="selectAllActive" onclick="toggleConflictCheckboxes('active-conflict-tbody', this)" class="rounded bg-gray-900 border-gray-700 text-blue-500 cursor-pointer" checked></th>
-                                                        <th class="px-3 py-2 font-semibold border-b border-gray-800">Thông tin File</th>
+                                                        <th class="px-3 py-2 font-semibold border-b border-gray-800">Thông tin File (sẽ bị bỏ qua)</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="active-conflict-tbody"></tbody>

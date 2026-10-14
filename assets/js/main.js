@@ -1111,12 +1111,16 @@ async function handleUpload() {
     try {
         if (!contract) throw new Error("Chưa kết nối ví");
 
-        // Bản đồ DocumentAdded events — bổ sung cho hashToDocId vì contract
-        // XÓA mapping khi revoke; nhờ vậy tài liệu đã thu hồi vẫn vào bảng đỏ.
+        // Bản đồ DocumentAdded events CỦA CHÍNH VÍ NÀY — bổ sung cho
+        // uploaderHashToDocId vì contract XÓA mapping khi revoke; nhờ vậy
+        // tài liệu đã thu hồi vẫn vào bảng đỏ. Bản ghi của ví khác không
+        // hiển thị (multi-tenant: mỗi ví một sổ chống trùng riêng).
         const normHash = h => String(h || '').replace(/^0x/i, '').toLowerCase();
+        const myAddr = String(web3.currentAccount || '').toLowerCase();
         const addedMap = {};
         try {
             for (const ev of (await web3.queryHistory() || [])) {
+                if (String(ev.args[3] || '').toLowerCase() !== myAddr) continue;
                 const h = normHash(ev.args[1]);
                 if (h && !addedMap[h]) addedMap[h] = ev.args[0];
             }
@@ -1135,7 +1139,7 @@ async function handleUpload() {
             if (seenHashes.has(currentHash)) { skippedDupes.push(file.name); continue; }
             seenHashes.add(currentHash);
 
-            const existingDocId = await contract.getDocIdByHash(currentHash);
+            const existingDocId = await contract.getDocIdByHash(web3.currentAccount, currentHash);
             // mapping trống nhưng event còn → nội dung từng được ghi (đa phần đã thu hồi)
             const lookupId = (existingDocId && existingDocId !== "") ? existingDocId : (addedMap[normHash(currentHash)] || "");
 
@@ -1219,7 +1223,6 @@ function showConflictModal() {
         secActive.classList.add('flex');
         tbodyActive.innerHTML = window.uploadQueue.activeFiles.map((f, index) => `
             <tr class="border-b border-yellow-900/30 hover:bg-yellow-900/30 transition">
-                <td class="px-3 py-3 text-center align-middle"><input type="checkbox" class="conflict-cb-active rounded bg-gray-900 border-gray-700 text-yellow-500 cursor-pointer" value="${index}" checked></td>
                 <td class="px-3 py-3">
                     <div class="flex justify-between items-start mb-0.5">
                         <span class="font-bold text-yellow-400 text-xs truncate max-w-[200px]" title="${esc(f.name)}">${esc(f.name)}</span>
@@ -1297,8 +1300,10 @@ async function promptPasswordAndUpload() {
     // xung đột (knownDup) không hỏi lại.
     try {
         const norm = h => String(h || '').replace(/^0x/i, '').toLowerCase();
+        const myAddr = String(web3.currentAccount || '').toLowerCase();
         const onChain = {};
         for (const ev of (await web3.queryHistory() || [])) {
+            if (String(ev.args[3] || '').toLowerCase() !== myAddr) continue;
             const h = norm(ev.args[1]);
             if (h) onChain[h] = ev.args[0];
         }
@@ -1321,18 +1326,24 @@ async function promptPasswordAndUpload() {
                     ? `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">— ví ${esc(shortA(String(d[3])))} đóng dấu ${esc(window.formatTimeForce(Number(d[2]) * 1000))}</span></div>`
                     : `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">(đã đóng dấu: ${esc(docId.slice(0, 30))}…)</span></div>`;
             }).join('');
-            const dupHtml = `<div style="max-width:22rem;margin:0 auto;text-align:left">${dupEntries.length} tệp có nội dung vừa được đóng dấu trên blockchain sau khi bạn chọn:<br><br><div style="max-height:10rem;overflow-y:auto;padding-right:6px">${list}</div><br>Vẫn tạo bản ghi mới cho các tệp này?</div>`;
+            const remaining = finalFiles.length - dupEntries.length;
+            const dupHtml = `<div style="max-width:22rem;margin:0 auto;text-align:left">${dupEntries.length} tệp vừa được chính ví này đóng dấu sau khi bạn chọn (có thể từ thiết bị khác) — blockchain không cho một ví ghi trùng nên các tệp này sẽ bị <b>bỏ qua</b>:<br><br><div style="max-height:10rem;overflow-y:auto;padding-right:6px">${list}</div>${remaining > 0 ? `<br>Tiếp tục với ${remaining} tệp còn lại?` : '<br>Không còn tệp nào để tải lên.'}</div>`;
             const res = await Swal.fire({
                 title: 'Phát hiện tài liệu trùng nội dung',
                 html: dupHtml,
-                icon: 'warning', showCancelButton: true, width: '28rem',
-                confirmButtonText: 'Vẫn upload', cancelButtonText: 'Hủy',
+                icon: 'warning', showCancelButton: remaining > 0, width: '28rem',
+                confirmButtonText: remaining > 0 ? 'Bỏ qua & tiếp tục' : 'Đã hiểu', cancelButtonText: 'Hủy',
                 background: '#111827', color: '#fff'
             });
-            if (!res.isConfirmed) {
+            if (remaining === 0 || !res.isConfirmed) {
                 isProcessing = false;
-                UI.updateProgress(0, "Đã hủy — không tạo bản ghi trùng", "STANDBY");
+                UI.updateProgress(0, "Đã hủy — không còn tệp hợp lệ để tải lên", "STANDBY");
                 return;
+            }
+            // Loại file trùng khỏi hàng chờ — contract sẽ revert nếu đưa vào
+            for (const { f } of dupEntries) {
+                const i = finalFiles.indexOf(f);
+                if (i >= 0) finalFiles.splice(i, 1);
             }
         }
     } catch (e) { console.warn('Bỏ qua kiểm tra trùng (RPC lỗi):', e); }

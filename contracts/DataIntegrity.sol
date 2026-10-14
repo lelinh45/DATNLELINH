@@ -34,7 +34,11 @@ contract DataIntegrity {
 
     mapping(string => Document) private documents;
     mapping(string => MerkleBatch) private batches;
-    mapping(string => string) public hashToDocId; // Sổ tay chống trùng lặp
+    // Sổ tay chống trùng lặp THEO VÍ — mỗi tổ chức/ví có sổ riêng.
+    // Cùng một nội dung có thể được nhiều ví khác nhau đóng dấu độc lập
+    // (kịch bản multi-tenant), nhưng một ví không ghi 2 lần cùng nội dung
+    // trừ khi bản ghi cũ đã bị thu hồi.
+    mapping(address => mapping(string => string)) public uploaderHashToDocId;
 
     // ==========================================
     // 3. KHAI BÁO SỰ KIỆN (EVENTS)
@@ -87,22 +91,22 @@ contract DataIntegrity {
         require(_documentIds.length == _fileHashes.length && _fileHashes.length == _ipfsURIs.length, "Loi: Do dai mang khong khop!");
 
         for (uint256 i = 0; i < _documentIds.length; i++) {
-            require(bytes(hashToDocId[_fileHashes[i]]).length == 0, "Loi: Tai lieu nay da ton tai tren he thong!");
+            require(bytes(uploaderHashToDocId[msg.sender][_fileHashes[i]]).length == 0, "Loi: Vi cua ban da dong dau noi dung nay!");
             require(documents[_documentIds[i]].timestamp == 0, "Loi: ID da ton tai!");
 
             documents[_documentIds[i]] = Document(_fileHashes[i], _ipfsURIs[i], block.timestamp, msg.sender, false, "");
-            hashToDocId[_fileHashes[i]] = _documentIds[i];
+            uploaderHashToDocId[msg.sender][_fileHashes[i]] = _documentIds[i];
 
             emit DocumentAdded(_documentIds[i], _fileHashes[i], _ipfsURIs[i], msg.sender);
         }
     }
 
     function addDocument(string memory _documentId, string memory _fileHash, string memory _ipfsURI) public canUpload {
-        require(bytes(hashToDocId[_fileHash]).length == 0, "Loi: Tai lieu nay da ton tai tren he thong!");
+        require(bytes(uploaderHashToDocId[msg.sender][_fileHash]).length == 0, "Loi: Vi cua ban da dong dau noi dung nay!");
         require(documents[_documentId].timestamp == 0, "Loi: ID da ton tai!");
         
         documents[_documentId] = Document(_fileHash, _ipfsURI, block.timestamp, msg.sender, false, "");
-        hashToDocId[_fileHash] = _documentId;
+        uploaderHashToDocId[msg.sender][_fileHash] = _documentId;
 
         emit DocumentAdded(_documentId, _fileHash, _ipfsURI, msg.sender);
     }
@@ -129,8 +133,9 @@ contract DataIntegrity {
 
         documents[_documentId].isRevoked = true;
         documents[_documentId].revocationReason = _reason;
-        // Xóa khỏi sổ chống trùng để nội dung này có thể được nạp lại sau thu hồi
-        delete hashToDocId[documents[_documentId].fileHash];
+        // Xóa khỏi sổ chống trùng CỦA NGƯỜI UPLOAD để họ có thể nạp lại
+        // nội dung này sau thu hồi (các ví khác không bị ảnh hưởng)
+        delete uploaderHashToDocId[documents[_documentId].uploader][documents[_documentId].fileHash];
 
         emit DocumentRevoked(_documentId, msg.sender, _reason);
     }
@@ -147,8 +152,9 @@ contract DataIntegrity {
         return (doc.fileHash, doc.ipfsURI, doc.timestamp, doc.uploader, doc.isRevoked, doc.revocationReason);
     }
 
-    function getDocIdByHash(string memory _hash) public view returns (string memory) {
-        return hashToDocId[_hash];
+    // Tra docId theo (ví upload, hash) — chỉ phản ánh sổ chống trùng của ví đó
+    function getDocIdByHash(address _uploader, string memory _hash) public view returns (string memory) {
+        return uploaderHashToDocId[_uploader][_hash];
     }
 
     function getMerkleBatch(string memory _batchId) public view returns (

@@ -280,7 +280,7 @@ bullets(s, Emu(700000), Emu(1350000), Emu(5300000), Emu(5000000), [
 ], 14, 8)
 bullets(s, Emu(6400000), Emu(1350000), Emu(5100000), Emu(5000000), [
     ('Chia sẻ Công khai / Riêng tư từng file', 'Chế độ hiển thị và khóa AES đặt riêng cho từng file trong cùng một lô. Tài liệu công khai: mọi ví đã đăng nhập được server cấp lại khóa và xem trực tiếp. Tài liệu riêng tư: chỉ chủ sở hữu và Admin được cấp khóa, người khác chỉ thấy metadata.'),
-    ('Kiểm soát trùng nội dung hai lớp', 'Bảng phân loại trước khi nhập khóa: mục "đã thu hồi" cho tải lại, mục "đang hoạt động" cho ghi thêm bản ghi — mỗi dòng hiện ví và thời điểm đóng dấu on-chain. Lớp kiểm tra lần cuối còn bắt trường hợp nội dung vừa được đóng dấu sau khi quét.'),
+    ('Kiểm soát trùng nội dung hai lớp theo ví', 'Contract lưu sổ chống trùng riêng cho từng ví (multi-tenant): nội dung trùng của chính ví thì chỉ được bỏ qua, nội dung của ví khác upload bình thường như file mới — mỗi tổ chức giữ bản ghi và khóa riêng. Lớp kiểm tra lần cuối tự loại nội dung vừa được chính ví đóng dấu sau khi quét.'),
     ('API key cho đối tác', 'Hệ thống bên ngoài có thể tải tài liệu tự động qua API key riêng; server tự sinh khóa AES-256, bọc bằng khóa chủ và ghi chuỗi như người dùng thường.'),
 ], 14, 8)
 
