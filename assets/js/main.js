@@ -3020,7 +3020,10 @@ window.showRoleList = function (role) {
     if (!meta) return;
     document.getElementById('role-list-title').innerHTML =
         `<i class="fa-solid ${meta.icon} mr-1.5 ${meta.color}"></i><span class="${meta.color}">${role === 'ALL' ? 'TẤT CẢ' : esc(role)}</span>`;
-    const rows = __roleModalWallets.filter(w => w.status === 'ACTIVE' && (role === 'ALL' || (w.roleGranted === true && w.role === role)));
+    // TẤT CẢ = mọi ví đã được cấp (kể cả admin gốc) — loại ví chờ duyệt
+    // (ACTIVE nhưng roleGranted=false), không lộ ví chưa duyệt cho người xem.
+    const grantedAll = w => w.roleGranted === true || w.role === 'ADMIN';
+    const rows = __roleModalWallets.filter(w => w.status === 'ACTIVE' && grantedAll(w) && (role === 'ALL' || w.role === role));
     const badgeOf = (r) => ROLE_LIST_META[r]?.badge || meta.badge;
     const body = document.getElementById('role-list-body');
     body.innerHTML = rows.length === 0
