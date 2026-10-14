@@ -2953,6 +2953,19 @@ window.showRolePicker = () => showView('roles');
 window.showRoleList = function (role) {
     const meta = ROLE_LIST_META[role];
     if (!meta) return;
+    // Admin/quản lý: nhảy thẳng xuống tab Quản Lý Quyền Ví và áp đúng chip lọc —
+    // xem trong bảng chung để thao tác tiếp được luôn (hồ sơ, dung lượng, menu quản lý)
+    const navRoles = document.getElementById('nav-roles');
+    if (navRoles && navRoles.style.display !== 'none') {
+        window.closeRoleModal();
+        navRoles.click();
+        window.filterWalletTable(role);
+        setTimeout(() => {
+            document.querySelector('.wallet-filter')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 60);
+        return;
+    }
+    // Ví chỉ-đọc (không có tab quản lý): xem danh sách ngay trong popup
     document.getElementById('role-list-title').innerHTML =
         `<i class="fa-solid ${meta.icon} mr-1.5 ${meta.color}"></i><span class="${meta.color}">${esc(role)}</span>`;
     const rows = __roleModalWallets.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && w.role === role);
