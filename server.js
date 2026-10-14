@@ -652,7 +652,7 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
         // Cần đọc doc hiện tại khi ví tự khai thông tin — dùng cho 2 check dưới
         let curDoc = null;
         if (isSelf && ('alias' in update || 'requestedRole' in update)) {
-            curDoc = await Wallet.findOne({ address: target }).select('alias email phone status rejected role rejectCount rejectBlockedUntil').lean();
+            curDoc = await Wallet.findOne({ address: target }).select('alias email phone status rejected role roleGranted rejectCount rejectBlockedUntil').lean();
         }
 
         // Ví tự đề nghị quyền phải khai đủ Tên + Email + SĐT — thiếu 1 trường
@@ -672,21 +672,25 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
             return res.status(429).json({ success: false, message: `Ví này đã bị từ chối cấp quyền 3 lần — tạm khóa xin quyền, thử lại sau ~${mins} phút.` });
         }
 
-        // Ví bị từ chối (rejected), bị sync cũ đè role BỊ KHÓA dù chưa từng có
-        // quyền on-chain, hoặc bị Admin XÓA (status DELETED) — tự khai lại thông
-        // tin → cho quay lại khay chờ duyệt. Nếu không có nhánh này, ví bị xóa
-        // đăng nhập lại điền form xong vẫn DELETED → khay chờ (chỉ lấy ACTIVE)
-        // không bao giờ thấy yêu cầu — ngõ cụt.
-        // Ví bị Admin khóa thủ công (giữ role thật, rejected=false) KHÔNG tự mở được
-        if (curDoc && ((curDoc.status === 'REVOKED' && (curDoc.rejected === true || curDoc.role === 'BỊ KHÓA')) || curDoc.status === 'DELETED')) {
+        // Ví bị từ chối (rejected), bị sync cũ đè role BỊ KHÓA dù CHƯA từng có
+        // quyền (roleGranted=false), hoặc bị Admin XÓA (status DELETED) — tự khai
+        // lại thông tin → cho quay lại khay chờ duyệt. Nếu không có nhánh này, ví
+        // bị xóa đăng nhập lại điền form xong vẫn DELETED → khay chờ (chỉ lấy
+        // ACTIVE) không bao giờ thấy yêu cầu — ngõ cụt.
+        // Ví bị Admin khóa THỦ CÔNG (roleGranted=true) KHÔNG được tự mở — chỉ
+        // Admin mở khóa, nếu không thao tác Khóa mất ý nghĩa
+        if (curDoc && ((curDoc.status === 'REVOKED' && (curDoc.rejected === true || (curDoc.role === 'BỊ KHÓA' && curDoc.roleGranted !== true))) || curDoc.status === 'DELETED')) {
             update.status = 'ACTIVE';
             update.rejected = false;
             if (curDoc.role === 'BỊ KHÓA' || curDoc.role === 'ĐÃ XÓA') update.role = 'NHẬP LIỆU';
             // Ví bị xóa quay lại = người xin mới — xóa sạch tích lũy từ chối/cấm
             // (nếu giữ nguyên, check chặn 30p ở trên bị nhảy qua vì status ≠ REVOKED)
+            // và xóa cờ roleGranted cũ — nếu không, fallback quyền khi RPC lỗi
+            // sẽ đọc role mặc định thành rank 1 → lỗ hổng leo quyền cho ví chờ duyệt
             if (curDoc.status === 'DELETED') {
                 update.rejectCount = 0;
                 update.rejectBlockedUntil = 0;
+                update.roleGranted = false;
             }
         }
 

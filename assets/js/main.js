@@ -898,6 +898,24 @@ async function loadAdminContactLine() {
     }
 }
 
+// Ví bị Admin khóa thủ công: ngõ cụt — không form xin quyền, chỉ admin mở lại.
+// Tái dùng khung gate-rejected nhưng đổi nội dung + giấu nút gửi lại
+function applyLockedGate(me) {
+    pendingGateActive = true;
+    document.getElementById('gate-wait-card')?.classList.add('hidden');
+    document.getElementById('gate-form-card')?.classList.add('hidden');
+    document.getElementById('gate-rejected')?.classList.remove('hidden');
+    document.getElementById('gate-blocked-note')?.classList.add('hidden');
+    document.getElementById('btn-gate-rerequest')?.classList.add('hidden');
+    const h2 = document.getElementById('gate-rejected-title');
+    if (h2) h2.innerText = 'Ví này đã bị quản trị viên khóa';
+    const p = document.getElementById('gate-rejected-text');
+    if (p) p.innerText = 'Quyền truy cập của ví đã bị thu hồi — không thể thực hiện thao tác nào trên hệ thống. Chỉ quản trị viên mới mở khóa được, hãy liên hệ admin nếu cho rằng đây là nhầm lẫn.';
+    loadAdminContactLine();
+    const title = document.getElementById('page-title');
+    if (title) title.innerText = 'Ví bị khóa';
+}
+
 // Ví bị Admin từ chối: ẩn form chờ, hiện thông báo từ chối.
 // Bị từ chối ≥3 lần → cấm xin lại 30 phút (hiện đồng hồ còn lại thay nút gửi lại)
 function applyRejectedGate(me) {
@@ -905,6 +923,11 @@ function applyRejectedGate(me) {
     document.getElementById('gate-wait-card')?.classList.add('hidden');
     document.getElementById('gate-form-card')?.classList.add('hidden');
     document.getElementById('gate-rejected')?.classList.remove('hidden');
+    // Khôi phục nội dung mặc định — applyLockedGate đổi text trên cùng khung này
+    const h2 = document.getElementById('gate-rejected-title');
+    if (h2) h2.innerText = 'Yêu cầu cấp quyền đã bị từ chối';
+    const p = document.getElementById('gate-rejected-text');
+    if (p) p.innerText = 'Admin đã từ chối cấp quyền cho ví này. Nếu bạn cho rằng đây là nhầm lẫn, gửi lại yêu cầu với thông tin đầy đủ hơn hoặc liên hệ quản trị viên.';
     loadAdminContactLine();
     const blockedLeft = ((me && me.rejectBlockedUntil) || 0) - Date.now();
     const note = document.getElementById('gate-blocked-note');
@@ -940,6 +963,13 @@ function applyPendingGate(account, me) {
         if (me.rejected === true) {
             switchUI('tab-pending');
             applyRejectedGate(me);
+            return;
+        }
+        // Ví bị admin khóa (REVOKED, không cờ từ chối) → màn "bị khóa" ngõ cụt,
+        // KHÔNG hiện form xin quyền — backend cũng chặn tự revive
+        if (me.status === 'REVOKED') {
+            switchUI('tab-pending');
+            applyLockedGate(me);
             return;
         }
         const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
@@ -1013,6 +1043,9 @@ function startGuestUnlockPoll(account) {
                 if (me && me.rejected === true) {
                     // Đang ở form "gửi lại yêu cầu" → không đè form mỗi nhịp poll
                     if (!window.__rerequesting) applyRejectedGate(me);
+                } else if (me && me.status === 'REVOKED') {
+                    // Ví vừa bị admin khóa trong lúc đang chờ → chuyển sang màn "bị khóa"
+                    applyLockedGate(me);
                 } else if (me && me.role === 'NGƯỜI XEM') {
                     applyViewerMode(account);
                     Swal.fire({ title: 'Đã được cấp quyền!', text: 'Bạn được cấp quyền Người Xem — có thể xem và xác thực tài liệu (chỉ đọc).', icon: 'success', background: '#111827', color: '#fff' });

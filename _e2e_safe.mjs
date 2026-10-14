@@ -106,7 +106,14 @@ if (process.env.PRIVATE_KEY) {
     await mdb.connection.db.collection('wallets').updateOne(
         { address: wPend.address.toLowerCase() },
         { $set: { status: 'DELETED', role: 'ĐÃ XÓA' } });
-    { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Deleted-back', requestedRole: 'NGƯỜI XEM' }, HP); ok('Ví bị xóa khai lại → revive ACTIVE + role mặc định + xóa đếm từ chối', r.st === 200 && r.status === 'ACTIVE' && r.role === 'NHẬP LIỆU' && r.rejectCount === 0, JSON.stringify(r).slice(0, 200)); }
+    { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Deleted-back', requestedRole: 'NGƯỜI XEM' }, HP); ok('Ví bị xóa khai lại → revive ACTIVE + role mặc định + xóa đếm từ chối + roleGranted=false', r.st === 200 && r.status === 'ACTIVE' && r.role === 'NHẬP LIỆU' && r.rejectCount === 0 && r.roleGranted === false, JSON.stringify(r).slice(0, 200)); }
+
+    // Ví bị Admin KHÓA thủ công (REVOKED + roleGranted=true) khai lại → KHÔNG tự mở,
+    // chỉ Admin mở khóa được — nếu không thì thao tác Khóa vô nghĩa
+    await mdb.connection.db.collection('wallets').updateOne(
+        { address: wPend.address.toLowerCase() },
+        { $set: { status: 'REVOKED', role: 'BỊ KHÓA', roleGranted: true } });
+    { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Locked', requestedRole: 'NGƯỜI XEM' }, HP); ok('Ví bị khóa thủ công khai lại → KHÔNG tự mở (giữ REVOKED)', r.st === 200 && r.status === 'REVOKED', JSON.stringify(r).slice(0, 160)); }
 } else console.log('  (không có PRIVATE_KEY — bỏ qua)');
 
 console.log('== F. ĐỘ TRỄ RPC ON-CHAIN (đọc — giới hạn UX) ==');
