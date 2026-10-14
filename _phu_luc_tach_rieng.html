@@ -26,6 +26,8 @@
         <tr><td><span class="mono">POST /api/batches/revoke</span></td><td>JWT + QUẢN LÝ+. Body {docId}. Đồng bộ cờ isRevoked vào MongoDB sau khi đã thu hồi on-chain; tài liệu của ví ADMIN chỉ ADMIN được đồng bộ (khớp rule trên contract).</td></tr>
         <tr><td><span class="mono">GET /api/documents/:docId/key</span></td><td>JWT. Trả khóa AES giải bọc nếu đủ quyền theo visibility. Không có khóa → 404; không đủ quyền → 403.</td></tr>
         <tr><td><span class="mono">GET /api/documents/:docId/status</span></td><td>Công khai. Trả {isRevoked, revocationReason, visibility, uploader} — dữ liệu đã public on-chain.</td></tr>
+        <tr><td><span class="mono">GET /api/documents/lookup?hash=&amp;name=</span></td><td>Công khai. Tra tài liệu theo hash nội dung, tên file đúng/docId, và gợi ý tên tương tự — trả {byHash, byName, bySimilar}.</td></tr>
+        <tr><td><span class="mono">POST /api/documents/lookup-similar</span></td><td>Công khai. Body {chunks: [hex64,...]} — so tập chunk-hash (fuzzy hash theo đoạn, CTPH) với các file đã lưu, trả {matches: [{docId, fileName, score,...}]} gồm các bản ghi trùng ≥40% đoạn, xếp theo % giảm dần.</td></tr>
     </table>
 
     <h2>A.3. Nhóm ví và quản trị</h2>
@@ -103,7 +105,7 @@
         <tr><td><span class="mono">secrets.test.js</span></td><td>Rò rỉ bí mật</td><td>Quét repo: không có private key / API key / mật khẩu thật trong code; .env nằm trong .gitignore; biến môi trường đọc đúng tên</td></tr>
         <tr><td><span class="mono">xss.test.js</span></td><td>XSS</td><td>Quét main.js/uiHandler.js: mọi biến động đi qua esc() trước khi chèn HTML; không điểm render trần nào</td></tr>
     </table>
-    <p>Kết quả cuối cùng tại thời điểm báo cáo: bộ chính <b>80/80 pass</b> cộng thêm <b>16/16 ca</b> test module xác thực backend tách riêng (<span class="mono">backend-data-integrity/test/auth.test.js</span>) — tổng <b>96/96 pass</b>, không ca nào bị bỏ qua hay flaky. Riêng bộ end-to-end an toàn (<span class="mono">_e2e_safe.mjs</span>, server test :3001 + MongoDB cục bộ riêng): <b>48/48 bước pass</b>, bao gồm các ca vòng đời ví (từ chối 3 lần chặn 30 phút, ví xóa khai lại về khay chờ, ví bị khóa không tự mở được), tự dọn database sau khi chạy.</p>
+    <p>Kết quả cuối cùng tại thời điểm báo cáo: bộ chính <b>80/80 pass</b> cộng thêm <b>16/16 ca</b> test module xác thực backend tách riêng (<span class="mono">backend-data-integrity/test/auth.test.js</span>) — tổng <b>96/96 pass</b>, không ca nào bị bỏ qua hay flaky. Riêng bộ end-to-end an toàn (<span class="mono">_e2e_safe.mjs</span>, server test :3001 + MongoDB cục bộ riêng): <b>59/59 bước pass</b>, bao gồm các ca vòng đời ví (từ chối 3 lần chặn 30 phút, ví xóa khai lại về khay chờ, ví bị khóa không tự mở được), tra cứu verify không cần mã (hash/tên/docId/tên tương tự) và tìm nội dung tương tự bằng fuzzy hash từng đoạn (file sửa một đoạn vẫn gợi ý đúng bản gốc), tự dọn database sau khi chạy.</p>
 
     <h2>C.2. Checklist kiểm thử tay trước demo</h2>
     <ul>

@@ -294,7 +294,7 @@ contrib = [
     ('03', 'Xác thực không mật khẩu',
      'Đăng nhập bằng chữ ký ví MetaMask, phiên JWT theo thiết bị, duyệt máy lạ và OTP email — loại bỏ hoàn toàn rủi ro rò rỉ mật khẩu truyền thống.'),
     ('04', 'Nghiệp vụ đầy đủ, kiểm chứng bằng test tự động',
-     'Upload lô một lần ký MetaMask, kiểm soát trùng nội dung hai lớp, khóa và chế độ chia sẻ riêng từng file, xem trước DOCX/PDF, API cho đối tác — bao phủ 144 ca kiểm thử (96 tự động + 48 end-to-end).'),
+     'Upload lô một lần ký MetaMask, kiểm soát trùng nội dung hai lớp, khóa và chế độ chia sẻ riêng từng file, xem trước DOCX/PDF, API cho đối tác — bao phủ 155 ca kiểm thử (96 tự động + 59 end-to-end).'),
 ]
 for i, (n, t, body) in enumerate(contrib):
     col, row = i % 2, i // 2

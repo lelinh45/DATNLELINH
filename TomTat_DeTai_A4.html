@@ -42,74 +42,83 @@
     <b>Địa chỉ hệ thống:</b> blockchain-data-integrity.onrender.com &emsp;·&emsp; <b>Hợp đồng (Sepolia):</b> 0x33c43687C0e2438A6BA7F1E7E7332D304B80a1f9
   </div>
 
-  <h2>I. Chức năng của hệ thống</h2>
+  <h2>I. Chức năng hiện tại của hệ thống</h2>
   <ul>
-    <li><b>Đăng nhập bằng ví điện tử:</b> xác thực qua chữ ký số MetaMask, không dùng mật khẩu; hệ thống cấp phiên làm việc JWT có thời hạn.</li>
-    <li><b>Phê duyệt thiết bị:</b> thiết bị đăng nhập lần đầu phải xác nhận qua mã OTP gửi email trước khi được sử dụng.</li>
-    <li><b>Tải tài liệu lên hệ thống:</b> người dùng chọn file, đặt mật khẩu mã hóa và chế độ công khai/riêng tư; hệ thống băm SHA-256, mã hóa AES-256, lưu nội dung mã hóa lên IPFS và ghi dấu vết hash lên blockchain.</li>
-    <li><b>Xem và tải tài liệu về máy:</b> tài liệu được giải mã ngay trên trình duyệt khi nhập đúng mật khẩu mã hóa; hỗ trợ xem trực tiếp nhiều định dạng (PDF, DOCX, hình ảnh, văn bản).</li>
-    <li><b>Xác thực tài liệu:</b> đối chiếu hash của file cần kiểm tra với dấu vết trên blockchain; báo ba kết quả: nguyên vẹn, đã bị thu hồi (kèm lý do), hoặc giả mạo/không tồn tại — với DOCX và ảnh còn chỉ ra vùng nội dung bị sửa.</li>
-    <li><b>Xác thực công khai:</b> người ngoài không cần tài khoản vẫn kiểm tra được file công khai qua đường dẫn riêng.</li>
-    <li><b>Thu hồi tài liệu:</b> người có thẩm quyền đánh dấu tài liệu mất hiệu lực trên blockchain và cơ sở dữ liệu, kèm lý do thu hồi.</li>
-    <li><b>Phân quyền trên blockchain:</b> bốn cấp — Người xem (chỉ đọc), Nhập liệu (tải lên), Quản lý (tải lên + thu hồi, trừ tài liệu của Admin), Admin (toàn quyền, gồm phân quyền và mở tài liệu riêng tư).</li>
-    <li><b>Quản trị:</b> Admin phê duyệt ví mới, đặt tên/bí danh ví, gán vai trò, tạo và thu hồi khóa API cho đối tác.</li>
-    <li><b>Cổng đối tác (API):</b> tổ chức bên ngoài tải và xác thực tài liệu qua khóa API riêng, tách biệt giao diện web.</li>
-    <li><b>Sổ cái minh bạch:</b> mọi giao dịch tra được trên Etherscan — người ghi, thời điểm, phí, trạng thái thu hồi.</li>
-    <li><b>Thông báo:</b> hệ thống nhắc việc qua email và khay thông báo (ví chờ duyệt, thiết bị lạ, kết quả ghi chuỗi).</li>
+    <li><b>Đăng nhập bằng ví điện tử:</b> xác thực qua chữ ký số MetaMask (chuẩn EIP-6963 phát hiện ví), không mật khẩu; phiên làm việc JWT 24 giờ.</li>
+    <li><b>Phê duyệt thiết bị:</b> máy lạ đăng nhập phải được duyệt từ một thiết bị đang hoạt động (chuông thông báo); OTP email chỉ mở khi ví không còn thiết bị nào online — tránh OTP thành đường vòng.</li>
+    <li><b>Ví mới vào phòng chờ:</b> ví chưa cấp quyền chỉ thấy màn hình chờ và form khai tên/email/quyền mong muốn; Admin duyệt hoặc từ chối trong khay chờ — từ chối 3 lần tự chặn ví 30 phút.</li>
+    <li><b>Tải tài liệu lên (nhiều file một lần ký):</b> chọn file → mã hóa AES-256 ngay trên trình duyệt → ciphertext lên IPFS → hash SHA-256 + mã tài liệu ghi lên blockchain trong một giao dịch; chọn chế độ Công khai/Riêng tư từng file. Khóa mã hóa được ủy thác cho server (bọc AES-256-GCM) nên người có quyền vẫn mở được khi quên mật khẩu.</li>
+    <li><b>Chống trùng theo từng ví:</b> cùng một ví không đóng dấu hai lần một nội dung đang hiệu lực; ví khác nhau vẫn ghi được cùng nội dung; file đã thu hồi cho phép đóng dấu lại — popup xung đột cho phép xử lý từng nhóm file riêng.</li>
+    <li><b>Xem và tải tài liệu:</b> giải mã ngay trên trình duyệt cho người có quyền; xem trước PDF/DOCX/ảnh/văn bản, tải về bản gốc đã giải mã.</li>
+    <li><b>Xác thực không cần nhớ mã:</b> chỉ cần thả file vào — hệ thống tự băm và tra cứu theo: hash nội dung → tên file/docId → độ tương đồng nội dung (fuzzy hash từng đoạn, bắt được file sửa nhẹ hay đổi tên, kèm % trùng) → gợi ý bản ghi nghi là bản gốc để đối chiếu. Ô nhập mã giữ lại cho đối chiếu trực tiếp.</li>
+    <li><b>Báo cáo xác thực:</b> ba kết quả — nguyên vẹn / đã thu hồi (kèm lý do) / giả mạo. Khi giả mạo: diff từng ký tự văn bản, bản đồ nhiệt vùng ảnh bị sửa và báo cáo pháp y từ AI (Gemini). Xác thực là endpoint công khai — người ngoài kiểm tra được không cần tài khoản.</li>
+    <li><b>Thu hồi tài liệu:</b> Quản lý/Admin đánh dấu mất hiệu lực on-chain (bất biến, kèm lý do) và đồng bộ MongoDB; tài liệu do Admin đăng chỉ Admin được thu hồi.</li>
+    <li><b>Phân quyền lai:</b> Nhập liệu/Quản lý/Admin ghi on-chain (rank 1/2/3); Người xem là quyền chỉ-đọc ghi trong cơ sở dữ liệu (rank 0 — contract tự chặn ghi); ví bị khóa mất mọi quyền. Ví xóa/khóa khai báo lại được vào lại khay chờ.</li>
+    <li><b>Quản trị trực quan:</b> card "Ví được ủy quyền" mở popup thống kê theo vai trò; bảng quản lý ví có chip lọc Tất cả/Nhập liệu/Quản lý/Người xem/Bị khóa; khay chờ duyệt với badge đếm; tạo/thu hồi khóa API; quota lưu trữ theo dung lượng IPFS thật (trần 1GB).</li>
+    <li><b>Cổng đối tác (API):</b> tổ chức ngoài tải/xác thực/tải về qua khóa API <span class="mono">sk_live_...</span> (server chỉ lưu hash của key), dữ liệu cách ly theo từng key.</li>
+    <li><b>Minh bạch &amp; thông báo:</b> mọi giao dịch tra được trên Etherscan (người ghi, thời điểm, phí gas); thông báo trong app cho thiết bị lạ, ví chờ duyệt, tài liệu bị thu hồi.</li>
   </ul>
 
-  <h2>II. Cách sử dụng</h2>
+  <h2>II. Cách sử dụng và lưu ý</h2>
 
   <h3>1. Đăng nhập lần đầu</h3>
   <ol>
-    <li>Mở trang web, nhấn <i>Kết nối ví</i> → chọn tài khoản trong MetaMask.</li>
-    <li>Ký chuỗi thách thức trong cửa sổ MetaMask để chứng minh quyền sở hữu ví.</li>
-    <li>Nếu là thiết bị mới: nhập mã OTP được gửi về email để phê duyệt thiết bị.</li>
-    <li>Ví chưa được cấp quyền sẽ vào khu chờ; chờ Admin phê duyệt và gán vai trò.</li>
+    <li>Mở trang web, nhấn <i>Kết nối ví</i> → chọn tài khoản trong MetaMask (đặt mạng Sepolia).</li>
+    <li>Ký chuỗi thách thức để chứng minh quyền sở hữu ví — không cần mật khẩu.</li>
+    <li>Thiết bị mới phải được duyệt từ một máy đã đăng nhập (thông báo trên máy cũ); chỉ khi không còn máy nào hoạt động mới dùng OTP email.</li>
+    <li>Ví chưa cấp quyền vào phòng chờ: khai đủ tên/email/quyền mong muốn → bấm Lưu để gửi yêu cầu → chờ Admin duyệt. Bị từ chối 3 lần bị chặn 30 phút mới xin lại được.</li>
   </ol>
 
-  <h3>2. Tải tài liệu lên</h3>
+  <h3>2. Tải tài liệu lên (Nhập liệu trở lên)</h3>
   <ol>
-    <li>Vào mục <i>Tải lên</i>, kéo thả hoặc chọn file cần niêm phong.</li>
-    <li>Nhập mật khẩu mã hóa (dùng để giải mã khi xem/tải sau này) và chọn chế độ công khai hoặc riêng tư.</li>
-    <li>Xác nhận trong MetaMask để ký giao dịch ghi hash lên blockchain (phí gas trên mạng Sepolia).</li>
-    <li>Chờ thông báo ghi thành công; tài liệu xuất hiện trong danh sách kèm mã giao dịch và liên kết Etherscan.</li>
+    <li>Vào <i>Tải lên</i>, kéo thả nhiều file cùng lúc (tối đa 100/lần, ≤25MB/file).</li>
+    <li>Nếu có file trùng/đã thu hồi, popup xung đột cho xử lý từng nhóm: Bỏ qua, Tải lại (với file đã thu hồi), Tiếp tục chỉ phần file sạch, hoặc Hủy toàn bộ.</li>
+    <li>Chọn Công khai (mọi ví đăng nhập xem được) hoặc Riêng tư (chỉ mình + Quản lý/Admin); nhập mật khẩu mã hóa cho file.</li>
+    <li>Ký một giao dịch MetaMask duy nhất cho cả lô — hash ghi lên Sepolia, ciphertext lên IPFS.</li>
   </ol>
+  <p><b>Lưu ý:</b> nội dung đã ghi trên blockchain là bất biến — muốn "sửa" tài liệu phải thu hồi bản cũ rồi đóng dấu bản mới.</p>
 
   <h3>3. Xem và tải tài liệu</h3>
   <ol>
-    <li>Vào danh sách tài liệu, chọn file cần xem.</li>
-    <li>Nhập mật khẩu mã hóa → hệ thống tải ciphertext từ IPFS và giải mã ngay trên trình duyệt.</li>
-    <li>Xem trực tiếp hoặc tải về máy bản đã giải mã.</li>
+    <li>Vào danh sách tài liệu (ô tìm kiếm lọc theo tên/mã/ví người đăng), chọn file.</li>
+    <li>Nhập mật khẩu mã hóa → ciphertext tải từ IPFS và giải mã trong trình duyệt → xem trước hoặc tải về.</li>
+    <li>Quên mật khẩu: người được ủy quyền vẫn mở được nhờ khóa ủy thác trên server.</li>
   </ol>
 
   <h3>4. Xác thực một tài liệu</h3>
   <ol>
-    <li>Vào mục <i>Xác thực</i> (hoặc trang công khai nếu không có tài khoản), kéo file cần kiểm vào.</li>
-    <li>Hệ thống tự băm file và đối chiếu blockchain, sau đó báo: <i>Nguyên vẹn</i>, <i>Đã thu hồi</i>, hay <i>Không khớp — giả mạo</i>.</li>
-    <li>Với file giả mạo định dạng DOCX/ảnh, xem bản đồ nhiệt chỉ ra vùng nội dung bị sửa.</li>
+    <li>Vào <i>Xác thực</i>, thả file cần kiểm tra — <b>không cần nhập mã</b>.</li>
+    <li>Hệ thống tự tìm bản ghi: trùng hash → kết luận ngay; trùng tên nhưng lệch nội dung → báo giả mạo; file đổi tên/sửa nhẹ → gợi ý các bản ghi tương tự kèm % nội dung trùng để chọn đối chiếu.</li>
+    <li>Kết quả giả mạo kèm diff văn bản, bản đồ nhiệt ảnh và báo cáo AI — tải được về máy.</li>
   </ol>
+  <p><b>Lưu ý:</b> gợi ý tương tự chỉ là manh mối — kết luận cuối cùng luôn do đối chiếu hash trên blockchain quyết định. File hoàn toàn mới sẽ báo "chưa từng được đóng dấu". Chỉ tài liệu tải lên sau khi có tính năng fuzzy-hash mới so được độ tương đồng nội dung.</p>
 
   <h3>5. Thu hồi tài liệu (Quản lý trở lên)</h3>
   <ol>
-    <li>Chọn tài liệu trong danh sách, nhấn <i>Thu hồi</i>, nhập lý do.</li>
-    <li>Ký giao dịch thu hồi trong MetaMask.</li>
-    <li>Từ thời điểm đó, mọi lượt xác thực file này đều báo <i>Đã thu hồi</i> kèm lý do.</li>
+    <li>Chọn tài liệu → <i>Thu hồi</i> → nhập lý do → ký giao dịch MetaMask.</li>
+    <li>Mọi lượt xác thực sau đó báo <i>Đã thu hồi</i> kèm lý do; bản ghi vẫn tra được trong danh sách Hủy bỏ.</li>
   </ol>
 
-  <h3>6. Quản trị (Admin)</h3>
+  <h3>6. Quản trị (Admin/Quản lý)</h3>
   <ul>
-    <li>Duyệt ví mới trong khay chờ, gán vai trò Người xem/Nhập liệu/Quản lý/Admin — vai trò ghi trực tiếp lên blockchain.</li>
-    <li>Tạo, đặt tên, thu hồi khóa API cho đối tác trong mục quản lý.</li>
-    <li>Theo dõi sổ cái giao dịch và thông báo hệ thống.</li>
+    <li>Khay chờ duyệt (badge đỏ cạnh chuông): xem thông tin khai báo → Duyệt (tự điền vai trò đề nghị) hoặc Từ chối.</li>
+    <li>Bảng Quản lý quyền ví: chip lọc theo vai trò; khóa tạm/mở khóa, xóa ví (ví xóa khai lại quay về khay chờ); gán vai trò ghi on-chain với Nhập liệu trở lên.</li>
+    <li>Card "Ví được ủy quyền" trên tổng quan: bấm từng vai trò nhảy xuống bảng tương ứng; nút Tất cả hiện toàn bộ danh sách.</li>
+    <li>Mục API: tạo/thu hồi khóa cho đối tác; theo dõi dung lượng IPFS thật của từng ví.</li>
   </ul>
 
   <h3>7. Đối tác tích hợp qua API</h3>
   <ul>
-    <li>Gửi yêu cầu kèm khóa API trong phần đầu <i>X-API-Key</i> để tải tài liệu và tra cứu dấu vết, không cần ví MetaMask.</li>
+    <li>REST <span class="mono">/api/v1/*</span> kèm header <span class="mono">X-API-Key: sk_live_...</span> — upload, verify, list, download không cần MetaMask; rate limit 60 req/phút, dữ liệu cách ly theo key.</li>
   </ul>
 
-  <p style="margin-top:14px"><i>Ghi chú: hệ thống chạy trên mạng thử nghiệm Sepolia — ETH trong ví chỉ là ETH test, không có giá trị tiền thật.</i></p>
+  <h2>III. Lưu ý chung</h2>
+  <ul>
+    <li>Hệ thống chạy trên mạng thử nghiệm <b>Sepolia</b> — ETH trong ví chỉ là ETH test, không có giá trị tiền thật; giao dịch tra công khai trên Etherscan.</li>
+    <li>Bản free của Render ngủ sau ~15 phút không truy cập — request đầu tiên có thể chờ 30-60 giây để "đánh thức" server.</li>
+    <li>Quota IPFS miễn phí 1GB tính cả file đã thu hồi (ciphertext vẫn pin trên Pinata).</li>
+    <li>Đã kiểm thử: 96/96 ca unit-test tự động + 59/59 bước end-to-end trên server test cục bộ (không đụng dữ liệu production).</li>
+  </ul>
 
 </div>
 </body>

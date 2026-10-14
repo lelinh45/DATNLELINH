@@ -53,7 +53,10 @@ nghĩa nếu không có khóa AES.
 - **Truy xuất** — danh sách tài liệu đọc từ sự kiện on-chain + metadata MongoDB,
   hiện cả phí gas thật (link Etherscan). Ô tìm kiếm tìm mờ theo tên/ID/hash; dán
   nguyên địa chỉ `0x...` thì lọc chính xác theo ví người đăng.
-- **Verify công khai** — nộp file + docId, so hash on-chain. Phát hiện sửa thì hiện
+- **Verify công khai, không cần nhớ mã** — thả file vào là xong: hệ thống tự
+  băm và tra `GET /documents/lookup` theo hash → tên file/docId → độ tương đồng
+  nội dung (fuzzy hash từng đoạn kiểu CTPH, file sửa nhẹ/đổi tên vẫn gợi ý bản
+  gốc kèm % trùng qua `POST /documents/lookup-similar`). Lệch hash = giả mạo:
   diff từng ký tự, bản đồ nhiệt pixel (với ảnh) và báo cáo pháp y từ Gemini.
 - **Thu hồi** — QUẢN LÝ/ADMIN gọi revokeDocument trên contract, lý do ghi công khai
   và bất biến; MongoDB đồng bộ cờ để UI cập nhật ngay. Riêng tài liệu do ví
@@ -160,7 +163,7 @@ models/                       — Wallet, Batch, DeviceSession, ApiKey,
                                 PartnerDocument, Notification, AuthChallenge
 assets/js/                    — frontend: web3Service (MetaMask/contract),
                                 apiService (gọi backend), uiHandler, sanitize, main
-test/                         — 71 ca test tự động (node:test)
+test/                         — 80 ca test tự động (node:test)
 scripts/migrate_to_atlas.js   — copy toàn bộ collection local → MongoDB Atlas
 render.yaml                   — Blueprint deploy Render (build, env, plan free)
 .npmrc                        — legacy-peer-deps (xung đột hardhat/toolbox)
