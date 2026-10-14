@@ -2598,9 +2598,22 @@ window.loadWalletRoles = async function() {
                 : `<span class="italic text-gray-600 text-[11px] mb-1">(Chưa đặt tên)</span>`;
         }
 
+        // Badge quyền hiện ngay dưới tên — trước đây quyền giấu trong menu bánh răng
+        const ROLE_BADGE = {
+            'QUẢN LÝ': 'bg-purple-900/40 text-purple-300 border-purple-800/50',
+            'NHẬP LIỆU': 'bg-blue-900/40 text-blue-400 border-blue-800/50',
+            'NGƯỜI XEM': 'bg-sky-900/40 text-sky-300 border-sky-800/50',
+            'BỊ KHÓA': 'bg-red-900/40 text-red-400 border-red-800/50',
+            'ĐÃ XÓA': 'bg-gray-800 text-gray-500 border-gray-700'
+        };
+        const roleBadge = !isThisRowAdmin && w.role
+            ? `<span class="w-max px-2 py-0.5 rounded text-[10px] font-bold border ${ROLE_BADGE[w.role] || 'bg-gray-800 text-gray-400 border-gray-700'}">${esc(w.role)}</span>`
+            : '';
+
         const formattedWalletName = `
-            <div class="flex flex-col justify-center">
+            <div class="flex flex-col justify-center gap-0.5">
                 ${displayNameHTML}
+                ${roleBadge}
                 <span class="font-mono text-gray-400 text-[11px]">${esc(w.address.substring(0,6))}...${esc(w.address.substring(38))}</span>
             </div>
         `;
