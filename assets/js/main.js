@@ -730,8 +730,13 @@ async function syncDashboardData() {
         // 1. Lấy dữ liệu On-chain từ Blockchain
         const metrics = await web3.getLiveMetrics();
 
-        // 2. issuerCount lấy theo quyền upload THẬT trên chain (getLiveMetrics)
-        // — không đếm từ DB vì ví chờ duyệt có role mặc định gây đếm sai
+        // 2. issuerCount: rank ≥1 trên chain (upload) + NGƯỜI XEM được cấp trong DB —
+        // label "VÍ ĐƯỢC ỦY QUYỀN" giờ đếm đủ cả 3 vai trò, khớp danh sách popup
+        try {
+            const ws = await ApiService.getAllWallets();
+            const viewers = ws.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && w.role === 'NGƯỜI XEM').length;
+            metrics.issuerCount = (metrics.issuerCount || 0) + viewers;
+        } catch (e) {}
 
         // 3. Cộng dồn file MongoDB chưa thu hồi — chỉ file chưa có trong sự kiện
         // on-chain (file vừa upload đã có DocumentAdded rồi, đếm lại sẽ bị gấp đôi)
@@ -2903,6 +2908,72 @@ window.deleteWallet = async function(address) {
             setTimeout(() => UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY"), 3000);
         }
     }
+};
+
+// 3b. POPUP "VÍ ĐƯỢC ỦY QUYỀN" — bấm card thống kê → chọn vai trò → xem danh sách ví
+const ROLE_LIST_META = {
+    'NHẬP LIỆU': { color: 'text-blue-300', badge: 'bg-blue-900/40 text-blue-400 border-blue-800/50', icon: 'fa-pen-to-square' },
+    'QUẢN LÝ': { color: 'text-purple-300', badge: 'bg-purple-900/40 text-purple-300 border-purple-800/50', icon: 'fa-user-tie' },
+    'NGƯỜI XEM': { color: 'text-sky-300', badge: 'bg-sky-900/40 text-sky-300 border-sky-800/50', icon: 'fa-eye' }
+};
+let __roleModalWallets = [];
+
+window.openRoleModal = async function () {
+    const overlay = document.getElementById('role-modal-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    overlay.onclick = (e) => { if (e.target === overlay) window.closeRoleModal(); };
+    showView('roles');
+    try {
+        __roleModalWallets = await ApiService.getAllWallets();
+    } catch (e) {
+        __roleModalWallets = [];
+    }
+    // Chỉ đếm ví đang ACTIVE và quyền do admin gán (roleGranted) —
+    // loại ví pending (role mặc định NHẬP LIỆU) và ví bị khóa/từ chối
+    const granted = __roleModalWallets.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && ROLE_LIST_META[w.role]);
+    const countOf = (role) => granted.filter(w => w.role === role).length;
+    const setCnt = (id, n) => { const el = document.getElementById(id); if (el) el.innerText = `${n} ví`; };
+    setCnt('role-count-nl', countOf('NHẬP LIỆU'));
+    setCnt('role-count-ql', countOf('QUẢN LÝ'));
+    setCnt('role-count-nx', countOf('NGƯỜI XEM'));
+};
+
+function showView(which) {
+    document.getElementById('role-view-roles').classList.toggle('hidden', which !== 'roles');
+    document.getElementById('role-view-roles').classList.toggle('flex', which === 'roles');
+    const list = document.getElementById('role-view-list');
+    list.classList.toggle('hidden', which !== 'list');
+    list.classList.toggle('flex', which === 'list');
+}
+window.showRolePicker = () => showView('roles');
+
+window.showRoleList = function (role) {
+    const meta = ROLE_LIST_META[role];
+    if (!meta) return;
+    document.getElementById('role-list-title').innerHTML =
+        `<i class="fa-solid ${meta.icon} mr-1.5 ${meta.color}"></i><span class="${meta.color}">${esc(role)}</span>`;
+    const rows = __roleModalWallets.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && w.role === role);
+    const body = document.getElementById('role-list-body');
+    body.innerHTML = rows.length === 0
+        ? `<div class="h-full flex flex-col items-center justify-center text-gray-600 gap-2 py-10">
+               <i class="fa-solid fa-users-slash text-2xl"></i>
+               <p class="text-xs">Chưa có ví nào được cấp quyền ${esc(role)}</p>
+           </div>`
+        : rows.map(w => `
+           <div class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-gray-800/40 border border-gray-700/50 hover:border-gray-600 transition">
+               <div class="min-w-0">
+                   <p class="text-[13px] font-bold text-white truncate">${esc(w.alias || '(Chưa đặt tên)')}</p>
+                   <p class="font-mono text-[10px] text-gray-500">${esc(w.address)}</p>
+               </div>
+               <span class="shrink-0 ml-3 w-max px-2 py-0.5 rounded text-[10px] font-bold border ${meta.badge}">${esc(w.role)}</span>
+           </div>`).join('');
+    showView('list');
+};
+
+window.closeRoleModal = function () {
+    const overlay = document.getElementById('role-modal-overlay');
+    if (overlay) overlay.classList.add('hidden');
 };
 
 // 4. QUICK PREVIEW DRAWER
