@@ -960,13 +960,19 @@ function applyPendingGate(account, me) {
     const addrEl = document.getElementById('gate-wallet-address');
     if (addrEl) addrEl.innerText = account;
     if (me) {
+        // Ví bị khóa ưu tiên hơn từ chối — ví từng được cấp (có thể mang cờ
+        // rejected cũ) chỉ admin mở, KHÔNG hiện form xin quyền (backend chặn revive)
+        if (me.status === 'REVOKED' && me.role === 'BỊ KHÓA') {
+            switchUI('tab-pending');
+            applyLockedGate(me);
+            return;
+        }
         if (me.rejected === true) {
             switchUI('tab-pending');
             applyRejectedGate(me);
             return;
         }
-        // Ví bị admin khóa (REVOKED, không cờ từ chối) → màn "bị khóa" ngõ cụt,
-        // KHÔNG hiện form xin quyền — backend cũng chặn tự revive
+        // Ví REVOKED trạng thái khác (sync cũ đè nhầm) → cũng là ngõ cụt admin
         if (me.status === 'REVOKED') {
             switchUI('tab-pending');
             applyLockedGate(me);
@@ -1040,11 +1046,13 @@ function startGuestUnlockPoll(account) {
             // → chuyển sang chế độ chỉ đọc ngay, không cần đăng nhập lại
             if (rank === 0 && isPendingGateVisible()) {
                 const me = await ApiService.getMyWallet();
-                if (me && me.rejected === true) {
+                if (me && me.status === 'REVOKED' && me.role === 'BỊ KHÓA') {
+                    // Ví vừa bị admin khóa trong lúc đang chờ → chuyển sang màn "bị khóa"
+                    applyLockedGate(me);
+                } else if (me && me.rejected === true) {
                     // Đang ở form "gửi lại yêu cầu" → không đè form mỗi nhịp poll
                     if (!window.__rerequesting) applyRejectedGate(me);
                 } else if (me && me.status === 'REVOKED') {
-                    // Ví vừa bị admin khóa trong lúc đang chờ → chuyển sang màn "bị khóa"
                     applyLockedGate(me);
                 } else if (me && me.role === 'NGƯỜI XEM') {
                     applyViewerMode(account);

@@ -114,6 +114,13 @@ if (process.env.PRIVATE_KEY) {
         { address: wPend.address.toLowerCase() },
         { $set: { status: 'REVOKED', role: 'BỊ KHÓA', roleGranted: true } });
     { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Locked', requestedRole: 'NGƯỜI XEM' }, HP); ok('Ví bị khóa thủ công khai lại → KHÔNG tự mở (giữ REVOKED)', r.st === 200 && r.status === 'REVOKED', JSON.stringify(r).slice(0, 160)); }
+
+    // Ví TỪNG được cấp nhưng mang cờ rejected cũ → vẫn không tự mở
+    // (rejected chỉ mở đường revive cho ví chưa từng được cấp)
+    await mdb.connection.db.collection('wallets').updateOne(
+        { address: wPend.address.toLowerCase() },
+        { $set: { rejected: true } });
+    { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Locked+Rej', requestedRole: 'NGƯỜI XEM' }, HP); ok('rejected cũ + đã từng được cấp → KHÔNG tự mở (giữ REVOKED)', r.st === 200 && r.status === 'REVOKED', JSON.stringify(r).slice(0, 160)); }
 } else console.log('  (không có PRIVATE_KEY — bỏ qua)');
 
 console.log('== F. ĐỘ TRỄ RPC ON-CHAIN (đọc — giới hạn UX) ==');

@@ -643,7 +643,8 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
             if ('role' in updateData) {
                 update.roleGranted = true;
                 update.requestedRole = null;
-                // Được duyệt → xóa tích lũy từ chối và mở khóa xin quyền (nếu đang bị chặn)
+                // Được duyệt → xóa sạch dấu vết từ chối cũ (cờ + tích lũy + cấm 30p)
+                update.rejected = false;
                 update.rejectCount = 0;
                 update.rejectBlockedUntil = 0;
             }
@@ -672,14 +673,12 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
             return res.status(429).json({ success: false, message: `Ví này đã bị từ chối cấp quyền 3 lần — tạm khóa xin quyền, thử lại sau ~${mins} phút.` });
         }
 
-        // Ví bị từ chối (rejected), bị sync cũ đè role BỊ KHÓA dù CHƯA từng có
-        // quyền (roleGranted=false), hoặc bị Admin XÓA (status DELETED) — tự khai
-        // lại thông tin → cho quay lại khay chờ duyệt. Nếu không có nhánh này, ví
-        // bị xóa đăng nhập lại điền form xong vẫn DELETED → khay chờ (chỉ lấy
-        // ACTIVE) không bao giờ thấy yêu cầu — ngõ cụt.
-        // Ví bị Admin khóa THỦ CÔNG (roleGranted=true) KHÔNG được tự mở — chỉ
-        // Admin mở khóa, nếu không thao tác Khóa mất ý nghĩa
-        if (curDoc && ((curDoc.status === 'REVOKED' && (curDoc.rejected === true || (curDoc.role === 'BỊ KHÓA' && curDoc.roleGranted !== true))) || curDoc.status === 'DELETED')) {
+        // Ví bị từ chối/bị đè BỊ KHÓA nhầm mà CHƯA từng được cấp (roleGranted=false),
+        // hoặc bị Admin XÓA (status DELETED) — tự khai lại thông tin → cho quay lại
+        // khay chờ duyệt. Ví ĐÃ TỪNG được quản lý (roleGranted=true, kể cả khi đang
+        // mang cờ rejected cũ) KHÔNG được tự mở — chỉ Admin mở khóa, nếu không thao
+        // tác Khóa/Từ chối mất ý nghĩa.
+        if (curDoc && ((curDoc.status === 'REVOKED' && curDoc.roleGranted !== true && (curDoc.rejected === true || curDoc.role === 'BỊ KHÓA')) || curDoc.status === 'DELETED')) {
             update.status = 'ACTIVE';
             update.rejected = false;
             if (curDoc.role === 'BỊ KHÓA' || curDoc.role === 'ĐÃ XÓA') update.role = 'NHẬP LIỆU';
