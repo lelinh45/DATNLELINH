@@ -72,7 +72,7 @@ test('Key escrow: server bọc encKey bằng AES-256-GCM + endpoint key có chec
 test('Key escrow: encKey KHÔNG bao giờ đi vào manifest IPFS', () => {
     const manifestLine = mainJs.split('\n').find(l => l.includes('manifestBlob'));
     assert.ok(!manifestLine.includes('uploadedDocs }'), 'manifest phải dùng publicFiles đã lọc encKey');
-    assert.ok(mainJs.includes('({ encKey, ...rest })'), 'phải tách encKey ra khỏi publicFiles');
+    assert.ok(/\(\{[^}]*encKey[^}]*\.\.\.rest \}\)/.test(mainJs), 'phải tách encKey ra khỏi publicFiles');
 });
 
 test('Key escrow: frontend dùng key escrow trước, fallback hỏi mật khẩu', () => {

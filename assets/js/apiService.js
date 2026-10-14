@@ -219,6 +219,20 @@ export const ApiService = {
         } catch { return null; }
     },
 
+    // Tìm bản ghi có nội dung tương tự theo tập chunk-hash (CTPH) — public.
+    // Dùng khi file bị sửa nhẹ + đổi tên: các đoạn còn nguyên vẫn trùng hash.
+    async lookupSimilar(chunks) {
+        try {
+            const res = await fetch(`${CONFIG.API_BASE}/documents/lookup-similar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chunks })
+            });
+            if (!res.ok) return null;
+            return await res.json(); // { matches: [{docId, fileName, score, ...}] }
+        } catch { return null; }
+    },
+
     // Trạng thái thu hồi trong MongoDB — public, để verify đối chiếu 2 nguồn
     async getDocumentStatus(docId) {
         try {

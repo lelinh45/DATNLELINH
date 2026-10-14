@@ -81,7 +81,8 @@ const probeHash = crypto.createHash('sha256').update('e2e-noi-dung-thu-nghiem').
 await mdb.connection.db.collection('batches').insertOne({
     batchId: 'e2e_batch_lookup', uploader: wView.address.toLowerCase(), ipfsCID: 'bafye2e', txHash: '0xabc',
     files: [
-        { docId: 'hopdong_test.pdf_1700000001', fileName: 'hopdong_test.pdf', fileHash: probeHash, ipfsCID: 'bafy1', fileSize: '1 KB', visibility: 'private' },
+        { docId: 'hopdong_test.pdf_1700000001', fileName: 'hopdong_test.pdf', fileHash: probeHash, ipfsCID: 'bafy1', fileSize: '1 KB', visibility: 'private',
+          chunkHashes: [1, 2, 3, 4, 5].map(n => crypto.createHash('sha256').update('e2e-chunk-' + n).digest('hex')) },
         { docId: 'danhsach.xlsx_1700000002', fileName: 'danhsach.xlsx', fileHash: '0'.repeat(64), ipfsCID: 'bafy2', fileSize: '2 KB', visibility: 'public', isRevoked: true, revocationReason: 'hết hạn' }
     ]
 });
@@ -92,6 +93,13 @@ await mdb.connection.db.collection('batches').insertOne({
 { const r = await get('/documents/lookup?hash=' + 'f'.repeat(64)); ok('Lookup hash lạ → rỗng (file chưa đóng dấu)', r.st === 200 && r.byHash.length === 0); }
 { const r = await get('/documents/lookup?hash=nothex'); ok('Lookup hash xấu → 400', r.st === 400); }
 { const r = await get('/documents/lookup'); ok('Lookup thiếu tham số → 400', r.st === 400); }
+// Fuzzy theo nội dung: file "sửa 1 đoạn" → 4/5 chunk-hash còn nguyên → gợi ý ~80%
+const e2eChunks = [1, 2, 3, 4, 5].map(n => crypto.createHash('sha256').update('e2e-chunk-' + n).digest('hex'));
+const probeChunks = [...e2eChunks.slice(0, 4), crypto.createHash('sha256').update('e2e-chunk-da-sua').digest('hex')];
+{ const r = await post('/documents/lookup-similar', { chunks: probeChunks }); ok('Lookup-similar: file sửa 1 đoạn → gợi ý bản gốc ~80%', r.st === 200 && r.matches && r.matches[0] && r.matches[0].docId === 'hopdong_test.pdf_1700000001' && r.matches[0].score >= 70, JSON.stringify(r).slice(0, 160)); }
+{ const r = await post('/documents/lookup-similar', { chunks: [crypto.createHash('sha256').update('noi-dung-khac-han').digest('hex')] }); ok('Lookup-similar: nội dung khác hẳn → không gợi ý', r.st === 200 && r.matches.length === 0); }
+{ const r = await post('/documents/lookup-similar', { chunks: ['zzz'] }); ok('Lookup-similar: hash xấu → 400', r.st === 400); }
+{ const r = await post('/documents/lookup-similar', {}); ok('Lookup-similar: thiếu chunks → 400', r.st === 400); }
 
 console.log('== E. ADMIN THẬT (PRIVATE_KEY rank 3 on-chain) — chỉ test đọc ==');
 if (process.env.PRIVATE_KEY) {

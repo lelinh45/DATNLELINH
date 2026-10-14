@@ -15,6 +15,30 @@ export class Web3Service {
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
+    // Fuzzy hash theo đoạn nội dung (kiểu CTPH/ssdeep): chia file thành các
+    // đoạn tại ranh giới do NỘI DUNG quyết định (rolling checksum đạt
+    // trigger), nên chèn/sửa một đoạn giữa file không làm lệch các đoạn
+    // phía sau — bắt được "file sửa nhẹ/đổi tên" mà hash toàn cục bỏ sót.
+    async computeChunkHashes(file) {
+        const buf = new Uint8Array(await file.arrayBuffer());
+        const WINDOW = 64, MIN = 4096, MAX = 1 << 18, TRIG = 16383; // mục tiêu ~16KB/đoạn
+        const toHex = d => Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const hashes = [];
+        let rolling = 0, start = 0;
+        for (let i = 0; i < buf.length; i++) {
+            rolling += buf[i] - (i >= WINDOW ? buf[i - WINDOW] : 0);
+            const len = i - start + 1;
+            if (len >= MAX || (len >= MIN && (rolling & TRIG) === TRIG)) {
+                hashes.push(toHex(await crypto.subtle.digest('SHA-256', buf.slice(start, i + 1))));
+                start = i + 1;
+            }
+        }
+        if (start < buf.length || hashes.length === 0) {
+            hashes.push(toHex(await crypto.subtle.digest('SHA-256', buf.slice(start))));
+        }
+        return hashes;
+    }
+
     // Nhiều ví extension cài chung sẽ đấu nhau quyền window.ethereum —
     // ưu tiên provider MetaMask thật (isMetaMask) thay vì cái đầu tiên/lạ
     pickInjectedProvider() {

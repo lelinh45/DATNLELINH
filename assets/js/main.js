@@ -1609,9 +1609,14 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
             let qrCodeBase64 = '';
             try { qrCodeBase64 = await QRCode.toDataURL(uploadData.documentId, { width: 120, margin: 1 }); } catch (e) {}
 
+            // Fuzzy hash theo đoạn nội dung — phục vụ verify tìm file "sửa nhẹ"
+            let chunkHashes = [];
+            try { chunkHashes = await web3.computeChunkHashes(file); } catch (e) {}
+
             uploadedDocs.push({
                 docId: uploadData.documentId,
                 fileHash: fileItem.hash,
+                chunkHashes,
                 ipfsCID: uploadData.ipfsCID,
                 fileName: file.name,
                 fileSize: fileItem.size,
@@ -1627,7 +1632,7 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         const batchId = `BATCH_${Date.now()}`;
         
         // Manifest lên IPFS — lọc BỎ encKey (manifest là public, ai có CID đều đọc được)
-        const publicFiles = uploadedDocs.map(({ encKey, ...rest }) => rest);
+        const publicFiles = uploadedDocs.map(({ encKey, chunkHashes, ...rest }) => rest);
         const manifestBlob = new Blob([JSON.stringify({ batchId, merkleRoot, timestamp: Date.now(), files: publicFiles })], { type: 'application/json' });
         const manifestUpload = await ApiService.uploadFileWithProgress(new File([manifestBlob], `${batchId}_manifest.json`), () => {});
 
@@ -1723,24 +1728,37 @@ async function handleVerify() {
                 // Tên giống tài liệu đã đóng dấu nhưng nội dung khác → chạy tiếp
                 // luồng đối chiếu hash chuẩn (sẽ rơi vào nhánh PHÁT HIỆN GIẢ MẠO)
                 docId = lk.byName[0].docId;
-            } else if (lk && lk.bySimilar && lk.bySimilar.length > 0) {
-                // File đổi tên / tên gần giống → gợi ý các bản ghi nghi là "bản gốc bị sửa",
-                // người dùng chọn một bản để đối chiếu hoặc bỏ qua
-                const picked = await pickSimilarDoc(file.name, lk.bySimilar);
-                if (!picked) {
-                    UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
-                    isProcessing = false;
-                    return;
-                }
-                docId = picked;
             } else {
-                UI.updateProgress(0, "Không tìm thấy dữ liệu.", "NOT FOUND");
-                isProcessing = false;
-                return Swal.fire({
-                    title: 'KHÔNG TÌM THẤY', icon: 'warning', background: '#111827', color: '#fff',
-                    html: `<p class="text-sm text-gray-300">Tệp <b>${esc(file.name)}</b> không khớp nội dung lẫn tên của bất kỳ tài liệu nào đã đóng dấu trên hệ thống.<br><span class="text-gray-500 text-xs">Nếu tài liệu đã đổi tên, hãy nhập mã truy xuất (docId) để đối chiếu trực tiếp.</span></p>`,
-                    confirmButtonText: 'Đóng', confirmButtonColor: '#2563eb'
-                });
+                // Fuzzy: tìm bản ghi có NỘI DUNG tương tự (chunk-hash CTPH —
+                // file sửa một đoạn vẫn trùng phần lớn đoạn), gộp thêm gợi ý
+                // theo tên; người dùng chọn bản để đối chiếu hoặc bỏ qua
+                let contentSim = [];
+                try {
+                    UI.updateProgress(40, "Đang phân tích độ tương đồng nội dung...", "ANALYZING");
+                    const ch = await web3.computeChunkHashes(file);
+                    const r = await ApiService.lookupSimilar(ch);
+                    contentSim = (r && r.matches) || [];
+                } catch (e) { console.warn('Lỗi tra độ tương đồng nội dung:', e); }
+                const seenIds = new Set(contentSim.map(m => m.docId));
+                const nameSim = ((lk && lk.bySimilar) || []).filter(n => !seenIds.has(n.docId));
+                const candidates = [...contentSim, ...nameSim];
+                if (candidates.length > 0) {
+                    const picked = await pickSimilarDoc(file.name, candidates);
+                    if (!picked) {
+                        UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
+                        isProcessing = false;
+                        return;
+                    }
+                    docId = picked;
+                } else {
+                    UI.updateProgress(0, "Không tìm thấy dữ liệu.", "NOT FOUND");
+                    isProcessing = false;
+                    return Swal.fire({
+                        title: 'KHÔNG TÌM THẤY', icon: 'warning', background: '#111827', color: '#fff',
+                        html: `<p class="text-sm text-gray-300">Tệp <b>${esc(file.name)}</b> không khớp nội dung lẫn tên của bất kỳ tài liệu nào đã đóng dấu trên hệ thống.<br><span class="text-gray-500 text-xs">Nếu tài liệu đã đổi tên, hãy nhập mã truy xuất (docId) để đối chiếu trực tiếp.</span></p>`,
+                        confirmButtonText: 'Đóng', confirmButtonColor: '#2563eb'
+                    });
+                }
             }
         }
 
@@ -1901,22 +1919,24 @@ async function handleVerify() {
     }
 }
 
-// Gợi ý tài liệu tên tương tự để đối chiếu (file bị đổi tên + sửa nội dung)
-// → trả docId được chọn, hoặc null nếu người dùng khẳng định là tài liệu khác
+// Gợi ý tài liệu tương tự để đối chiếu — theo nội dung (chunk-hash, kèm %)
+// hoặc theo tên file. Trả docId được chọn, hoặc null nếu người dùng khẳng
+// định đây là tài liệu khác.
 function pickSimilarDoc(fileName, matches) {
     return new Promise(resolve => {
         let done = false;
         const finish = v => { if (!done) { done = true; resolve(v); } };
         Swal.fire({
-            title: 'PHÁT HIỆN TÊN TƯƠNG TỰ', icon: 'question',
+            title: 'PHÁT HIỆN TÀI LIỆU TƯƠNG TỰ', icon: 'question',
             background: '#111827', color: '#fff',
             html: `
-                <p class="text-sm text-gray-300 text-left mb-3">Nội dung tệp <b>${esc(fileName)}</b> không khớp bản ghi nào, nhưng hệ thống có các tài liệu tên tương tự. Nếu đây là phiên bản đã bị chỉnh sửa của một trong số đó — chọn để đối chiếu:</p>
+                <p class="text-sm text-gray-300 text-left mb-3">Nội dung tệp <b>${esc(fileName)}</b> không khớp nguyên bản bản ghi nào, nhưng hệ thống tìm thấy các tài liệu tương tự (theo nội dung hoặc tên). Nếu đây là phiên bản đã bị chỉnh sửa của một trong số đó — chọn để đối chiếu:</p>
                 <div class="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar text-left">
                     ${matches.map((m, i) => `
                         <button type="button" class="sim-pick w-full text-left p-3 rounded-lg border border-gray-700 hover:border-amber-500 bg-gray-800/40 transition" data-i="${esc(String(i))}">
                             <div class="font-bold text-amber-300 text-xs truncate">${esc(m.fileName || m.docId)}</div>
                             <div class="font-mono text-[10px] text-gray-500 truncate">${esc(m.docId)}</div>
+                            ${typeof m.score === 'number' ? `<div class="text-[10px] text-cyan-400 mt-0.5">≈ ${esc(String(m.score))}% nội dung trùng bản gốc</div>` : ''}
                             ${m.isRevoked ? '<div class="text-[10px] text-red-400 mt-0.5">Đã thu hồi</div>' : ''}
                         </button>`).join('')}
                 </div>`,

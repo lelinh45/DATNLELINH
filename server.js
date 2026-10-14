@@ -782,6 +782,10 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             docId: f && f.docId, fileHash: f && f.fileHash, ipfsCID: f && f.ipfsCID,
             fileName: f && f.fileName, fileSize: f && f.fileSize, qrCode: f && f.qrCode,
             visibility: ['public', 'private'].includes(f && f.visibility) ? f.visibility : 'private',
+            // fuzzy hash theo đoạn — chỉ nhận mảng hex 64 ký tự, chặn payload rác
+            chunkHashes: Array.isArray(f && f.chunkHashes)
+                ? f.chunkHashes.filter(h => typeof h === 'string' && /^[a-f0-9]{64}$/i.test(h)).slice(0, 5000)
+                : undefined,
             // AES key do user nhập — bọc bằng MASTER_KEY trước khi ghi DB
             encKey: f && f.encKey ? wrapKey(f.encKey) : undefined
         })) : [];
@@ -799,7 +803,7 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             for (const nf of safeFiles) {
                 const ef = existing.files.find(x => x.docId === nf.docId);
                 if (!ef) { existing.files.push(nf); changed = true; continue; }
-                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey']) {
+                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes']) {
                     if (!ef[k] && nf[k]) { ef[k] = nf[k]; changed = true; }
                 }
             }
@@ -875,6 +879,49 @@ app.get('/api/documents/lookup', async (req, res) => {
         res.json({ success: true, byHash, byName, bySimilar });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi tra cứu tài liệu' });
+    }
+});
+
+// Tìm tài liệu có NỘI DUNG tương tự — public. So tập chunk-hash (CTPH-style,
+// ranh giới đoạn theo nội dung) của file cần kiểm tra với tập đã lưu:
+// file chỉ bị sửa một đoạn vẫn trùng phần lớn chunk → gợi ý bản gốc kèm % giống.
+app.post('/api/documents/lookup-similar', async (req, res) => {
+    try {
+        const chunks = Array.isArray(req.body && req.body.chunks) ? req.body.chunks : null;
+        if (!chunks || chunks.length === 0 || chunks.length > 10000) {
+            return res.status(400).json({ success: false, message: 'chunks không hợp lệ' });
+        }
+        const probe = new Set();
+        for (const c of chunks) {
+            if (typeof c !== 'string' || !/^[a-f0-9]{64}$/i.test(c)) {
+                return res.status(400).json({ success: false, message: 'chunks chứa hash không hợp lệ' });
+            }
+            probe.add(c.toLowerCase());
+        }
+
+        const candidates = await Batch.find({ 'files.chunkHashes': { $in: [...probe] } })
+            .select('uploader files').limit(50).lean();
+        const matches = [];
+        for (const b of candidates) for (const f of b.files) {
+            const stored = f.chunkHashes || [];
+            if (!stored.length) continue;
+            const st = new Set(stored.map(h => String(h).toLowerCase()));
+            let shared = 0;
+            for (const h of probe) if (st.has(h)) shared++;
+            // Độ tương đồng = tỉ lệ chunk trùng trên tập lớn hơn
+            const score = shared / Math.max(probe.size, st.size);
+            if (score >= 0.4) {
+                matches.push({
+                    docId: f.docId, fileName: f.fileName || '', uploader: b.uploader || '',
+                    isRevoked: !!f.isRevoked, revocationReason: f.revocationReason || '',
+                    score: Math.round(score * 100)
+                });
+            }
+        }
+        matches.sort((a, b) => b.score - a.score);
+        res.json({ success: true, matches: matches.slice(0, 10) });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi tra cứu tương tự' });
     }
 });
 

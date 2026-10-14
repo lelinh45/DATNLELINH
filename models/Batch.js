@@ -15,6 +15,7 @@ const batchSchema = new mongoose.Schema({
         qrCode: String,  // QR chứa docId để tra cứu nhanh khi in ấn
         encKey: String,  // AES key của file — đã bọc bằng MASTER_KEY (AES-256-GCM), không phải plaintext
         visibility: { type: String, enum: ['private', 'public'], default: 'private' },
+        chunkHashes: [String], // fuzzy hash theo đoạn (CTPH) — phục vụ tìm file nội dung tương tự
         isRevoked: { type: Boolean, default: false },
         revocationReason: String,
         revokedBy: String,
