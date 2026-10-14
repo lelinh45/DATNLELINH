@@ -2444,15 +2444,9 @@ window.loadWalletRoles = async function() {
     // =======================================================
 
     // 2. KHÔI PHỤC TỪ BLOCKCHAIN & ĐẨY VÀO MONGODB
-    const maxRankByAddr = {};    // rank cao nhất ví TỪNG được cấp — ví bị khóa có rank mới nhất = 0 nhưng vẫn từng là ví được quản lý
     try {
         if (web3.contract) {
             const roleEvents = await web3.getEventsInChunks(web3.contract.filters.RoleAssigned(), 'role_events');
-            for (let ev of roleEvents) {
-                const a = String(ev.args[1]).toLowerCase();
-                const r = Number(ev.args[2]);
-                maxRankByAddr[a] = Math.max(maxRankByAddr[a] || 0, r);
-            }
             for (let ev of roleEvents) {
                 const assignedAddr = ev.args[1]; 
                 
@@ -2492,14 +2486,14 @@ window.loadWalletRoles = async function() {
                 const rCode = Number(rRaw);
                 // Ví NGƯỜI XEM giữ rank 0 trên chain — không để sync đè thành BỊ KHÓA
                 const isViewer = rCode === 0 && w.role === 'NGƯỜI XEM';
-                // Rank 0 + chưa từng được cấp (cả on-chain lẫn DB) = ví CHỜ DUYỆT/bị từ chối
-                // → chỉ nằm ở khay chờ; KHÔNG hiện trong bảng.
-                // Ví BỊ KHÓA: rank mới nhất = 0 nhưng từng được cấp (maxRank ≥1, roleGranted,
-                // hoặc DB đã ghi BỊ KHÓA) → phải giữ trong bảng để admin còn Mở khóa.
-                // Ví bị từ chối: roleGranted=false + role mặc định → vẫn trúng điều kiện pending
-                const everApproved = (maxRankByAddr[w.address.toLowerCase()] || 0) >= 1;
-                const wasManaged = everApproved || w.roleGranted === true || w.role === 'BỊ KHÓA';
-                if (rCode === 0 && !isViewer && !wasManaged) {
+                // Chờ duyệt = rank 0 + DB đang ACTIVE (đồng nhất /wallets/pending) —
+                // kể cả ví bị xóa/khóa rồi khai lại: DB nói "đang xin" thì là chờ duyệt,
+                // KHÔNG nhìn lịch sử chain (ví từng được cấp có event rank ≥1 cũ sẽ
+                // bị nhánh dưới đè nhầm thành BỊ KHÓA — bug "ví nhảy xuống Bị khóa").
+                // Rejected mà chưa từng được cấp cũng coi là pending — tự khai lại
+                // mới quay về khay chờ, không bị đè BỊ KHÓA khiến lọt vào bảng.
+                const isPendingWallet = w.status === 'ACTIVE' || (w.rejected === true && w.roleGranted !== true);
+                if (rCode === 0 && !isViewer && isPendingWallet) {
                     w.__pending = true;
                     continue;
                 }
