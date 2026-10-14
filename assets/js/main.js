@@ -2639,7 +2639,7 @@ window.loadWalletRoles = async function() {
         const pct = (v) => Math.min(100, Math.max(0, Number(v) || 0));
 
         return `
-        <tr class="border-b border-gray-800 hover:bg-[#1f2937]/30 transition ${isRevoked ? 'opacity-60' : ''}" data-row-addr="${esc((w.address||'').toLowerCase())}">
+        <tr class="border-b border-gray-800 hover:bg-[#1f2937]/30 transition ${isRevoked ? 'opacity-60' : ''}" data-row-addr="${esc((w.address||'').toLowerCase())}" data-row-role="${esc(w.role || '')}">
             ${tdCheckboxHTML}
             <td class="py-1.5 px-2">
                 <div class="p-2 cursor-pointer group hover:bg-gray-800 rounded-lg transition-all inline-block w-full" data-act="wallet-preview" data-v="${esc(w.address || '')}" title="Nhấn để xem Hồ Sơ Tài Khoản">
@@ -2673,6 +2673,8 @@ window.loadWalletRoles = async function() {
             </td>
         </tr>`;
     }).join('');
+    // Giữ nguyên chip lọc đang chọn sau mỗi lần render lại bảng (poll/refresh)
+    window.filterWalletTable(__walletRoleFilter || 'ALL');
 };
 
 window.handleAssignRole = async function() {
@@ -3034,14 +3036,46 @@ window.toggleDrawer = function(isOpen) {
     }
 };
 
+// =====================================================================
+// BỘ LỌC VAI TRÒ — ẩn/hiện hàng theo quyền, giữ nguyên mọi thao tác trong hàng
+// =====================================================================
+let __walletRoleFilter = 'ALL';
+const WALLET_FILTER_STYLE = {
+    'ALL':        { on: 'bg-gray-700 text-white border-gray-400',          off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-white' },
+    'NHẬP LIỆU':  { on: 'bg-blue-600/30 text-blue-300 border-blue-500',    off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-blue-300' },
+    'QUẢN LÝ':    { on: 'bg-purple-600/30 text-purple-300 border-purple-500', off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-purple-300' },
+    'NGƯỜI XEM':  { on: 'bg-sky-600/30 text-sky-300 border-sky-500',       off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-sky-300' },
+    'BỊ KHÓA':    { on: 'bg-red-600/30 text-red-300 border-red-500',       off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-red-300' }
+};
+
+window.filterWalletTable = function(role) {
+    __walletRoleFilter = role;
+    document.querySelectorAll('#wallet-roles-table-body tr').forEach(tr => {
+        const match = (role === 'ALL') || (tr.dataset.rowRole === role);
+        tr.classList.toggle('hidden', !match);
+        // Hàng bị ẩn không được giữ trạng thái tích — tránh thao tác hàng loạt nhầm ví không thấy
+        if (!match) {
+            const cb = tr.querySelector('.row-checkbox');
+            if (cb) cb.checked = false;
+        }
+    });
+    document.querySelectorAll('.wallet-filter').forEach(btn => {
+        const s = WALLET_FILTER_STYLE[btn.dataset.filter] || WALLET_FILTER_STYLE['ALL'];
+        btn.className = 'wallet-filter px-3 py-1 rounded-lg text-[11px] font-bold border transition ' +
+            (btn.dataset.filter === role ? s.on : s.off);
+    });
+    window.checkSelection();
+};
+
 window.toggleAllCheckboxes = function(source) {
-    const checkboxes = document.querySelectorAll('.row-checkbox'); 
+    // Chỉ tích các hàng đang hiển thị — hàng bị lọc ẩn không tham gia thao tác hàng loạt
+    const checkboxes = document.querySelectorAll('#wallet-roles-table-body tr:not(.hidden) .row-checkbox'); 
     checkboxes.forEach(cb => cb.checked = source.checked); 
     window.checkSelection();
 };
 
 window.checkSelection = function() {
-    const checkedBoxes = document.querySelectorAll('#wallet-roles-table-body .row-checkbox:checked'); 
+    const checkedBoxes = document.querySelectorAll('#wallet-roles-table-body tr:not(.hidden) .row-checkbox:checked'); 
     const actionBar = document.getElementById('batch-action-bar');
     
     document.getElementById('selected-count').innerText = checkedBoxes.length;

@@ -484,6 +484,15 @@
                             <!-- BẢNG DANH SÁCH VÀ THANH CÔNG CỤ -->
                             <div class="relative flex-1 flex flex-col min-h-0">                             
                                 <div class="bg-[#0b0f19] border border-gray-800 rounded-xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
+                                   <!-- Bộ lọc vai trò — lọc hàng theo quyền được cấp -->
+                                    <div class="flex items-center gap-2 px-4 py-2.5 border-b border-gray-800 flex-wrap shrink-0">
+                                        <span class="text-[10px] text-gray-500 font-bold uppercase tracking-wider"><i class="fa-solid fa-filter mr-1"></i>Lọc vai trò:</span>
+                                        <button onclick="window.filterWalletTable('ALL')" data-filter="ALL" class="wallet-filter px-3 py-1 rounded-lg text-[11px] font-bold border transition">Tất cả</button>
+                                        <button onclick="window.filterWalletTable('NHẬP LIỆU')" data-filter="NHẬP LIỆU" class="wallet-filter px-3 py-1 rounded-lg text-[11px] font-bold border transition">Nhập liệu</button>
+                                        <button onclick="window.filterWalletTable('QUẢN LÝ')" data-filter="QUẢN LÝ" class="wallet-filter px-3 py-1 rounded-lg text-[11px] font-bold border transition">Quản lý</button>
+                                        <button onclick="window.filterWalletTable('NGƯỜI XEM')" data-filter="NGƯỜI XEM" class="wallet-filter px-3 py-1 rounded-lg text-[11px] font-bold border transition">Người xem</button>
+                                        <button onclick="window.filterWalletTable('BỊ KHÓA')" data-filter="BỊ KHÓA" class="wallet-filter px-3 py-1 rounded-lg text-[11px] font-bold border transition">Bị khóa</button>
+                                    </div>
                                    <!-- Khoảng đệm pb-24 -->
                                     <div class="flex-1 min-h-0 overflow-y-auto overflow-x-auto custom-scrollbar pb-24">
                                         <table class="w-full min-w-[720px] text-sm text-left text-gray-400 relative">
