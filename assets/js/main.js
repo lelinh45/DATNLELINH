@@ -2058,12 +2058,15 @@ async function loadRevokedHistory() {
     try {
         let html = ''; 
         let stt = 1;
+        const seenRevoked = new Set(); // on-chain + DB cùng đánh dấu 1 tài liệu — chỉ render 1 dòng
 
         // 1. Quét On-chain
         const events = await web3.queryRevokedHistory();
         if (events && events.length > 0) {
             for (let ev of [...events].reverse()) {
                 const docId = ev.args[0]; const revokedBy = ev.args[1]; const reason = ev.args[2];
+                if (seenRevoked.has(docId)) continue;
+                seenRevoked.add(docId);
                 let uploader = '---'; let createTime = '---';
                 
                 try { 
@@ -2104,7 +2107,8 @@ async function loadRevokedHistory() {
             for (let batch of [...localBatches].reverse()) {
                 const createTime = window.formatTimeForce(batch.timestamp);
                 batch.files.forEach(fileDoc => {
-                    if (fileDoc.isRevoked) {
+                    if (fileDoc.isRevoked && !seenRevoked.has(fileDoc.docId)) {
+                        seenRevoked.add(fileDoc.docId);
                         const reason = fileDoc.revocationReason || "Vô hiệu hóa nội bộ";
                         const revoker = fileDoc.revokedBy || batch.uploader;
                         const revokeTimeStr = fileDoc.revokedAt ? window.formatTimeForce(fileDoc.revokedAt) : createTime;
