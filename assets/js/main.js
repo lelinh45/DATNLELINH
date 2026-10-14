@@ -1335,6 +1335,15 @@ function showConflictModal() {
         secActive.classList.remove('flex');
     }
 
+    // Footer báo số file sạch vẫn sẽ đóng dấu — tránh cảm giác "hủy là mất hết"
+    const note = document.getElementById('conflict-clean-note');
+    if (note) {
+        const n = window.uploadQueue.newFiles.length;
+        note.innerText = n > 0
+            ? `${n} tài liệu mới không trùng sẽ tiếp tục đóng dấu khi bạn xử lý xong.`
+            : 'Không còn tài liệu mới nào ngoài các file bên trên.';
+    }
+
     modal.classList.remove('hidden');
 }
 
@@ -1365,19 +1374,30 @@ window.resolveConflict = function(type, isAccepted) {
     const secActive = document.getElementById('section-active-conflict');
     
     if (secRevoked.classList.contains('hidden') && secActive.classList.contains('hidden')) {
-        document.getElementById('conflict-modal-overlay').classList.add('hidden');
-        
-        // Gộp file mới + file đã duyệt
-        window.uploadQueue.approvedFiles = [...window.uploadQueue.newFiles, ...window.uploadQueue.approvedFiles];
-        
-        if (window.uploadQueue.approvedFiles.length === 0) {
-            Swal.fire({ title: 'Đã hủy', text: 'Không có tài liệu nào được duyệt để tải lên.', icon: 'info', background: '#111827', color: '#fff' });
-            isProcessing = false;
-            UI.updateProgress(0, "Đã hủy xử lý.", "STANDBY");
-        } else {
-            promptPasswordAndUpload();
-        }
+        finishConflictResolution();
     }
+};
+
+// Chốt modal: file mới + file đã duyệt tiếp tục upload; cột chưa xử lý = bỏ qua
+function finishConflictResolution() {
+    document.getElementById('conflict-modal-overlay').classList.add('hidden');
+
+    // Gộp file mới + file đã duyệt
+    window.uploadQueue.approvedFiles = [...window.uploadQueue.newFiles, ...window.uploadQueue.approvedFiles];
+
+    if (window.uploadQueue.approvedFiles.length === 0) {
+        Swal.fire({ title: 'Đã hủy', text: 'Không có tài liệu nào được duyệt để tải lên.', icon: 'info', background: '#111827', color: '#fff' });
+        isProcessing = false;
+        UI.updateProgress(0, "Đã hủy xử lý.", "STANDBY");
+    } else {
+        promptPasswordAndUpload();
+    }
+}
+
+// Nút "Tiếp tục tải lên" ở footer — bỏ qua các cột chưa quyết định,
+// không để nút hủy giết luôn các file mới sạch đang chờ
+window.finishConflicts = function() {
+    finishConflictResolution();
 };
 
 window.cancelConflict = function() {
