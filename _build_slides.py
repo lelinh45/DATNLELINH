@@ -261,7 +261,7 @@ txt(s, Emu(700000), Emu(3700000), Emu(10800000), Emu(2700000),
 # ============ S10 — LUỒNG XÁC THỰC ============
 s = slide(); header(s, '04', 'XÁC THỰC & THU HỒI TÀI LIỆU'); footer(s, 10)
 bullets(s, Emu(700000), Emu(1350000), Emu(5300000), Emu(4900000), [
-    ('Cơ chế kiểm chứng', 'Người kiểm tra chọn file cần đối chiếu và nhập mã tài liệu. Hệ thống đọc hash gốc trực tiếp từ Smart Contract, đồng thời băm lại file hiện có và so sánh hai giá trị.'),
+    ('Cơ chế kiểm chứng', 'Người kiểm tra chỉ cần thả file — hệ thống tự băm và tra cứu bản ghi tương ứng theo hash nội dung (không cần nhớ mã tài liệu), rồi đọc hash gốc trực tiếp từ Smart Contract để so sánh; hỗ trợ cả nhập mã thủ công khi file đã đổi tên.'),
     ('Ba kết quả rõ ràng', 'VERIFIED — hash khớp, tài liệu nguyên bản. FAILED — hash sai lệch, tài liệu đã bị sửa đổi. REVOKED — nội dung nguyên bản nhưng đã bị vô hiệu hóa, không còn giá trị sử dụng.'),
     ('Truy xuất nguồn gốc', 'Mọi kết quả đều kèm thông tin ví người tạo và thời điểm ghi lên chuỗi, giúp truy vết đầy đủ vòng đời của tài liệu.'),
 ], 14, 8)
