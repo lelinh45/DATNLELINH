@@ -1,0 +1,115 @@
+erDiagram
+    WALLETS ||--o{ DEVICE_SESSIONS : "address — phiên đăng nhập theo thiết bị"
+    WALLETS ||--o{ NOTIFICATIONS : "address — thông báo gửi tới ví"
+    WALLETS ||--o| AUTH_CHALLENGES : "address — challenge nonce (unique)"
+    WALLETS ||--o{ BATCHES : "uploader — các lô đã đóng dấu"
+    WALLETS ||--o{ API_KEYS : "createdBy — key do ADMIN cấp"
+    BATCHES ||--o{ BATCH_FILES : "mảng nhúng files[]"
+    API_KEYS ||--o{ PARTNER_DOCUMENTS : "apiKeyId — ref ObjectId thật"
+
+    WALLETS {
+        ObjectId _id PK
+        string address UK "địa chỉ ví, lowercase"
+        string alias "tên hiển thị"
+        string email "nhận OTP duyệt thiết bị"
+        string phone "liên hệ bảo mật"
+        string role "ADMIN / QUẢN LÝ / NHẬP LIỆU / NGƯỜI XEM / BỊ KHÓA / ĐÃ XÓA"
+        string requestedRole "quyền tự đề nghị khi chờ duyệt"
+        string status "ACTIVE / REVOKED / DELETED"
+        boolean rejected "bị từ chối cấp quyền"
+        number rejectCount "≥3 lần → chặn xin lại"
+        number rejectBlockedUntil "mốc ms, mặc định 30 phút"
+        boolean roleGranted "role do ADMIN gán"
+        number storageUsed "MB đã dùng"
+        number storageLimit "mặc định 1024 MB — quota Pinata"
+        date lastActive
+    }
+
+    DEVICE_SESSIONS {
+        ObjectId _id PK
+        string address FK "ví sở hữu — index"
+        string deviceId "frontend sinh; UK cùng address"
+        string deviceLabel "tên thiết bị hiển thị"
+        string ip "IP lúc đăng nhập"
+        string userAgent "UA thô"
+        string status "pending / active / revoked"
+        number createdAt
+        number lastSeen
+        string otpHash "chỉ lưu hash, không lưu mã OTP"
+        number otpExpires
+        number otpAttempts
+        boolean otpFailed "SMTP chết → chờ thoát 24h"
+    }
+
+    AUTH_CHALLENGES {
+        ObjectId _id PK
+        string address UK "lowercase"
+        string challenge "nonce ký một lần"
+        date expiresAt "TTL — MongoDB tự xóa khi quá hạn"
+    }
+
+    NOTIFICATIONS {
+        ObjectId _id PK
+        string address FK "ví nhận — index"
+        string type "new_device / new_wallet / device_pending / device_approved / doc_revoked / session_revoked / security_alert / system"
+        string title
+        string message
+        mixed meta "dữ liệu kèm theo tự do"
+        boolean read
+        number createdAt
+    }
+
+    API_KEYS {
+        ObjectId _id PK
+        string name "tên gợi nhớ đối tác"
+        string keyHash UK "sha256(token) — KHÔNG lưu plaintext"
+        string prefix "sk_live_ab12cd — chỉ để hiển thị"
+        string createdBy FK "địa chỉ ví ADMIN"
+        boolean revoked
+        date lastUsedAt
+        date createdAt "timestamps tự động"
+        date updatedAt "timestamps tự động"
+    }
+
+    BATCHES {
+        ObjectId _id PK
+        string batchId UK
+        string merkleRoot "gốc Merkle của lô"
+        string ipfsCID "CID manifest JSON cả lô"
+        string txHash "giao dịch ghi on-chain"
+        string uploader FK "địa chỉ ví, lowercase"
+        number timestamp
+    }
+
+    BATCH_FILES {
+        string docId "mã tài liệu — định danh tra cứu"
+        string fileName
+        string fileHash "SHA-256 nội dung gốc"
+        string fileSize
+        string ipfsCID "CID ciphertext riêng của file"
+        string qrCode "QR chứa docId"
+        string encKey "khóa AES bọc MASTER_KEY (AES-256-GCM)"
+        string visibility "private / public — chỉ uploader được đổi"
+        array chunkHashes "fuzzy hash CTPH ~16KB/đoạn"
+        boolean isRevoked
+        string revocationReason
+        string revokedBy
+        number revokedAt
+    }
+
+    PARTNER_DOCUMENTS {
+        ObjectId _id PK
+        string docId UK
+        ObjectId apiKeyId FK "ref ApiKey — duy nhất có ref thật"
+        string orgName "tên tổ chức đối tác"
+        string fileName
+        string fileHash "SHA-256"
+        number fileSize
+        string ipfsCID
+        string encKey "escrow giống luồng web"
+        string txHash "server ký on-chain thay"
+        boolean isRevoked
+        string revocationReason
+        date createdAt "timestamps tự động"
+        date updatedAt "timestamps tự động"
+    }

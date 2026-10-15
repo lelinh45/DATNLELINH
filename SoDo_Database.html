@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Sơ đồ cơ sở dữ liệu — Đề tài NCKH</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  @page { size:A4 landscape; margin:15mm 18mm; }
+  body { font-family:'Times New Roman',Times,serif; font-size:12pt; color:#000;
+         background:#5a5a5a; }
+  .page { width:297mm; min-height:210mm; background:#fff; margin:10px auto;
+          padding:15mm 18mm; box-shadow:0 2px 14px rgba(0,0,0,.4); }
+  .center { text-align:center; }
+  .school { font-size:11pt; }
+  h1 { font-size:14pt; margin:8px 0 4px; text-align:center; text-transform:uppercase; }
+  .sub { text-align:center; font-style:italic; font-size:11pt; margin-bottom:8px; }
+  hr { border:none; border-top:1px solid #000; margin:6px 0 10px; }
+  .legend { font-size:10.5pt; line-height:1.5; margin-bottom:8px;
+            border:1px solid #999; padding:6px 10px; background:#f9f9f9; }
+  .diagram { text-align:center; }
+  .diagram svg { max-width:100%; height:auto; }
+  .notes { font-size:10.5pt; margin-top:8px; }
+  .notes li { margin-bottom:3px; line-height:1.4; }
+  .notes ul { padding-left:24px; }
+  .mono { font-family:'Consolas','Courier New',monospace; font-size:9.5pt; }
+  .no-print { position:fixed; top:6px; left:50%; transform:translateX(-50%);
+              background:#333; color:#fff; font-family:Arial; font-size:11px;
+              padding:6px 14px; border-radius:14px; z-index:9; }
+  @media print { body{background:#fff} .page{margin:0;box-shadow:none} .no-print{display:none} }
+</style>
+</head>
+<body>
+<div class="no-print">Ctrl+P → Lưu PDF hoặc in — Khổ A4 ngang (Landscape)</div>
+<div class="page">
+
+  <p class="center school">TRƯỜNG ĐẠI HỌC ĐIỆN LỰC — KHOA CÔNG NGHỆ THÔNG TIN</p>
+  <hr>
+  <h1>Sơ đồ cơ sở dữ liệu (MongoDB)</h1>
+  <p class="sub">Hệ thống xác thực và chống giả mạo dữ liệu số bằng Blockchain — 7 collections của backend Node.js/Express + Mongoose</p>
+
+  <div class="legend">
+    <b>Ký hiệu:</b> PK = khóa chính (_id do MongoDB sinh) · UK = ràng buộc unique · FK = tham chiếu logic sang collection khác · TTL = index tự xóa khi hết hạn.
+    <b>Lưu ý:</b> MongoDB là CSDL NoSQL — <b>không có khóa ngoại vật lý</b>; các đường nối dưới đây là quan hệ logic qua trường dữ liệu, được kiểm soát ở tầng ứng dụng (server.js), không phải ràng buộc của DBMS.
+  </div>
+
+  <div class="diagram"><img src="_screenshots/so-do-2-7-er.svg" alt="Sơ đồ quan hệ cơ sở dữ liệu MongoDB" style="width:100%;border:1px solid #999"></div>
+
+  <div class="notes">
+    <b>Giải thích quan hệ &amp; điểm bảo mật:</b>
+    <ul>
+      <li><span class="mono">batches.files[]</span> là mảng <b>document nhúng</b> (không phải collection) — một lô upload nhiều file, mỗi file là một sub-document; quan hệ này là lồng dữ liệu vật lý của MongoDB, không phải tham chiếu.</li>
+      <li><span class="mono">partnerdocuments.apiKeyId</span> là tham chiếu ObjectId thật (<span class="mono">ref: 'ApiKey'</span>) — tài liệu đối tác gắn quyền sở hữu theo API key vì server ký giao dịch on-chain thay.</li>
+      <li>Dữ liệu nhạy cảm không bao giờ lưu plaintext: <span class="mono">encKey</span> bọc AES-256-GCM bằng <span class="mono">MASTER_KEY</span> (biến môi trường), <span class="mono">keyHash</span> và <span class="mono">otpHash</span> chỉ lưu SHA-256.</li>
+      <li><span class="mono">authchallenges.expiresAt</span> mang TTL index — challenge hết hạn tự bị MongoDB xóa, không cần job dọn.</li>
+      <li>Dấu vết toàn vẹn (hash SHA-256, txHash, cờ thu hồi) nằm <b>on-chain trên Sepolia</b>; MongoDB chỉ giữ metadata tra cứu nhanh + khóa bọc + phiên — DB bị sửa không làm sai lệch kết quả xác thực.</li>
+    </ul>
+  </div>
+
+</div>
+
+
+</body>
+</html>
