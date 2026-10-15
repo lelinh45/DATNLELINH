@@ -143,33 +143,44 @@ function markReqMany(x, y, out) { // | + chân quạt — một hoặc nhiều
 function path(pts, dashed) {
     return `<path d="M${pts.map(p => p.join(' ')).join(' L')}" fill="none" stroke="#000" stroke-width="1.2"${dashed ? ' stroke-dasharray="6 4"' : ''}/>`;
 }
+function card(x, y, txt) {
+    return `<text x="${x}" y="${y}" font-size="11" font-style="italic">${txt}</text>`;
+}
 
 const W = E.WALLETS, DS = E.DEVICE_SESSIONS, AC = E.AUTH_CHALLENGES,
     N = E.NOTIFICATIONS, B = E.BATCHES, BF = E.BATCH_FILES,
     AK = E.API_KEYS, PD = E.PARTNER_DOCUMENTS;
 
+// Mọi cạnh nối ngang hoặc dọc thẳng (không đường chéo); nhãn bản số ở hai đầu
 let edges = '';
-// WALLETS 1 — 0..N DEVICE_SESSIONS
-edges += path([[W.x, 250], [DS.x + DS.w, 190]]);
-edges += markOne(W.x, 250, 'L') + markOptMany(DS.x + DS.w, 190, 'R');
-// WALLETS 1 — 0..1 AUTH_CHALLENGES (address unique)
-edges += path([[W.x, 430], [AC.x + AC.w, 480]]);
-edges += markOne(W.x, 430, 'L') + markOptOne(AC.x + AC.w, 480, 'R');
-// WALLETS 1 — 0..N NOTIFICATIONS
-edges += path([[W.x + 135, W.y + W.h], [N.x + 135, N.y]]);
-edges += markOne(W.x + 135, W.y + W.h, 'D') + markOptMany(N.x + 135, N.y, 'U');
-// WALLETS 1 — 0..N BATCHES
-edges += path([[W.x + W.w, 210], [B.x, 140]]);
-edges += markOne(W.x + W.w, 210, 'R') + markOptMany(B.x, 140, 'L');
-// WALLETS 1 — 0..N API_KEYS (đường gập tránh BATCH_FILES)
-edges += path([[W.x + W.w, 470], [660, 470], [660, 730], [1060, 730], [1060, 190], [AK.x, 190]]);
-edges += markOne(W.x + W.w, 470, 'R') + markOptMany(AK.x, 190, 'L');
-// BATCHES 1 — 1..N BATCH_FILES (document nhúng — nét đứt)
-edges += path([[B.x + 130, B.y + B.h], [BF.x + 130, BF.y]], true);
-edges += markOne(B.x + 130, B.y + B.h, 'D') + markReqMany(BF.x + 130, BF.y, 'U');
-// API_KEYS 1 — 0..N PARTNER_DOCUMENTS
-edges += path([[AK.x + 130, AK.y + AK.h], [PD.x + 130, PD.y]]);
-edges += markOne(AK.x + 130, AK.y + AK.h, 'D') + markOptMany(PD.x + 130, PD.y, 'U');
+// WALLETS 1 — 0..N DEVICE_SESSIONS (ngang, cạnh trái W ↔ cạnh phải DS)
+edges += path([[W.x, 200], [DS.x + DS.w, 200]]);
+edges += markOne(W.x, 200, 'L') + markOptMany(DS.x + DS.w, 200, 'R');
+edges += card(339, 191, '1') + card(319, 190, 'N');
+// WALLETS 1 — 0..1 AUTH_CHALLENGES (ngang)
+edges += path([[W.x, 450], [AC.x + AC.w, 450]]);
+edges += markOne(W.x, 450, 'L') + markOptOne(AC.x + AC.w, 450, 'R');
+edges += card(339, 441, '1') + card(306, 468, '0..1');
+// WALLETS 1 — 0..N NOTIFICATIONS (dọc, cạnh dưới W ↔ cạnh trên N)
+edges += path([[W.x + 137, W.y + W.h], [N.x + 137, N.y]]);
+edges += markOne(W.x + 137, W.y + W.h, 'D') + markOptMany(N.x + 137, N.y, 'U');
+edges += card(W.x + 142, W.y + W.h + 16, '1') + card(N.x + 142, N.y - 24, 'N');
+// WALLETS 1 — 0..N BATCHES (ngang, cạnh phải W ↔ cạnh trái B)
+edges += path([[W.x + W.w, 180], [B.x, 180]]);
+edges += markOne(W.x + W.w, 180, 'R') + markOptMany(B.x, 180, 'L');
+edges += card(631, 171, '1') + card(707, 168, 'N');
+// WALLETS 1 — 0..N API_KEYS (ngang thẳng qua hành lang giữa BATCHES và BATCH_FILES)
+edges += path([[W.x + W.w, 235], [AK.x, 235]]);
+edges += markOne(W.x + W.w, 235, 'R') + markOptMany(AK.x, 235, 'L');
+edges += card(631, 226, '1') + card(1078, 226, 'N');
+// BATCHES 1 — 1..N BATCH_FILES (dọc, nét đứt — document nhúng)
+edges += path([[B.x + 132, B.y + B.h], [BF.x + 132, BF.y]], true);
+edges += markOne(B.x + 132, B.y + B.h, 'D') + markReqMany(BF.x + 132, BF.y, 'U');
+edges += card(B.x + 137, B.y + B.h + 16, '1') + card(BF.x + 145, BF.y - 6, '1..N');
+// API_KEYS 1 — 0..N PARTNER_DOCUMENTS (dọc)
+edges += path([[AK.x + 132, AK.y + AK.h], [PD.x + 132, PD.y]]);
+edges += markOne(AK.x + 132, AK.y + AK.h, 'D') + markOptMany(PD.x + 132, PD.y, 'U');
+edges += card(AK.x + 137, AK.y + AK.h + 16, '1') + card(PD.x + 137, PD.y - 24, 'N');
 
 const CW = 1420, CH = 800;
 const legend = `<g font-size="11" fill="#000">
