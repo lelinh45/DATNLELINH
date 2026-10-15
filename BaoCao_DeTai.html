@@ -440,7 +440,7 @@
     <p>Hệ thống có bốn nhóm tác nhân chính:</p>
     <ul>
         <li><b>Người dùng cuối</b> (ví MetaMask, ba cấp quyền kế thừa lũy tiến): <b>NHẬP LIỆU</b> (rank 1) — đăng nhập, upload, xem/tải/verify theo quyền, quản lý thiết bị của mình; <b>QUẢN LÝ</b> (rank 2) — kế thừa NHẬP LIỆU, thêm quyền thu hồi tài liệu (trừ tài liệu do ví ADMIN upload); <b>NGƯỜI XEM</b> (rank 0 + cờ DB) — chỉ đọc: xem sổ cái, xem/tải, verify, không ghi được gì lên chuỗi.</li>
-        <li><b>Quản trị viên</b> (ví role ADMIN, rank 3): toàn bộ quyền của QUẢN LÝ, thêm phân quyền ví, khóa ví, tạo và thu hồi API key đối tác, mở mọi tài liệu riêng tư khi cần thiết.</li>
+        <li><b>Quản trị viên</b> (ví role ADMIN, rank 3): toàn bộ quyền của QUẢN LÝ, thêm phân quyền ví, khóa ví, tạo và thu hồi API key đối tác. Lưu ý: ADMIN <b>không</b> mở được tài liệu riêng tư của ví khác — quyền riêng tư là cá nhân tuyệt đối.</li>
         <li><b>Tổ chức đối tác</b> (trường học, bệnh viện...): gọi API server-to-server để upload, xác thực, liệt kê và tải tài liệu của chính mình mà không cần cài ví.</li>
         <li><b>Người kiểm tra bên ngoài</b>: xác thực một tài liệu bất kỳ mà không cần tài khoản — nghiệp vụ công khai.</li>
     </ul>
@@ -737,7 +737,7 @@
     <h2>2.7. Thiết kế mô hình bảo mật và kiểm soát truy cập</h2>
     <p>Kiểm soát truy cập tài liệu được thực thi tại endpoint cấp khóa <span class="mono">GET /api/documents/:docId/key</span> theo chính sách sau:</p>
     <ul>
-        <li><b>Tài liệu riêng tư:</b> chỉ chính uploader hoặc ADMIN nhận được khóa giải mã; QUẢN LÝ — dù có quyền cao trong nghiệp vụ — cũng không mở được tài liệu riêng tư của người khác. Tài liệu vẫn hiện trong danh sách chung (vì metadata đã public trên chain) nhưng chỉ hiện tên và ổ khóa.</li>
+        <li><b>Tài liệu riêng tư:</b> chỉ chính uploader nhận được khóa giải mã — kể cả ADMIN cũng không mở được tài liệu riêng tư của ví khác, vì quyền riêng tư thuộc về cá nhân chủ sở hữu. Tài liệu vẫn hiện trong danh sách chung (vì metadata đã public trên chain) nhưng chỉ hiện tên và ổ khóa.</li>
         <li><b>Tài liệu công khai:</b> mọi ví đã đăng nhập được cấp khóa để xem/tải — "công khai" ở đây nghĩa là trong cộng đồng người dùng của hệ thống, không phải cho cả internet vô danh.</li>
         <li><b>Tài liệu cũ không có trường visibility:</b> mặc định xử lý như private — nguyên tắc fail-safe, dữ liệu mới thêm tính năng không bị lộ.</li>
         <li><b>Verify luôn công khai:</b> so sánh hash không lộ nội dung nên ai cũng được phép — đây là bản chất của bằng chứng công khai.</li>
@@ -791,6 +791,7 @@
         <tr><td><span class="mono">GET /api/documents/:id/status</span></td><td>Công khai</td><td>Trạng thái thu hồi/visibility — thông tin đã public on-chain</td></tr>
         <tr><td><span class="mono">GET /api/documents/lookup</span></td><td>Công khai</td><td>Tra tài liệu theo hash nội dung hoặc tên file — phục vụ verify không cần gõ mã</td></tr>
         <tr><td><span class="mono">POST /api/documents/lookup-similar</span></td><td>Công khai</td><td>Tìm tài liệu có nội dung tương tự theo tập hash từng đoạn (fuzzy hash kiểu CTPH) — bắt file bị sửa nhẹ/đổi tên</td></tr>
+        <tr><td><span class="mono">POST /api/documents/:id/visibility</span></td><td>Chỉ uploader</td><td>Đổi chế độ công khai ↔ riêng tư sau khi đã đóng dấu; tài liệu đã thu hồi → 409</td></tr>
         <tr><td><span class="mono">GET/POST /api/wallets*</span></td><td>JWT (+ADMIN cho role)</td><td>Quản lý ví; dung lượng tính lại từ DB, không tin client</td></tr>
         <tr><td><span class="mono">/api/auth/*</span></td><td>Công khai/JWT</td><td>Challenge, login, OTP, quản lý phiên thiết bị</td></tr>
         <tr><td><span class="mono">/api/apikeys</span></td><td>ADMIN</td><td>Tạo/liệt kê/thu hồi API key đối tác</td></tr>
@@ -841,9 +842,9 @@
     <ul>
         <li>Tìm file trong Batch theo docId; không có encKey → 404 (client fallback nhập mật khẩu thủ công). Khi giải mã báo sai khóa — dù khóa lấy từ escrow hay nhập tay — ciphertext chỉ tải từ IPFS đúng một lần và người dùng được nhập lại khóa tối đa ba lần thay vì bắt đầu lại.</li>
         <li><span class="mono">visibility = 'public'</span> → mọi request có JWT hợp lệ đều được trả khóa.</li>
-        <li><span class="mono">visibility = 'private'</span> (gồm cả tài liệu cũ thiếu trường) → chỉ uploader hoặc role ADMIN; QUẢN LÝ bị từ chối 403.</li>
+        <li><span class="mono">visibility = 'private'</span> (gồm cả tài liệu cũ thiếu trường) → chỉ uploader; mọi ví khác — kể cả ADMIN — bị từ chối 403.</li>
     </ul>
-    <p>Field visibility được <b>whitelist server-side</b>: chỉ nhận 'public'/'private', mọi giá trị khác ép về 'private' — client không gửi được giá trị lạ. Phía giao diện, danh sách truy xuất xây map docId → {visibility, uploader} từ batches; file của người khác mà private thì nút Xem/Tải đổi thành badge ổ khóa xám với toast giải thích — nhưng điểm chặn thật vẫn là server, giao diện chỉ phản ánh.</p>
+    <p>Field visibility được <b>whitelist server-side</b>: chỉ nhận 'public'/'private', mọi giá trị khác ép về 'private' — client không gửi được giá trị lạ. Chủ sở hữu đổi được chế độ bất cứ lúc nào qua <span class="mono">POST /api/documents/:id/visibility</span> (file đã thu hồi thì không); người khác — kể cả ADMIN — không được đổi vì quyền riêng tư là cá nhân tuyệt đối. Phía giao diện, danh sách truy xuất xây map docId → {visibility, uploader} từ batches; file của người khác mà private thì nút Xem/Tải đổi thành badge ổ khóa xám với toast giải thích — nhưng điểm chặn thật vẫn là server, giao diện chỉ phản ánh.</p>
 
     <h2>3.6. API tích hợp cho tổ chức đối tác</h2>
     <p>Nhu cầu thực tế: trường học hay bệnh viện muốn đẩy chứng chỉ/hồ sơ lên hệ thống từ phần mềm quản lý của họ, nhưng không thể bắt mỗi nhân viên cài MetaMask. Giải pháp là API key truyền thống, nhưng cài đặt theo chuẩn industry:</p>
@@ -928,7 +929,7 @@
     <table>
         <tr><th>Kịch bản kiểm thử</th><th>Kết quả</th></tr>
         <tr><td>Bộ test tự động: contract, nhất quán dữ liệu, lộ bí mật, XSS, hardening HTTP, xác thực</td><td>96/96 ca pass</td></tr>
-        <tr><td>Bộ kiểm thử end-to-end an toàn trên server test (xác thực, thiết bị, khay chờ, phân quyền, vòng đời ví, tra cứu/tương đồng nội dung, độ trễ)</td><td>59/59 bước pass</td></tr>
+        <tr><td>Bộ kiểm thử end-to-end an toàn trên server test (xác thực, thiết bị, khay chờ, phân quyền, vòng đời ví, tra cứu/tương đồng nội dung, đổi chế độ hiển thị, độ trễ)</td><td>67/67 bước pass</td></tr>
         <tr><td>Upload qua API đối tác → IPFS (CID thật) → on-chain (tx thật trên Sepolia)</td><td>Thành công, trả documentId / fileHash / txHash; tx tra được trên Etherscan</td></tr>
         <tr><td>Verify đúng file nguyên vẹn</td><td>match: true — TÀI LIỆU NGUYÊN VẸN</td></tr>
         <tr><td>Verify file bị sửa 1 ký tự</td><td>match: false — PHÁT HIỆN GIẢ MẠO ngay lập tức</td></tr>
@@ -937,7 +938,7 @@
         <tr><td>Download đối tác qua gateway Pinata riêng</td><td>Trả file gốc nguyên văn sau giải mã (đã đối chiếu nội dung)</td></tr>
         <tr><td>Endpoint admin không JWT / quyền thấp</td><td>401 / 403</td></tr>
         <tr><td>Quota IPFS sắp vượt 1GB tổng tài khoản</td><td>Chặn 403 trước khi pin, kèm số MB đã dùng thật</td></tr>
-        <tr><td>Tài liệu riêng tư — ví khác (kể cả QUẢN LÝ) xin khóa giải mã</td><td>403; chỉ uploader + ADMIN được cấp</td></tr>
+        <tr><td>Tài liệu riêng tư — ví khác (kể cả ADMIN) xin khóa giải mã</td><td>403; chỉ uploader được cấp</td></tr>
         <tr><td>OTP: sai mã / hết hạn / quá 5 lần / gửi lại sớm</td><td>401 / hết hạn / 429 / 429 — đúng ngưỡng thiết kế</td></tr>
         <tr><td>Xin OTP khi ví còn thiết bị đang hoạt động</td><td>403 OTP_BLOCKED — bắt buộc duyệt từ thiết bị cũ</td></tr>
         <tr><td>Thu hồi tài liệu rồi verify lại</td><td>Báo TÀI LIỆU ĐÃ BỊ THU HỒI kèm lý do</td></tr>
@@ -1006,7 +1007,7 @@
         <li><b>Về tính trung thực của dữ liệu:</b> mọi con số hiển thị — phí giao dịch từ transaction receipt, dung lượng từ API Pinata, trạng thái từ bản ghi on-chain — đều lấy từ nguồn thật. Hệ thống không dùng dữ liệu mô phỏng hay con số minh họa ở bất kỳ đâu.</li>
         <li><b>Về bảo mật:</b> defense in depth với escrow khóa AES-256-GCM, OTP scrypt+salt, API key chỉ lưu hash, whitelist chống mass-assignment, escape XSS toàn diện, rate limit nhiều lớp và fail-closed khi dịch vụ ngoài lỗi.</li>
     </ul>
-    <p>Kết quả kiểm thử: 96/96 ca test tự động pass; 59/59 bước kiểm thử end-to-end trên server test pass; kiểm thử API đối tác bằng curl với key thật cho kết quả đúng toàn bộ luồng upload — verify — cách ly — download; các giao dịch thật tra được độc lập trên Etherscan.</p>
+    <p>Kết quả kiểm thử: 96/96 ca test tự động pass; 67/67 bước kiểm thử end-to-end trên server test pass; kiểm thử API đối tác bằng curl với key thật cho kết quả đúng toàn bộ luồng upload — verify — cách ly — download; các giao dịch thật tra được độc lập trên Etherscan.</p>
     <h2>2. Đóng góp của đề tài</h2>
     <p>Đề tài cho thấy việc ứng dụng blockchain vào xác thực tài liệu không chỉ là "ghi hash lên chuỗi" như nhiều mô hình minh họa đơn giản, mà là một bài toán hệ thống đầy đủ: phải giải quyết đồng thời bí mật nội dung, kiểm soát truy cập, danh tính người dùng, giới hạn tài nguyên thật và khả năng tích hợp cho tổ chức không có hạ tầng blockchain. Kiến trúc tách ba lớp "bằng chứng — nội dung — vận hành" mà đề tài áp dụng là mô hình có thể tái sử dụng cho các hệ thống cùng dạng.</p>
     <h2>3. Hướng phát triển</h2>

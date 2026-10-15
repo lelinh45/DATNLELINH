@@ -326,12 +326,23 @@ export const ApiService = {
         return data;
     },
 
-    // Lấy khóa AES đã lưu escrow — chỉ uploader hoặc role >= QUẢN LÝ mới được server trả
+    // Lấy khóa AES đã lưu escrow — public: mọi ví đăng nhập; private: chỉ uploader
     async getDocumentKey(docId) {
         const res = await fetch(`${CONFIG.API_BASE}/documents/${encodeURIComponent(docId)}/key`, { headers: authHeaders() });
         if (!res.ok) return null;
         const data = await res.json().catch(() => ({}));
         return data.key || null;
+    },
+
+    // Đổi chế độ public ↔ private — chỉ chủ sở hữu tài liệu
+    async setDocumentVisibility(docId, visibility) {
+        const res = await fetch(`${CONFIG.API_BASE}/documents/${encodeURIComponent(docId)}/visibility`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ visibility })
+        });
+        const data = await res.json().catch(() => ({}));
+        return { ok: res.ok, ...data };
     },
 
     // =====================================================================

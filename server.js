@@ -947,7 +947,9 @@ app.get('/api/documents/:docId/status', async (req, res) => {
     }
 });
 
-// Trả khóa giải mã cho người được phép: uploader của lô, hoặc role >= QUẢN LÝ
+// Trả khóa giải mã cho người được phép. public: mọi ví đăng nhập; private:
+// CHỈ uploader — quyền riêng tư là cá nhân tuyệt đối, kể cả ADMIN cũng
+// không mở được tài liệu private của ví khác.
 app.get('/api/documents/:docId/key', requireAuth, async (req, res) => {
     try {
         const docId = req.params.docId;
@@ -958,12 +960,9 @@ app.get('/api/documents/:docId/key', requireAuth, async (req, res) => {
         const file = batch && batch.files.find(f => f.docId === docId);
         if (!file) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu' });
 
-        // public: ví đã đăng nhập nào cũng lấy được khóa.
-        // private: chỉ uploader hoặc ADMIN (rank 3) — QUẢN LÝ không mở được tài liệu riêng tư.
         const isUploader = String(batch.uploader || '').toLowerCase() === req.user.address;
         if (!isUploader && (file.visibility || 'private') !== 'public') {
-            const rank = await getRoleRank(req.user.address);
-            if (rank < 3) return res.status(403).json({ success: false, message: 'Tài liệu riêng tư — chỉ người tải lên và Admin được mở' });
+            return res.status(403).json({ success: false, message: 'Tài liệu riêng tư — chỉ người tải lên được mở' });
         }
         if (!file.encKey) {
             return res.status(404).json({ success: false, message: 'Tài liệu không có khóa lưu trữ (upload trước khi có tính năng này)' });
@@ -973,6 +972,37 @@ app.get('/api/documents/:docId/key', requireAuth, async (req, res) => {
         res.json({ success: true, key });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi lấy khóa giải mã' });
+    }
+});
+
+// Đổi chế độ hiển thị public ↔ private. Chỉ chủ sở hữu (uploader) — quyền
+// riêng tư là cá nhân tuyệt đối nên ADMIN cũng không được lật chế độ file
+// của ví khác. Tài liệu đã thu hồi (đã xuống danh sách Hủy Bỏ) không đổi.
+app.post('/api/documents/:docId/visibility', requireAuth, async (req, res) => {
+    try {
+        const docId = req.params.docId;
+        if (!/^[\w.\-]{1,300}$/.test(docId)) {
+            return res.status(400).json({ success: false, message: 'docId không hợp lệ' });
+        }
+        const vis = req.body && req.body.visibility;
+        if (!['public', 'private'].includes(vis)) {
+            return res.status(400).json({ success: false, message: 'visibility phải là public hoặc private' });
+        }
+        const batch = await Batch.findOne({ "files.docId": docId });
+        const file = batch && batch.files.find(f => f.docId === docId);
+        if (!file) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu' });
+        if (String(batch.uploader || '').toLowerCase() !== req.user.address) {
+            return res.status(403).json({ success: false, message: 'Chỉ người tải lên được đổi chế độ hiển thị' });
+        }
+        if (file.isRevoked) return res.status(409).json({ success: false, message: 'Tài liệu đã thu hồi — không đổi được chế độ' });
+        if ((file.visibility || 'private') === vis) {
+            return res.json({ success: true, visibility: vis, unchanged: true });
+        }
+        file.visibility = vis;
+        await batch.save();
+        res.json({ success: true, visibility: vis });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi đổi chế độ hiển thị' });
     }
 });
 

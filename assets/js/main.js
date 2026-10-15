@@ -19,9 +19,10 @@ document.addEventListener('click', (e) => {
     switch (d.act) {
         case 'copy':            UI.copyToClipboard(d.v || ''); break;
         case 'revoke':          if (d.v) window.revokeDoc(d.v); break;
+        case 'vis':             if (d.v) window.toggleDocVisibility(d.v, d.vis); break;
         case 'decrypt':         window.downloadAndDecrypt(d.v, d.name || 'document', d.id); break;
         case 'preview':         window.previewDocument(d.v, d.name || 'document', d.id); break;
-        case 'locked':          Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Tài liệu riêng tư — chỉ người tải lên và Admin xem được', background: '#111827', color: '#fff', timer: 2500, showConfirmButton: false }); break;
+        case 'locked':          Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Tài liệu riêng tư — chỉ người tải lên xem được', background: '#111827', color: '#fff', timer: 2500, showConfirmButton: false }); break;
         case 'pdf':             if (lastCertData) UI.downloadPdfCertificate(lastCertData); break;
         case 'wallet-preview':  if (d.v) window.openPreviewDrawer(d.v); break;
         case 'storage':         if (d.v) window.openStorageModal(d.v); break;
@@ -1489,7 +1490,7 @@ async function promptPasswordAndUpload() {
         <input id="swal-key" type="password" placeholder="Nhập khóa bí mật chung..." class="swal2-input" style="width:88%;margin-top:8px">
         <div class="text-left text-sm text-gray-300 mt-3 mb-1">Chế độ chia sẻ mặc định:</div>
         <select id="swal-vis">
-            <option value="private" selected>🔒 Riêng tư — mình tôi &amp; Admin được xem</option>
+            <option value="private" selected>🔒 Riêng tư — chỉ mình tôi xem được</option>
             <option value="public">🌐 Công khai — mọi người dùng đều xem được</option>
         </select>
         <div class="text-left text-sm text-gray-300 mt-3 mb-1">Tùy chỉnh từng tệp:</div>
@@ -2043,6 +2044,32 @@ async function fillTxFees(tbody) {
 // =====================================================================
 // XỬ LÝ LỊCH SỬ THU HỒI VÀ HOÀN TRẢ DUNG LƯỢNG
 // =====================================================================
+// Đổi chế độ Công khai ↔ Riêng tư cho file CỦA CHÍNH MÌNH (server cũng
+// chặn nếu không phải uploader); tài liệu đã thu hồi không đổi được.
+window.toggleDocVisibility = async (docId, currentVis) => {
+    const next = currentVis === 'public' ? 'private' : 'public';
+    const r = await Swal.fire({
+        title: 'ĐỔI CHẾ ĐỘ HIỂN THỊ',
+        html: `<p class="text-sm text-gray-300">Chuyển tài liệu sang
+            <b>${next === 'public' ? '🌐 Công khai — mọi ví đăng nhập xem được' : '🔒 Riêng tư — chỉ bạn xem được'}</b>?<br>
+            <span class="text-gray-500 text-xs">${next === 'private' ? 'Lưu ý: ai đã tải/giải mã khi file còn công khai vẫn giữ bản gốc.' : 'Khóa giải mã sẽ được cấp cho mọi ví đăng nhập.'}</span></p>`,
+        icon: 'question', background: '#111827', color: '#fff',
+        showCancelButton: true, confirmButtonText: 'Đổi chế độ', cancelButtonText: 'Hủy', confirmButtonColor: '#2563eb'
+    });
+    if (!r.isConfirmed) return;
+    try { await ApiService.ensureAuth(web3.signer, web3.currentAccount); } catch (e) {
+        return Swal.fire({ title: 'Chưa xác thực', text: 'Vui lòng kết nối ví trước.', icon: 'warning', background: '#111827', color: '#fff' });
+    }
+    const res = await ApiService.setDocumentVisibility(docId, next);
+    if (!res.ok) {
+        return Swal.fire({ title: 'Không đổi được', text: res.message || 'Lỗi máy chủ', icon: 'error', background: '#111827', color: '#fff' });
+    }
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success',
+        title: next === 'public' ? 'Đã chuyển sang Công khai' : 'Đã chuyển sang Riêng tư',
+        background: '#111827', color: '#fff', timer: 2200, showConfirmButton: false });
+    loadTransactionHistory();
+};
+
 window.revokeDoc = async (docId) => {
     if (isProcessing) return;
 
@@ -2187,15 +2214,19 @@ async function loadTransactionHistory() {
                 fileMeta[f.docId] = { visibility: f.visibility || 'private', uploader: (b.uploader || '').toLowerCase() };
             }
         }
-        // Quyền của ví đang đăng nhập — ADMIN (3) mở được tài liệu private của người khác
+        // File private chỉ uploader mở được — quyền riêng tư là cá nhân
+        // tuyệt đối, kể cả ADMIN cũng thấy nút khóa trên file của ví khác
         const myAddr = (web3.currentAccount || '').toLowerCase();
-        let myRank = 0;
-        try { myRank = Number(await web3.getUserRole(myAddr)); } catch (e) {}
         const isLockedDoc = (docId, uploaderAddr) => {
             const meta = fileMeta[docId];
             const vis = meta ? meta.visibility : 'private';
             const owner = (meta && meta.uploader) || (uploaderAddr || '').toLowerCase();
-            return vis !== 'public' && owner !== myAddr && myRank < 3;
+            return vis !== 'public' && owner !== myAddr;
+        };
+        const isOwnDoc = (docId, uploaderAddr) => {
+            const meta = fileMeta[docId];
+            const owner = (meta && meta.uploader) || (uploaderAddr || '').toLowerCase();
+            return owner === myAddr;
         };
 
         // 1. Quét file On-chain
@@ -2233,6 +2264,7 @@ async function loadTransactionHistory() {
                             <div class="mt-1 text-[9px] ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'text-emerald-400' : 'text-gray-500'}"><i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
                             <div class="mt-1.5 flex gap-3">
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
                                 <button data-act="revoke" data-v="${esc(docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>
                             </div>
                         </td>
@@ -2247,7 +2279,7 @@ async function loadTransactionHistory() {
                                 <i class="fa-solid fa-cloud mr-1"></i> IPFS
                             </a>
                             ${isLockedDoc(docId, uploader) ? `
-                                <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên và Admin xem được" class="text-gray-500 text-[10px] uppercase font-bold bg-gray-800/60 px-2 py-0.5 rounded border border-gray-700 cursor-not-allowed">
+                                <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-gray-500 text-[10px] uppercase font-bold bg-gray-800/60 px-2 py-0.5 rounded border border-gray-700 cursor-not-allowed">
                                     <i class="fa-solid fa-lock mr-1"></i> Riêng tư
                                 </button>` : `
                                 <button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Xem trực tiếp trong trình duyệt" class="text-emerald-400 hover:text-emerald-300 text-[10px] uppercase font-bold transition bg-emerald-900/20 px-2 py-0.5 rounded border border-emerald-900/50">
@@ -2287,6 +2319,7 @@ async function loadTransactionHistory() {
                             <div class="mt-1 text-[9px] ${fileDoc.visibility === 'public' ? 'text-emerald-400' : 'text-gray-500'}"><i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
                             <div class="mt-1.5 flex gap-3">
                                 <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
                                 <button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>
                             </div>
                         </td>
@@ -2301,7 +2334,7 @@ async function loadTransactionHistory() {
                                     <i class="fa-solid fa-cloud mr-1"></i> IPFS
                                 </a>
                                 ${isLockedDoc(fileDoc.docId, uploader) ? `
-                                    <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên và Admin xem được" class="text-gray-500 text-[10px] uppercase font-bold bg-gray-800/60 px-2 py-0.5 rounded border border-gray-700 cursor-not-allowed">
+                                    <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-gray-500 text-[10px] uppercase font-bold bg-gray-800/60 px-2 py-0.5 rounded border border-gray-700 cursor-not-allowed">
                                         <i class="fa-solid fa-lock mr-1"></i> Riêng tư
                                     </button>` : `
                                     <button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" title="Xem trực tiếp trong trình duyệt" class="text-emerald-400 hover:text-emerald-300 text-[10px] uppercase font-bold transition bg-emerald-900/20 px-2 py-0.5 rounded border border-emerald-900/50">
@@ -3600,7 +3633,8 @@ window.openStorageModal = async function(walletAddress) {
 // =====================================================================
 // TÍNH NĂNG TẢI VỀ VÀ GIẢI MÃ TÀI LIỆU (VƯỢT TƯỜNG LỬA CORS)
 // =====================================================================
-// Lấy khóa giải mã: ưu tiên key escrow trên server (uploader hoặc QUẢN LÝ+),
+// Lấy khóa giải mã: ưu tiên key escrow trên server (public: mọi ví đăng
+// nhập; private: chỉ uploader — kể cả ADMIN không mở được file người khác),
 // tài liệu cũ chưa có key lưu trữ thì fallback hỏi mật khẩu như trước.
 async function resolveDocKey(docId, originalFileName) {
     if (docId) {

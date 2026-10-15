@@ -73,7 +73,7 @@
   <ol>
     <li>Vào <i>Tải lên</i>, kéo thả nhiều file cùng lúc (tối đa 100/lần, ≤25MB/file).</li>
     <li>Nếu có file trùng/đã thu hồi, popup xung đột cho xử lý từng nhóm: Bỏ qua, Tải lại (với file đã thu hồi), Tiếp tục chỉ phần file sạch, hoặc Hủy toàn bộ.</li>
-    <li>Chọn Công khai (mọi ví đăng nhập xem được) hoặc Riêng tư (chỉ mình + Quản lý/Admin); nhập mật khẩu mã hóa cho file.</li>
+    <li>Chọn Công khai (mọi ví đăng nhập xem được) hoặc Riêng tư (chỉ mình — kể cả Admin cũng không xem được); nhập mật khẩu mã hóa cho file. Sau này đổi được chế độ bằng nút "Chế độ" trên dòng tài liệu của mình.</li>
     <li>Ký một giao dịch MetaMask duy nhất cho cả lô — hash ghi lên Sepolia, ciphertext lên IPFS.</li>
   </ol>
   <p><b>Lưu ý:</b> nội dung đã ghi trên blockchain là bất biến — muốn "sửa" tài liệu phải thu hồi bản cũ rồi đóng dấu bản mới.</p>
@@ -117,7 +117,7 @@
     <li>Hệ thống chạy trên mạng thử nghiệm <b>Sepolia</b> — ETH trong ví chỉ là ETH test, không có giá trị tiền thật; giao dịch tra công khai trên Etherscan.</li>
     <li>Bản free của Render ngủ sau ~15 phút không truy cập — request đầu tiên có thể chờ 30-60 giây để "đánh thức" server.</li>
     <li>Quota IPFS miễn phí 1GB tính cả file đã thu hồi (ciphertext vẫn pin trên Pinata).</li>
-    <li>Đã kiểm thử: 96/96 ca unit-test tự động + 59/59 bước end-to-end trên server test cục bộ (không đụng dữ liệu production).</li>
+    <li>Đã kiểm thử: 96/96 ca unit-test tự động + 67/67 bước end-to-end trên server test cục bộ (không đụng dữ liệu production).</li>
   </ul>
 
 </div>

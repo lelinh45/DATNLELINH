@@ -279,7 +279,7 @@ bullets(s, Emu(700000), Emu(1350000), Emu(5300000), Emu(5000000), [
     ('Phê duyệt thiết bị lạ', 'Thiết bị mới phải được một thiết bị đang hoạt động duyệt, hoặc OTP về email khi không còn máy nào online — mỗi phiên ghi nhãn trình duyệt kèm phiên bản, IP và User-Agent để chủ ví nhận diện máy lạ. Khi mất hết neo tin cậy, cơ chế chờ 24 giờ giữ cho ví không bị khóa vĩnh viễn.'),
 ], 14, 8)
 bullets(s, Emu(6400000), Emu(1350000), Emu(5100000), Emu(5000000), [
-    ('Chia sẻ Công khai / Riêng tư từng file', 'Chế độ hiển thị và khóa AES đặt riêng cho từng file trong cùng một lô. Tài liệu công khai: mọi ví đã đăng nhập được server cấp lại khóa và xem trực tiếp. Tài liệu riêng tư: chỉ chủ sở hữu và Admin được cấp khóa, người khác chỉ thấy metadata.'),
+    ('Chia sẻ Công khai / Riêng tư từng file', 'Chế độ hiển thị và khóa AES đặt riêng cho từng file trong cùng một lô — chủ sở hữu đổi được chế độ bất cứ lúc nào. Tài liệu công khai: mọi ví đã đăng nhập được server cấp lại khóa và xem trực tiếp. Tài liệu riêng tư: chỉ chủ sở hữu được cấp khóa — kể cả Admin cũng không xem được, người khác chỉ thấy metadata.'),
     ('Kiểm soát trùng nội dung hai lớp theo ví', 'Contract lưu sổ chống trùng riêng cho từng ví (multi-tenant): nội dung trùng của chính ví thì chỉ được bỏ qua, nội dung của ví khác upload bình thường như file mới — mỗi tổ chức giữ bản ghi và khóa riêng. Lớp kiểm tra lần cuối tự loại nội dung vừa được chính ví đóng dấu sau khi quét.'),
     ('API key cho đối tác', 'Hệ thống bên ngoài có thể tải tài liệu tự động qua API key riêng; server tự sinh khóa AES-256, bọc bằng khóa chủ và ghi chuỗi như người dùng thường.'),
 ], 14, 8)
@@ -294,7 +294,7 @@ contrib = [
     ('03', 'Xác thực không mật khẩu',
      'Đăng nhập bằng chữ ký ví MetaMask, phiên JWT theo thiết bị, duyệt máy lạ và OTP email — loại bỏ hoàn toàn rủi ro rò rỉ mật khẩu truyền thống.'),
     ('04', 'Nghiệp vụ đầy đủ, kiểm chứng bằng test tự động',
-     'Upload lô một lần ký MetaMask, kiểm soát trùng nội dung hai lớp, khóa và chế độ chia sẻ riêng từng file, xem trước DOCX/PDF, API cho đối tác — bao phủ 155 ca kiểm thử (96 tự động + 59 end-to-end).'),
+     'Upload lô một lần ký MetaMask, kiểm soát trùng nội dung hai lớp, khóa và chế độ chia sẻ riêng từng file, xem trước DOCX/PDF, API cho đối tác — bao phủ 163 ca kiểm thử (96 tự động + 67 end-to-end).'),
 ]
 for i, (n, t, body) in enumerate(contrib):
     col, row = i % 2, i // 2

@@ -65,7 +65,10 @@ test('Key escrow: server bọc encKey bằng AES-256-GCM + endpoint key có chec
     assert.ok(serverJs.includes('wrapKey') && serverJs.includes('aes-256-gcm'), 'phải bọc key bằng AES-256-GCM');
     assert.ok(serverJs.includes("f.encKey ? wrapKey(f.encKey)"), 'POST /batches phải bọc encKey');
     const keyRoute = serverJs.slice(serverJs.indexOf("/api/documents/:docId/key"));
-    assert.ok(keyRoute.includes('isUploader') && keyRoute.includes('rank < 3'), 'key endpoint: private chỉ uploader hoặc ADMIN');
+    // Chính sách private tuyệt đối: chỉ uploader — kể cả ADMIN cũng không mở
+    // được file private của ví khác (không còn nhánh rank ≥ 3 nào trong route)
+    const keyRouteBody = keyRoute.slice(0, keyRoute.indexOf('app.post'));
+    assert.ok(keyRouteBody.includes('isUploader') && !keyRouteBody.includes('rank < 3'), 'key endpoint: private chỉ uploader, ADMIN cũng bị chặn');
     assert.ok(keyRoute.includes("'public'"), 'key endpoint: public cho mọi ví đã đăng nhập');
 });
 

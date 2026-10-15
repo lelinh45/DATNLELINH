@@ -80,6 +80,7 @@ console.log('== D2. TRA CỨU TÀI LIỆU KHÔNG CẦN MÃ (verify bằng hash/t
 const probeHash = crypto.createHash('sha256').update('e2e-noi-dung-thu-nghiem').digest('hex');
 await mdb.connection.db.collection('batches').insertOne({
     batchId: 'e2e_batch_lookup', uploader: wView.address.toLowerCase(), ipfsCID: 'bafye2e', txHash: '0xabc',
+    merkleRoot: '0x' + 'ab'.repeat(32),
     files: [
         { docId: 'hopdong_test.pdf_1700000001', fileName: 'hopdong_test.pdf', fileHash: probeHash, ipfsCID: 'bafy1', fileSize: '1 KB', visibility: 'private',
           chunkHashes: [1, 2, 3, 4, 5].map(n => crypto.createHash('sha256').update('e2e-chunk-' + n).digest('hex')) },
@@ -101,6 +102,15 @@ const probeChunks = [...e2eChunks.slice(0, 4), crypto.createHash('sha256').updat
 { const r = await post('/documents/lookup-similar', { chunks: ['zzz'] }); ok('Lookup-similar: hash xấu → 400', r.st === 400); }
 { const r = await post('/documents/lookup-similar', {}); ok('Lookup-similar: thiếu chunks → 400', r.st === 400); }
 
+// Đổi chế độ public ↔ private: chỉ uploader; file thu hồi không đổi; ví lạ bị 403
+{ const r = await post('/documents/hopdong_test.pdf_1700000001/visibility', { visibility: 'public' }, HV); ok('Uploader đổi private→public → 200 + flag mới', r.st === 200 && r.visibility === 'public', JSON.stringify(r).slice(0, 120)); }
+const wOther = Wallet.createRandom(); const lO = await login(wOther, 'e2esafeOth0004');
+{ const r = await post('/documents/hopdong_test.pdf_1700000001/visibility', { visibility: 'private' }, { Authorization: 'Bearer ' + lO.token }); ok('Ví lạ (kể cả ví mới) đổi chế độ → 403', r.st === 403, 'st=' + r.st); }
+{ const r = await post('/documents/hopdong_test.pdf_1700000001/visibility', { visibility: 'private' }, HV); ok('Uploader đổi public→private → 200', r.st === 200 && r.visibility === 'private'); }
+{ const r = await post('/documents/danhsach.xlsx_1700000002/visibility', { visibility: 'private' }, HV); ok('File đã thu hồi đổi chế độ → 409', r.st === 409, 'st=' + r.st); }
+{ const r = await post('/documents/hopdong_test.pdf_1700000001/visibility', { visibility: 'banana' }, HV); ok('visibility xấu → 400', r.st === 400); }
+{ const r = await post('/documents/khong_ton_tai_999/visibility', { visibility: 'public' }, HV); ok('docId không tồn tại → 404', r.st === 404); }
+
 console.log('== E. ADMIN THẬT (PRIVATE_KEY rank 3 on-chain) — chỉ test đọc ==');
 if (process.env.PRIVATE_KEY) {
     const admin = new Wallet(process.env.PRIVATE_KEY, provider);
@@ -110,6 +120,8 @@ if (process.env.PRIVATE_KEY) {
     { const r = await get('/wallets', HA); rec('GET /wallets (admin)', r.ms); ok('Admin → /wallets 200 (thấy email nếu có)', r.st === 200); }
     { const r = await get('/wallets/pending', HA); rec('GET /wallets/pending (admin)', r.ms); ok('Admin → khay chờ duyệt 200', r.st === 200); }
     { const r = await get('/apikeys', HA); ok('Admin → /apikeys 200', r.st === 200); }
+    { const r = await get('/documents/hopdong_test.pdf_1700000001/key', HA); ok('Admin KHÔNG lấy được khóa file private của ví khác → 403 (chính sách private tuyệt đối)', r.st === 403, 'st=' + r.st); }
+    { const r = await post('/documents/hopdong_test.pdf_1700000001/visibility', { visibility: 'public' }, HA); ok('Admin đổi chế độ file của ví khác → 403', r.st === 403, 'st=' + r.st); }
     // Từ chối ví chờ duyệt: khóa ví → biến mất khỏi khay + ví bên kia đọc được status
     { const r = await post('/wallets/reject', { address: wPend.address }, HV); ok('Viewer → reject ví → 403', r.st === 403); }
     { const r = await post('/wallets/reject', { address: 'not-an-address' }, HA); ok('Admin → reject địa chỉ xấu → 400', r.st === 400); }

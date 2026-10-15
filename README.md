@@ -48,7 +48,8 @@ nghĩa nếu không có khóa AES.
   không quản trị. Cấp từ form phân quyền: ví rank 0 sẵn thì chỉ ghi DB (không
   tốn gas), ví đang có quyền thì ký `assignRole(0)` tước trước.
 - **Upload có chọn lọc** — mã hóa AES-256 tại trình duyệt, tự chọn Riêng tư
-  (mình + Admin) hay Công khai (mọi ví đăng nhập). Khóa AES được ủy thác cho server,
+  (chỉ mình) hay Công khai (mọi ví đăng nhập) — đổi chế độ được bất cứ lúc nào.
+  Khóa AES được ủy thác cho server,
   bọc thêm một lớp AES-256-GCM trước khi vào MongoDB.
 - **Truy xuất** — danh sách tài liệu đọc từ sự kiện on-chain + metadata MongoDB,
   hiện cả phí gas thật (link Etherscan). Ô tìm kiếm tìm mờ theo tên/ID/hash; dán
