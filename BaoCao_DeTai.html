@@ -722,7 +722,7 @@
     </table>
     <p class="caption">Bảng 2.2. Các collection MongoDB và vai trò</p>
     <p>Hai nguyên tắc được áp dụng xuyên suốt khi ghi DB: (i) <b>whitelist field</b> — khi tạo batch, server chỉ nhận từng trường liệt kê sẵn của từng file, nên client không nhúng được isRevoked hay uploader giả (uploader luôn lấy từ JWT, không tin body); (ii) <b>không lưu bí mật dạng phẳng</b> — encKey bọc GCM, OTP scrypt, API key SHA-256, không có trường nào chứa bí mật có thể đọc trực tiếp.</p>
-    <div class="center"><img src="_screenshots/so-do-2-7-er.svg" alt="Sơ đồ quan hệ cơ sở dữ liệu MongoDB" style="max-width:100%; border:1px solid #999"></div>
+    <div class="center"><img src="_screenshots/so-do-2-7-er.svg" alt="Sơ đồ quan hệ cơ sở dữ liệu MongoDB" style="width:82%; border:1px solid #999"></div>
     <p class="caption">Hình 2.7. Sơ đồ quan hệ (ER logic) giữa các collection MongoDB — MongoDB không có khóa ngoại vật lý, quan hệ qua trường dữ liệu do tầng ứng dụng kiểm soát; files[] là mảng document nhúng của Batch (bản đầy đủ khổ A4 ngang xem ở file SoDo_Database.html)</p>
 
     <h2>2.6. Thiết kế smart contract</h2>

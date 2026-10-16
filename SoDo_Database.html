@@ -5,10 +5,10 @@
 <title>Sơ đồ cơ sở dữ liệu — Đề tài NCKH</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  @page { size:A4 landscape; margin:15mm 18mm; }
+  @page { size:A4 portrait; margin:15mm 18mm; }
   body { font-family:'Times New Roman',Times,serif; font-size:12pt; color:#000;
          background:#5a5a5a; }
-  .page { width:297mm; min-height:210mm; background:#fff; margin:10px auto;
+  .page { width:210mm; min-height:297mm; background:#fff; margin:10px auto;
           padding:15mm 18mm; box-shadow:0 2px 14px rgba(0,0,0,.4); }
   .center { text-align:center; }
   .school { font-size:11pt; }
@@ -30,7 +30,7 @@
 </style>
 </head>
 <body>
-<div class="no-print">Ctrl+P → Lưu PDF hoặc in — Khổ A4 ngang (Landscape)</div>
+<div class="no-print">Ctrl+P → Lưu PDF hoặc in — Khổ A4 dọc (Portrait)</div>
 <div class="page">
 
   <p class="center school">TRƯỜNG ĐẠI HỌC ĐIỆN LỰC — KHOA CÔNG NGHỆ THÔNG TIN</p>
@@ -43,7 +43,7 @@
     <b>Lưu ý:</b> MongoDB là CSDL NoSQL — <b>không có khóa ngoại vật lý</b>; các đường nối dưới đây là quan hệ logic qua trường dữ liệu, được kiểm soát ở tầng ứng dụng (server.js), không phải ràng buộc của DBMS.
   </div>
 
-  <div class="diagram"><img src="_screenshots/so-do-2-7-er.svg" alt="Sơ đồ quan hệ cơ sở dữ liệu MongoDB" style="width:100%;border:1px solid #999"></div>
+  <div class="diagram"><img src="_screenshots/so-do-2-7-er.svg" alt="Sơ đồ quan hệ cơ sở dữ liệu MongoDB" style="width:78%;border:1px solid #999"></div>
 
   <div class="notes">
     <b>Giải thích quan hệ &amp; điểm bảo mật:</b>
