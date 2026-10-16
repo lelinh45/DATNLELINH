@@ -18,21 +18,22 @@
     .btn-print { background: #217346; color: #fff; }
     .a4 {
         width: 210mm; min-height: 297mm; margin: 10px auto; background: #fff;
-        padding: 25mm 20mm 25mm 30mm;
+        padding: 25mm 20mm 25mm 35mm;
         box-shadow: 0 2px 10px rgba(0,0,0,.5);
-        font-size: 13pt; line-height: 1.5; text-align: justify;
+        font-size: 13pt; line-height: 1.7; text-align: justify;
     }
-    h1 { font-size: 16pt; margin: 0 0 14px; font-weight: bold; }
-    h2 { font-size: 14pt; margin: 18px 0 8px; font-weight: bold; }
+    h1 { font-size: 13pt; margin: 0 0 14px; font-weight: bold; text-align: center; }
+    h2 { font-size: 13pt; margin: 18px 0 8px; font-weight: bold; }
     h3 { font-size: 13pt; margin: 14px 0 6px; font-weight: bold; }
-    p { margin: 6px 0; text-indent: 1.27cm; }
+    p { margin: 6px 0; text-indent: 1cm; }
     p.no-indent { text-indent: 0; }
     ul, ol { margin: 6px 0 6px 40px; padding: 0; }
     li { margin: 3px 0; text-align: justify; }
-    table { width: 100%; border-collapse: collapse; margin: 8px auto 4px; font-size: 12.5pt; }
+    table { width: 100%; border-collapse: collapse; margin: 8px auto 4px; font-size: 13pt; }
     th, td { border: 1px solid #000; padding: 5px 8px; text-align: left; vertical-align: top; }
     th { font-weight: bold; text-align: center; }
-    .caption { text-align: center; font-size: 12.5pt; margin: 2px 0 10px; text-indent: 0; }
+    .caption { text-align: center; font-size: 13pt; margin: 2px 0 10px; text-indent: 0; font-style: italic; }
+    .caption.tbl { font-style: normal; }
     code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 11.5pt; }
     pre {
         font-family: Consolas, monospace; font-size: 10.5pt; border: 1px solid #666;
@@ -44,15 +45,15 @@
     .toc-line { display: flex; text-indent: 0; margin: 2px 0; }
     .toc-line .dots { flex: 1; border-bottom: 1px dotted #000; margin: 0 4px 4px; }
     .toc-lvl1 { font-weight: bold; }
-    .toc-lvl2 { padding-left: 20px; }
-    .toc-lvl3 { padding-left: 40px; }
+    .toc-lvl2 { padding-left: 0; }
+    .toc-lvl3 { padding-left: 0; }
     @media print {
         body { background: #fff; }
         .toolbar { display: none; }
         .a4 { margin: 0; box-shadow: none; width: auto; min-height: auto; padding: 0; }
         .page-break { page-break-after: always; }
     }
-    @page { size: A4; margin: 25mm 20mm 25mm 30mm; }
+    @page { size: A4; margin: 25mm 20mm 25mm 35mm; }
 </style>
 </head>
 <body>
@@ -64,18 +65,18 @@
 
 <!-- ==================== TRANG BÌA ==================== -->
 <div class="a4 page-break">
-    <p class="center no-indent"><b>BỘ CÔNG THƯƠNG</b></p>
-    <p class="center no-indent"><b>TRƯỜNG ĐẠI HỌC ĐIỆN LỰC</b></p>
-    <p class="center no-indent">KHOA CÔNG NGHỆ THÔNG TIN</p>
-    <br><br><br><br>
+    <p class="center no-indent" style="font-size:14pt"><b>BỘ CÔNG THƯƠNG</b></p>
+    <p class="center no-indent" style="font-size:16pt"><b>TRƯỜNG ĐẠI HỌC ĐIỆN LỰC</b></p>
+    <p class="center no-indent" style="font-size:16pt">KHOA CÔNG NGHỆ THÔNG TIN</p>
+    <br><br><br>
     <p class="center no-indent" style="font-size:18pt"><b>ĐỒ ÁN TỐT NGHIỆP</b></p>
     <br>
-    <p class="center no-indent" style="font-size:15pt"><b>TÌM HIỂU CÔNG NGHỆ BLOCKCHAIN<br>
+    <p class="center no-indent" style="font-size:18pt"><b>TÌM HIỂU CÔNG NGHỆ BLOCKCHAIN<br>
     VÀ ÁP DỤNG XÂY DỰNG HỆ THỐNG XÁC THỰC<br>
     VÀ CHỐNG GIẢ MẠO DỮ LIỆU SỐ</b></p>
-    <br><br><br>
-    <table style="border:none; width:80%; margin-left:60px">
-        <tr><td style="border:none"><b>Giảng viên hướng dẫn</b></td><td style="border:none">: ThS. Đỗ Đức Cường</td></tr>
+    <br><br>
+    <table style="border:none; width:80%; margin-left:60px; font-size:14pt">
+        <tr><td style="border:none; white-space:nowrap"><b>Giảng viên hướng dẫn</b></td><td style="border:none">: ThS. Đỗ Đức Cường</td></tr>
         <tr><td style="border:none"><b>Sinh viên thực hiện</b></td><td style="border:none">: Lê Hồng Linh (Chủ nhiệm)</td></tr>
         <tr><td style="border:none"><b>&emsp;</b></td><td style="border:none">: Nguyễn Xuân Hoàng Cường</td></tr>
         <tr><td style="border:none"><b>&emsp;</b></td><td style="border:none">: Nguyễn Cao Nguyên</td></tr>
@@ -86,13 +87,13 @@
         <tr><td style="border:none"><b>Lớp</b></td><td style="border:none">: D17CNPM1</td></tr>
         <tr><td style="border:none"><b>Khóa</b></td><td style="border:none">: 2022 – 2026</td></tr>
     </table>
-    <br><br><br><br>
-    <p class="center no-indent">Hà Nội, tháng ... năm 2026</p>
+    <br><br><br>
+    <p class="center no-indent" style="font-size:14pt">Hà Nội, tháng ... năm 2026</p>
 </div>
 
 <!-- ==================== ĐỀ CƯƠNG ==================== -->
 <div class="a4 page-break">
-    <p class="center no-indent" style="font-size:15pt"><b>ĐỀ CƯƠNG ĐỀ TÀI<br>ĐỒ ÁN TỐT NGHIỆP TRÌNH ĐỘ ĐẠI HỌC</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>ĐỀ CƯƠNG ĐỀ TÀI<br>ĐỒ ÁN TỐT NGHIỆP TRÌNH ĐỘ ĐẠI HỌC</b></p>
     <p class="no-indent">Họ và tên sinh viên: Lê Hồng Linh&emsp;&emsp;Mã sinh viên: 22810310058</p>
     <p class="no-indent">Lớp: D17CNPM1&emsp;&emsp;Khóa: 2022–2026</p>
     <p class="no-indent">Ngành: Công nghệ thông tin&emsp;&emsp;Chuyên ngành: Công nghệ phần mềm</p>
@@ -126,7 +127,7 @@
         <td class="center" style="border:none; font-size:11.5pt"><b>BỘ CÔNG THƯƠNG<br>TRƯỜNG ĐẠI HỌC ĐIỆN LỰC</b><hr style="width:45%"></td>
         <td class="center" style="border:none; font-size:11.5pt"><b>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM<br>Độc lập - Tự do - Hạnh phúc</b><hr style="width:55%"></td>
     </tr></table>
-    <p class="center no-indent" style="font-size:14pt"><b>NHẬN XÉT CỦA GIẢNG VIÊN HƯỚNG DẪN</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>NHẬN XÉT CỦA GIẢNG VIÊN HƯỚNG DẪN</b></p>
     <p class="no-indent"><b>1. Thông tin chung</b></p>
     <p class="no-indent">Họ và tên người hướng dẫn: Đỗ Đức Cường&emsp;Đơn vị công tác: Khoa Công nghệ thông tin</p>
     <p class="no-indent">Học hàm, học vị: Thạc sĩ</p>
@@ -146,7 +147,7 @@
 
 <!-- ==================== LỜI CẢM ƠN ==================== -->
 <div class="a4 page-break">
-    <p class="center no-indent" style="font-size:15pt"><b>LỜI CẢM ƠN</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>LỜI CẢM ƠN</b></p>
     <br>
     <p>Trong suốt quá trình học tập và thực hiện đề tài <i>"Tìm hiểu công nghệ Blockchain và áp dụng xây dựng hệ thống xác thực và chống giả mạo dữ liệu số"</i>, em đã nhận được sự quan tâm, hướng dẫn và giúp đỡ tận tình của nhiều cá nhân, tập thể.</p>
     <p>Trước hết, em xin bày tỏ lòng biết ơn sâu sắc đến ThS. Đỗ Đức Cường — giảng viên hướng dẫn đã tận tình chỉ bảo, định hướng và giúp đỡ em trong suốt quá trình nghiên cứu và hoàn thiện đề tài. Những ý kiến đóng góp quý báu của thầy là nguồn động viên to lớn giúp em vượt qua khó khăn để hoàn thành đồ án tốt nghiệp.</p>
@@ -158,7 +159,7 @@
 
 <!-- ==================== MỤC LỤC ==================== -->
 <div class="a4 page-break">
-    <p class="center no-indent" style="font-size:15pt"><b>MỤC LỤC</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>MỤC LỤC</b></p>
     <br>
     <div class="toc-line toc-lvl1"><span>LỜI MỞ ĐẦU</span><span class="dots"></span><span>...</span></div>
     <div class="toc-line toc-lvl1"><span>CHƯƠNG 1. CƠ SỞ LÝ THUYẾT VÀ CÔNG NGHỆ NỀN TẢNG</span><span class="dots"></span><span>...</span></div>
@@ -218,7 +219,7 @@
 
 <!-- ==================== DANH MỤC VIẾT TẮT ==================== -->
 <div class="a4 page-break">
-    <p class="center no-indent" style="font-size:15pt"><b>DANH MỤC CÁC KÝ HIỆU VÀ CHỮ VIẾT TẮT</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>DANH MỤC CÁC KÝ HIỆU VÀ CHỮ VIẾT TẮT</b></p>
     <br>
     <table>
         <tr><th style="width:8%">STT</th><th style="width:20%">Từ viết tắt</th><th>Diễn giải</th></tr>
@@ -240,7 +241,7 @@
         <tr><td class="center">16</td><td>PoS</td><td>Proof of Stake — cơ chế đồng thuận bằng cổ phần</td></tr>
     </table>
     <br><br>
-    <p class="center no-indent" style="font-size:15pt"><b>DANH MỤC BẢNG BIỂU</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>DANH MỤC BẢNG BIỂU</b></p>
     <br>
     <p class="no-indent">Bảng 2.1. Phân tách dữ liệu giữa Blockchain, IPFS và MongoDB</p>
     <p class="no-indent">Bảng 2.2. Các collection MongoDB và vai trò</p>
@@ -253,7 +254,7 @@
     <p class="no-indent">Bảng 4.1. Kết quả kiểm thử chức năng chính</p>
     <p class="no-indent">Bảng 4.2. Ma trận mối đe dọa và biện pháp phòng chống</p>
     <br><br>
-    <p class="center no-indent" style="font-size:15pt"><b>DANH MỤC HÌNH ẢNH</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>DANH MỤC HÌNH ẢNH</b></p>
     <br>
     <p class="no-indent">Hình 1.1. Minh họa hiệu ứng thác đổ của SHA-256</p>
     <p class="no-indent">Hình 2.1. Sơ đồ use-case tổng thể của hệ thống</p>
@@ -274,7 +275,7 @@
 
 <!-- ==================== LỜI MỞ ĐẦU ==================== -->
 <div class="a4 page-break">
-    <p class="center no-indent" style="font-size:15pt"><b>LỜI MỞ ĐẦU</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>LỜI MỞ ĐẦU</b></p>
 
     <h2>1. Lý do chọn đề tài</h2>
     <p>Trong bối cảnh chuyển đổi số diễn ra mạnh mẽ trên toàn cầu nói chung và tại Việt Nam nói riêng, tài liệu điện tử đã dần thay thế tài liệu giấy trong hầu hết các lĩnh vực: giáo dục (văn bằng, chứng chỉ, bảng điểm), y tế (hồ sơ bệnh án, đơn thuốc điện tử), hành chính công (quyết định, biên bản), và cả trong hoạt động thương mại (hợp đồng điện tử, hóa đơn). Sự thay thế này mang lại hiệu quả to lớn về lưu trữ, truy xuất và chia sẻ, nhưng đồng thời đặt ra một vấn đề nghiêm trọng: <b>tính xác thực của tài liệu số</b>.</p>
@@ -569,7 +570,7 @@
         <tr><td>OTP duyệt thiết bị</td><td>MongoDB — scrypt + salt</td><td>Entropy thấp bắt buộc hàm băm chậm</td></tr>
         <tr><td>Challenge đăng nhập</td><td>MongoDB TTL 5 phút</td><td>Dùng một lần rồi hủy, sống qua restart server</td></tr>
     </table>
-    <p class="caption">Bảng 2.1. Phân tách dữ liệu giữa Blockchain, IPFS và MongoDB</p>
+    <p class="caption tbl">Bảng 2.1. Phân tách dữ liệu giữa Blockchain, IPFS và MongoDB</p>
     <p>Thiết kế này tạo ra một đặc tính đáng giá về mặt an ninh: <b>không tồn tại một điểm tấn công duy nhất làm mất cả bằng chứng lẫn nội dung</b>. Chiếm được IPFS chỉ có ciphertext vô dụng; chiếm được MongoDB chỉ có khóa đã bọc và metadata; muốn giả mạo bằng chứng phải tấn công chính mạng Ethereum — bất khả thi về kinh tế. Ba lớp bù trừ cho nhau: blockchain yếu về dung lượng và chi phí nhưng mạnh về bất biến; IPFS mạnh về lưu trữ nhưng không có quyền truy cập; MongoDB linh hoạt nhưng cần được bảo vệ — mỗi thứ được dùng đúng thế mạnh.</p>
 
     <h2>2.4. Thiết kế các luồng nghiệp vụ</h2>
@@ -720,7 +721,7 @@
         <tr><td>Notification</td><td>address, type, title, message, meta, read</td><td>Thông báo duyệt thiết bị, cảnh báo</td></tr>
         <tr><td>AuthChallenge</td><td>address, challenge, expiresAt</td><td>Challenge đăng nhập sống qua restart</td></tr>
     </table>
-    <p class="caption">Bảng 2.2. Các collection MongoDB và vai trò</p>
+    <p class="caption tbl">Bảng 2.2. Các collection MongoDB và vai trò</p>
     <p>Hai nguyên tắc được áp dụng xuyên suốt khi ghi DB: (i) <b>whitelist field</b> — khi tạo batch, server chỉ nhận từng trường liệt kê sẵn của từng file, nên client không nhúng được isRevoked hay uploader giả (uploader luôn lấy từ JWT, không tin body); (ii) <b>không lưu bí mật dạng phẳng</b> — encKey bọc GCM, OTP scrypt, API key SHA-256, không có trường nào chứa bí mật có thể đọc trực tiếp.</p>
     <div class="center"><img src="_screenshots/so-do-2-7-er.svg" alt="Sơ đồ quan hệ cơ sở dữ liệu MongoDB" style="width:82%; border:1px solid #999"></div>
     <p class="caption">Hình 2.7. Sơ đồ quan hệ (ER logic) giữa các collection MongoDB — MongoDB không có khóa ngoại vật lý, quan hệ qua trường dữ liệu do tầng ứng dụng kiểm soát; files[] là mảng document nhúng của Batch (bản đầy đủ khổ A4 ngang xem ở file SoDo_Database.html)</p>
@@ -734,7 +735,7 @@
         <tr><td><span class="mono">assignRole(addr, role)</span></td><td>Ghi</td><td>ADMIN gán quyền 0–3 cho ví</td></tr>
         <tr><td><span class="mono">userRoles(address)</span></td><td>Đọc</td><td>Tra quyền ví — backend đọc mỗi lần check role</td></tr>
     </table>
-    <p class="caption">Bảng 2.3. Các hàm chính của smart contract DataIntegrity</p>
+    <p class="caption tbl">Bảng 2.3. Các hàm chính của smart contract DataIntegrity</p>
     <p>Quyết định thiết kế đáng chú ý là ghi theo <b>lô (batch)</b>: thay vì một giao dịch mỗi tài liệu, một giao dịch mang mảng nhiều tài liệu — giảm đáng kể phí gas và số lần MetaMask hỏi người dùng. Hệ quả là các file cùng lô hiển thị cùng một phí giao dịch ở bảng truy xuất — đúng bản chất blockchain chứ không phải lỗi hiển thị.</p>
 
     <h2>2.7. Thiết kế mô hình bảo mật và kiểm soát truy cập</h2>
@@ -783,7 +784,7 @@
         <tr><td>Blockchain</td><td>Hardhat, Solidity, Ethers.js, Sepolia testnet</td><td>Contract ghi/đọc bất biến, phân quyền on-chain</td></tr>
         <tr><td>Phân tích pháp y</td><td>Google Gemini (@google/genai), pixel diff ảnh, text diff</td><td>Bản đồ nhiệt sai khác, báo cáo AI khi phát hiện giả mạo</td></tr>
     </table>
-    <p class="caption">Bảng 3.1. Các thành phần công nghệ của hệ thống</p>
+    <p class="caption tbl">Bảng 3.1. Các thành phần công nghệ của hệ thống</p>
     <p>File được nhận qua Multer với <b>memoryStorage</b> — giữ trong RAM, không ghi ổ đĩa server — với giới hạn cứng 25MB/request. Multer được bọc trong middleware <span class="mono">uploadSingle</span> để trả JSON đúng mã lỗi (413 khi quá lớn) thay vì trang lỗi HTML mặc định của Express.</p>
     <table>
         <tr><th>Endpoint</th><th>Quyền</th><th>Chức năng</th></tr>
@@ -800,7 +801,7 @@
         <tr><td><span class="mono">/api/apikeys</span></td><td>ADMIN</td><td>Tạo/liệt kê/thu hồi API key đối tác</td></tr>
         <tr><td><span class="mono">/api/v1/*</span></td><td>x-api-key</td><td>API tích hợp cho đối tác (mục 3.6)</td></tr>
     </table>
-    <p class="caption">Bảng 3.2. Các endpoint API chính của backend</p>
+    <p class="caption tbl">Bảng 3.2. Các endpoint API chính của backend</p>
 
     <h2>3.3. Xây dựng module xác thực và phiên thiết bị</h2>
     <p>Module <span class="mono">auth.js</span> được tách riêng khỏi server chính thành một router có thể test độc lập — nhận các dependency qua tham số (walletModel, sessionModel, mailer, roleProvider) nên bộ test xác thực chạy được với mock mà không cần MongoDB hay blockchain thật.</p>
@@ -831,7 +832,7 @@
         <tr><td>Phân quyền ví / khóa ví</td><td>✗</td><td>✗</td><td>✗</td><td>✗</td><td>✓</td></tr>
         <tr><td>Tạo / thu hồi API key đối tác</td><td>✗</td><td>✗</td><td>✗</td><td>✗</td><td>✓</td></tr>
     </table>
-    <p class="caption">Bảng 3.3. Ma trận phân quyền thực thi của hệ thống theo vai trò</p>
+    <p class="caption tbl">Bảng 3.3. Ma trận phân quyền thực thi của hệ thống theo vai trò</p>
 
     <h2>3.4. Cài đặt nghiệp vụ upload — verify — thu hồi</h2>
     <p><b>Upload (<span class="mono">POST /api/upload</span>):</b> nhận ciphertext từ client, tính lại SHA-256 phía server (không tin hash client gửi), sinh documentId từ tên file đã lọc ký tự lạ cộng timestamp. Trước khi pin, gọi <span class="mono">checkIpfsQuota</span> đọc dung lượng thật từ Pinata — vượt quota thì từ chối 403 ngay, không pin mù. Pin thành công trả CID và QR code (thư viện qrcode) chứa documentId để in ấn tra cứu nhanh.</p>
@@ -864,7 +865,7 @@
         <tr><td><span class="mono">GET /api/v1/documents</span></td><td>Chỉ trả tài liệu có apiKeyId của key đang gọi — cách ly dữ liệu giữa các tổ chức</td></tr>
         <tr><td><span class="mono">GET /api/v1/documents/:docId/download</span></td><td>Kiểm tra quyền sở hữu → tải ciphertext qua gateway riêng → giải mã → trả file gốc</td></tr>
     </table>
-    <p class="caption">Bảng 3.4. Các endpoint API dành cho tổ chức đối tác</p>
+    <p class="caption tbl">Bảng 3.4. Các endpoint API dành cho tổ chức đối tác</p>
     <p>Hai điểm thiết kế cần nói thẳng: (i) vì đối tác không có ví, <b>giao dịch on-chain do ví server ký</b> — trường uploader trên chuỗi là địa chỉ server; danh tính tổ chức thật (apiKeyId, orgName) nằm trong MongoDB. Đây là đánh đổi có ý thức để được khả năng tích hợp, và được ghi nhận là hạn chế ở mục 4.4. (ii) Tài liệu đối tác cũng pin lên cùng tài khoản Pinata nên <b>trừ vào cùng quota 1GB</b> — không có lỗ hổng vượt quota qua cửa API.</p>
 
     <h2>3.7. Xây dựng giao diện người dùng</h2>
@@ -908,7 +909,7 @@
         <tr><td>Local (phát triển)</td><td><span class="mono">node server.js</span> → <span class="mono">http://localhost:3000</span>. Chỉ dùng để phát triển và kiểm thử — localhost là secure context nên crypto.subtle vẫn chạy được, còn máy ngoài truy cập cần đi qua bản cloud.</td></tr>
         <tr><td>Render + MongoDB Atlas (24/7)</td><td>Blueprint <span class="mono">render.yaml</span> mô tả sẵn web service (Node, plan free, <span class="mono">npm install --omit=dev</span>, <span class="mono">node server.js</span>, health check <span class="mono">/</span>); dữ liệu chuyển sang MongoDB Atlas M0. File nằm trên IPFS/Pinata, contract trên Sepolia nên server cloud là stateless hoàn toàn. <span class="mono">JWT_SECRET</span> và <span class="mono">MASTER_KEY</span> do Render sinh ngẫu nhiên; script <span class="mono">scripts/migrate_to_atlas.js</span> sao chép toàn bộ collection từ MongoDB local sang Atlas khi cần chuyển dữ liệu. Free plan ngủ sau ~15 phút không truy cập, request đầu tiên chờ 30-60 giây.</td></tr>
     </table>
-    <p class="caption">Bảng 3.5. Môi trường chạy của hệ thống</p>
+    <p class="caption tbl">Bảng 3.5. Môi trường chạy của hệ thống</p>
     <p>Điểm kỹ thuật đáng chú ý khi đưa lên cloud: <span class="mono">.npmrc</span> bật <span class="mono">legacy-peer-deps</span> để npm bỏ qua xung đột peer giữa <span class="mono">hardhat@3</span> và <span class="mono">hardhat-toolbox@6</span> (bộ công cụ chỉ dùng lúc deploy contract ở máy phát triển, không cần trên server chạy). Với free plan, để service không ngủ giữa buổi demo có thể dùng monitor ngoài (UptimeRobot) ping URL mỗi 5 phút — lưu ý Render free chỉ cấp 750 giờ/tháng tổng cho mọi free service nên cách này chỉ đủ cho đúng một service chạy liên tục.</p>
 
     <h2>3.10. Kết luận Chương 3</h2>
@@ -949,7 +950,7 @@
         <tr><td>Giải mã sai khóa AES</td><td>Cho nhập lại tối đa 3 lần, ciphertext không phải tải lại từ IPFS</td></tr>
         <tr><td>Xem trước DOCX trên bản deploy</td><td>Render đúng layout bằng docx-preview + JSZip vendor sẵn</td></tr>
     </table>
-    <p class="caption">Bảng 4.1. Kết quả kiểm thử chức năng chính</p>
+    <p class="caption tbl">Bảng 4.1. Kết quả kiểm thử chức năng chính</p>
     <p><b>Một số kết quả đáng chú ý trong quá trình kiểm thử thật:</b></p>
     <ul>
         <li>Gateway tải file ưu tiên cổng riêng của tài khoản Pinata thay vì cổng công cộng ipfs.io — không chịu giới hạn tần suất nên download luôn ổn định.</li>
@@ -980,7 +981,7 @@
         <tr><td>Tự khai dung lượng ảo</td><td>storageUsed do server tính từ DB, bỏ qua giá trị client gửi</td></tr>
         <tr><td>Timing attack khi xác thực OTP/key</td><td>timingSafeEqual cho OTP; API key tra theo hash</td></tr>
     </table>
-    <p class="caption">Bảng 4.2. Ma trận mối đe dọa và biện pháp phòng chống</p>
+    <p class="caption tbl">Bảng 4.2. Ma trận mối đe dọa và biện pháp phòng chống</p>
     <p>Đánh giá tổng quan: hệ thống phòng thủ theo đúng nguyên tắc "defense in depth" — không có một điểm thất bại duy nhất nào làm mất cả bí mật lẫn bằng chứng. Các bí mật nhạy cảm nhất đều không tồn tại ở dạng đọc được: không có mật khẩu nào trong DB, khóa file bọc thêm lớp, API key chỉ còn hash, OTP chỉ còn scrypt.</p>
 
     <h2>4.4. Hạn chế của hệ thống</h2>
@@ -1001,32 +1002,28 @@
 
 <!-- ==================== KẾT LUẬN ==================== -->
 <div class="a4 page-break">
-    <p class="center no-indent" style="font-size:15pt"><b>KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN</b></p>
-    <h2>1. Kết quả đạt được</h2>
-    <p>Đồ án đã hiện thực đầy đủ mục tiêu đề ra bằng một hệ thống chạy thật, kiểm chứng được và phản ánh đúng thực tế vận hành:</p>
-    <ul>
-        <li><b>Về mặt học thuật:</b> phân tích và vận dụng đúng bản chất từng công nghệ — blockchain làm bằng chứng bất biến, SHA-256 làm dấu vân tay toàn vẹn, AES-256 giữ bí mật nội dung, IPFS lưu trữ phân tán, chữ ký số gắn danh tính — đồng thời phân biệt rạch ròi bài toán toàn vẹn (băm một chiều) và bảo mật (mã hóa hai chiều), tránh được nhầm lẫn phổ biến trong thiết kế thực tế.</li>
-        <li><b>Về hệ thống:</b> người dùng upload tài liệu được mã hóa tại trình duyệt trước khi lên IPFS; hash file gốc ghi on-chain bằng giao dịch do chính họ ký; verify công khai phát hiện mọi chỉnh sửa; thu hồi bất biến kèm lý do; phân quyền ba cấp lưu on-chain cùng vai trò người xem chỉ đọc; đăng nhập không mật khẩu với quản lý thiết bị và OTP email; tài liệu công khai/riêng tư chặn server-side; API key đối tác hoạt động end-to-end với cách ly dữ liệu.</li>
-        <li><b>Về tính trung thực của dữ liệu:</b> mọi con số hiển thị — phí giao dịch từ transaction receipt, dung lượng từ API Pinata, trạng thái từ bản ghi on-chain — đều lấy từ nguồn thật. Hệ thống không dùng dữ liệu mô phỏng hay con số minh họa ở bất kỳ đâu.</li>
-        <li><b>Về bảo mật:</b> defense in depth với escrow khóa AES-256-GCM, OTP scrypt+salt, API key chỉ lưu hash, whitelist chống mass-assignment, escape XSS toàn diện, rate limit nhiều lớp và fail-closed khi dịch vụ ngoài lỗi.</li>
-    </ul>
-    <p>Kết quả kiểm thử: 96/96 ca test tự động pass; 67/67 bước kiểm thử end-to-end trên server test pass; kiểm thử API đối tác bằng curl với key thật cho kết quả đúng toàn bộ luồng upload — verify — cách ly — download; các giao dịch thật tra được độc lập trên Etherscan.</p>
-    <h2>2. Đóng góp của đề tài</h2>
-    <p>Đề tài cho thấy việc ứng dụng blockchain vào xác thực tài liệu không chỉ là "ghi hash lên chuỗi" như nhiều mô hình minh họa đơn giản, mà là một bài toán hệ thống đầy đủ: phải giải quyết đồng thời bí mật nội dung, kiểm soát truy cập, danh tính người dùng, giới hạn tài nguyên thật và khả năng tích hợp cho tổ chức không có hạ tầng blockchain. Kiến trúc tách ba lớp "bằng chứng — nội dung — vận hành" mà đề tài áp dụng là mô hình có thể tái sử dụng cho các hệ thống cùng dạng.</p>
-    <h2>3. Hướng phát triển</h2>
-    <ul>
-        <li><b>Chia sẻ tài liệu riêng tư có chọn lọc:</b> dùng khóa bất đối xứng (RSA/ECIES) để mã hóa khóa AES cho từng người được cấp — người dùng chia sẻ trực tiếp mà không qua escrow trung tâm.</li>
-        <li><b>Merkle root cho lô tài liệu:</b> ghi một gốc Merkle thay vì từng hash riêng lẻ — giảm đáng kể gas khi lô lớn, vẫn chứng minh được từng tài liệu bằng Merkle proof.</li>
-        <li><b>Danh tính đối tác trên chuỗi:</b> cấp ví riêng cho từng tổ chức hoặc áp dụng meta-transaction (relayer trả gas nhưng chữ ký của đối tác) để trường uploader on-chain phản ánh đúng tổ chức thật.</li>
-        <li><b>Giảm phụ thuộc dịch vụ ngoài:</b> tự host nút IPFS hoặc kết hợp Filecoin cho lưu trữ lâu dài; multi-RPC fallback cho kết nối blockchain.</li>
-        <li><b>Nâng cao bằng chứng riêng tư:</b> nghiên cứu zero-knowledge proof để xác thực tài liệu mà không lộ hash gốc hay metadata.</li>
-        <li><b>Triển khai mainnet:</b> sau khi kiểm thử đầy đủ, chuyển contract sang mạng thật kèm đánh giá lại chi phí gas vận hành.</li>
-    </ul>
+    <p class="center no-indent" style="font-size:13pt"><b>KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN</b></p>
+    <p>Trong báo cáo đồ án này, đề tài đã tập trung nghiên cứu công nghệ Blockchain và hiện thực một hệ thống xác thực, chống giả mạo dữ liệu số hoàn chỉnh: tài liệu được mã hóa AES-256 ngay tại trình duyệt trước khi lưu lên IPFS, hàm băm SHA-256 của file gốc được ghi bất biến lên mạng Ethereum Sepolia bằng giao dịch do chính người dùng ký, và việc xác thực được thực hiện công khai bằng cách băm lại file đối chiếu với bản ghi trên chuỗi.</p>
+    <p>Trước hết, về mặt học thuật, đồ án đã phân tích và vận dụng đúng bản chất từng công nghệ nền tảng: blockchain đóng vai trò bằng chứng bất biến, SHA-256 làm dấu vân tay toàn vẹn, AES-256 giữ bí mật nội dung, IPFS lưu trữ phân tán và chữ ký số gắn danh tính người dùng; đồng thời phân biệt rạch ròi bài toán toàn vẹn dữ liệu (băm một chiều) và bài toán bảo mật nội dung (mã hóa hai chiều) — hai khái niệm thường bị nhầm lẫn trong các thiết kế thực tế.</p>
+    <p>Trên cơ sở đó, hệ thống đã được xây dựng và kiểm chứng đầy đủ: phân quyền ba cấp lưu trên smart contract kèm vai trò người xem chỉ đọc; đăng nhập không mật khẩu bằng chữ ký ví với quản lý phiên thiết bị và OTP qua email; tài liệu công khai/riêng tư được kiểm soát nghiêm phía server; thu hồi tài liệu bất biến kèm lý do; và API tích hợp cho tổ chức đối tác hoạt động end-to-end với cách ly dữ liệu theo API key. Kết quả kiểm thử cho thấy 96/96 ca test tự động và 67/67 bước kiểm thử end-to-end đều đạt; mọi giả mạo nội dung đều bị phát hiện; các giao dịch thật tra được độc lập trên Etherscan; và toàn bộ số liệu vận hành — phí giao dịch, dung lượng IPFS, trạng thái tài liệu — đều lấy từ nguồn thật có thể đối chiếu, không phải con số minh họa.</p>
+    <p>Đề tài cũng cho thấy việc ứng dụng blockchain vào xác thực tài liệu không chỉ là "ghi hash lên chuỗi" như các mô hình minh họa đơn giản, mà là một bài toán hệ thống phải giải quyết đồng thời bí mật nội dung, kiểm soát truy cập, danh tính người dùng, giới hạn tài nguyên thật và khả năng tích hợp cho tổ chức không có hạ tầng blockchain. Kiến trúc tách ba lớp "bằng chứng — nội dung — vận hành" mà đề tài áp dụng là một mô hình có thể tái sử dụng cho các hệ thống cùng dạng.</p>
+    <p>Mặc dù đạt được những kết quả nhất định, đồ án vẫn còn tồn tại một số hạn chế:</p>
+    <p>Thứ nhất, giao dịch on-chain của tài liệu đối tác do ví server ký thay vì ví của chính tổ chức, vì đối tác không sử dụng MetaMask; trường uploader trên chuỗi vì thế là địa chỉ server, còn danh tính tổ chức thật chỉ được lưu trong MongoDB. Đây là đánh đổi có ý thức để đổi lấy khả năng tích hợp, nhưng làm danh tính người đăng trên chuỗi không phản ánh trực tiếp tổ chức.</p>
+    <p>Thứ hai, hệ thống còn phụ thuộc vào các dịch vụ bên ngoài như Pinata cho lưu trữ IPFS, RPC Sepolia cho kết nối blockchain và SMTP cho OTP email; khi một dịch vụ lỗi, chức năng tương ứng tạm dừng theo hướng fail-closed — từ chối an toàn chứ không bỏ qua kiểm tra. Ngoài ra, metadata trong MongoDB vẫn có khả năng tụt lại sau bước ghi on-chain trong một số tình huống lỗi mạng hiếm gặp, dù đã được giảm thiểu bằng hàng đợi retry và quy trình phục hồi.</p>
+    <p>Thứ ba, hệ thống hiện chạy trên mạng thử nghiệm Sepolia — cơ chế kỹ thuật tương đương mainnet nhưng chi phí gas, tốc độ xác nhận và độ ổn định khác môi trường production; một số luồng ký MetaMask thật trên trình duyệt cũng chưa được kiểm chứng đầy đủ trong môi trường kiểm thử tự động.</p>
+    <p>Để khắc phục các hạn chế nêu trên và nâng cao giá trị ứng dụng của đề tài, đồ án đề xuất một số hướng phát triển trong tương lai như sau:</p>
+    <p>Chia sẻ tài liệu riêng tư có chọn lọc: sử dụng mã hóa khóa bất đối xứng (RSA/ECIES) để bọc khóa AES cho từng người được cấp quyền, cho phép người dùng chia sẻ tài liệu riêng tư trực tiếp với nhau mà không cần cơ chế ủy thác khóa tập trung, đồng thời mở rộng chính sách truy cập chi tiết hơn theo tài liệu.</p>
+    <p>Ghi gốc Merkle cho lô tài liệu: thay vì ghi từng hash riêng lẻ, hệ thống có thể ghi một gốc Merkle duy nhất cho cả lô — giảm đáng kể phí gas khi lô lớn mà vẫn chứng minh được toàn vẹn của từng tài liệu bằng Merkle proof.</p>
+    <p>Danh tính đối tác trên chuỗi: cấp ví riêng cho từng tổ chức hoặc áp dụng cơ chế meta-transaction (relayer trả gas nhưng giao dịch mang chữ ký của đối tác) để trường uploader on-chain phản ánh đúng tổ chức thật, khắc phục triệt để hạn chế về danh tính nêu trên.</p>
+    <p>Giảm phụ thuộc dịch vụ ngoài: tự vận hành nút IPFS hoặc kết hợp Filecoin cho lưu trữ lâu dài, triển khai multi-RPC fallback cho kết nối blockchain, và đa dạng hóa kênh gửi OTP nhằm nâng cao khả dụng của hệ thống.</p>
+    <p>Nâng cao bằng chứng riêng tư: nghiên cứu áp dụng zero-knowledge proof để chứng minh tính toàn vẹn của tài liệu mà không để lộ hash gốc hay metadata nhạy cảm trên chuỗi công khai.</p>
+    <p>Triển khai mạng chính thức: sau khi kiểm thử đầy đủ các luồng còn lại, chuyển smart contract sang mạng Ethereum mainnet hoặc layer-2 phí thấp, kèm đánh giá lại chi phí gas vận hành thực tế.</p>
+    <p>Những hướng phát triển này không chỉ góp phần hoàn thiện hệ thống xác thực tài liệu mà còn mở rộng tiềm năng ứng dụng của blockchain trong lĩnh vực quản lý dữ liệu số, hướng tới xây dựng các nền tảng xác thực và chống giả mạo tin cậy, minh bạch trong tương lai.</p>
 </div>
 
 <!-- ==================== TÀI LIỆU THAM KHẢO ==================== -->
 <div class="a4">
-    <p class="center no-indent" style="font-size:15pt"><b>TÀI LIỆU THAM KHẢO</b></p>
+    <p class="center no-indent" style="font-size:13pt"><b>TÀI LIỆU THAM KHẢO</b></p>
     <ol>
         <li>Nakamoto, S. (2008). <i>Bitcoin: A Peer-to-Peer Electronic Cash System</i>.</li>
         <li>Buterin, V. (2014). <i>Ethereum Whitepaper: A Next-Generation Smart Contract and Decentralized Application Platform</i>.</li>
@@ -1051,7 +1048,7 @@
 function downloadWord() {
     const css = document.querySelector('style').outerHTML;
     let html = '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Đồ án tốt nghiệp</title>' + css +
-        '<style>@page{size:A4;margin:25mm 20mm 25mm 30mm} body{background:#fff}.a4{width:auto;margin:0;box-shadow:none;min-height:auto;padding:0}.toolbar{display:none}</style></head><body>';
+        '<style>@page{size:A4;margin:25mm 20mm 25mm 35mm} body{background:#fff}.a4{width:auto;margin:0;box-shadow:none;min-height:auto;padding:0}.toolbar{display:none}</style></head><body>';
     for (const p of document.querySelectorAll('.a4')) {
         html += '<div class="a4">' + p.innerHTML + '</div>';
     }
