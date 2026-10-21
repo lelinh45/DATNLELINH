@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.3 — Biểu đồ thực thể liên kết (ER Diagram) cơ sở dữ liệu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #4a4a4a;
+    display: flex;
+    justify-content: center;
+    padding: 25px 10px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1050px;
+    padding: 35px 45px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header-box {
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .sub-title {
+    font-size: 11pt;
+    font-style: italic;
+    color: #333;
+    margin-top: 3px;
+  }
+
+  /* Khung quan hệ thực thể mức khái niệm */
+  .er-rel-bar {
+    border: 1.5px solid #000;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background: #f7f7f7;
+    margin-bottom: 14px;
+    text-align: center;
+    font-size: 10pt;
+    line-height: 1.5;
+  }
+  .er-rel-bar span.ent {
+    font-weight: bold;
+    background: #fff;
+    border: 1px solid #444;
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+
+  /* Lưới các thực thể (2 cột cân đối) */
+  .entities-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .entity-card {
+    border: 1.2px solid #000;
+    border-radius: 3px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .entity-header {
+    background: #e8e8e8;
+    border-bottom: 1.2px solid #000;
+    padding: 4px 8px;
+    font-weight: bold;
+    font-size: 10.5pt;
+    display: flex;
+    justify-content: space-between;
+    text-transform: uppercase;
+  }
+  .entity-desc {
+    font-size: 9pt;
+    font-weight: normal;
+    font-style: italic;
+    text-transform: none;
+    color: #444;
+  }
+  table.schema-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+  table.schema-table th, table.schema-table td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: left;
+  }
+  table.schema-table th {
+    background: #fafafa;
+    border-bottom: 1px solid #999;
+    font-weight: bold;
+    color: #333;
+    font-size: 8.5pt;
+  }
+  .pk {
+    font-weight: bold;
+    text-decoration: underline;
+  }
+  .fk {
+    font-style: italic;
+    color: #222;
+  }
+  .type {
+    color: #555;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 8.5pt;
+  }
+
+  .footer-note {
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    margin-top: 14px;
+    font-size: 10pt;
+    line-height: 1.4;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="header-box">
+    <div class="title">Hình 3.3. Biểu đồ thực thể liên kết (ER Diagram) cơ sở dữ liệu</div>
+    <div class="sub-title">(Mô hình tổ chức 7 tập dữ liệu MongoDB phục vụ quản lý siêu dữ liệu ngoại chuỗi)</div>
+  </div>
+
+  <!-- SƠ ĐỒ MỐI QUAN HỆ KHÁI NIỆM -->
+  <div class="er-rel-bar">
+    <b>Sơ đồ liên kết chính giữa các thực thể:</b><br>
+    <span class="ent">Wallet</span> ──(1:N)──> <span class="ent">Batch</span> ──(1:N)──> <span class="ent">BatchFile</span> (replacesDocId: 1:1)<br>
+    <span class="ent">Wallet</span> ──(1:N)──> <span class="ent">DeviceSession</span> &nbsp;|&nbsp;
+    <span class="ent">Wallet</span> ──(1:N)──> <span class="ent">Notification</span> &nbsp;|&nbsp;
+    <span class="ent">Wallet</span> ──(1:1)──> <span class="ent">AuthChallenge</span> &nbsp;|&nbsp;
+    <span class="ent">Wallet</span> ──(1:N)──> <span class="ent">ApiKey</span> ──(1:N)──> <span class="ent">PartnerDoc</span>
+  </div>
+
+  <!-- LƯỚI ĐẶC TẢ CHI TIẾT 7 THỰC THỂ -->
+  <div class="entities-grid">
+
+    <!-- 1. WALLET -->
+    <div class="entity-card">
+      <div class="entity-header">
+        <span>1. Wallet (Tài khoản ví)</span>
+        <span class="entity-desc">RBAC & Quota</span>
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr><th>Trường</th><th>Kiểu</th><th>Ràng buộc & Chú thích</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="pk">address</td><td class="type">String</td><td>PK, Địa chỉ ví Ethereum (duy nhất)</td></tr>
+          <tr><td>alias</td><td class="type">String</td><td>Tên nhân viên / Gợi nhớ</td></tr>
+          <tr><td>email, phone</td><td class="type">String</td><td>Email nhận OTP / SĐT liên hệ</td></tr>
+          <tr><td>role</td><td class="type">Enum</td><td>ADMIN, QUẢN LÝ, NHẬP LIỆU, NGƯỜI XEM</td></tr>
+          <tr><td>status</td><td class="type">Enum</td><td>ACTIVE, REVOKED, DELETED</td></tr>
+          <tr><td>storageUsed / Limit</td><td class="type">Number</td><td>Dung lượng IPFS đã dùng / Hạn mức (1GB)</td></tr>
+          <tr><td>roleGranted</td><td class="type">Boolean</td><td>Cờ xác nhận quyền do Admin cấp chính thức</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 2. BATCH & BATCH_FILE -->
+    <div class="entity-card">
+      <div class="entity-header">
+        <span>2. Batch (Lô tài liệu)</span>
+        <span class="entity-desc">Lưu trữ Merkle Tree</span>
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr><th>Trường</th><th>Kiểu</th><th>Ràng buộc & Chú thích</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="pk">batchId</td><td class="type">String</td><td>PK, Mã định danh duy nhất của lô</td></tr>
+          <tr><td>merkleRoot</td><td class="type">String</td><td>Gốc băm Merkle Tree của toàn lô</td></tr>
+          <tr><td>ipfsCID</td><td class="type">String</td><td>Địa chỉ IPFS của tệp kê khai (Manifest)</td></tr>
+          <tr><td>txHash</td><td class="type">String</td><td>Mã băm giao dịch trên Blockchain</td></tr>
+          <tr><td class="fk">uploader</td><td class="type">String</td><td>FK, Địa chỉ ví thực hiện đóng dấu</td></tr>
+          <tr><td class="fk">files[]</td><td class="type">Array</td><td>Danh sách tệp thành phần (BatchFile)</td></tr>
+          <tr><td>timestamp</td><td class="type">Number</td><td>Thời điểm khởi tạo lô giao dịch</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 3. BATCH_FILE (Sub-document) -->
+    <div class="entity-card">
+      <div class="entity-header">
+        <span>3. BatchFile (Tệp trong lô)</span>
+        <span class="entity-desc">Bản mã & Khóa Escrow</span>
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr><th>Trường</th><th>Kiểu</th><th>Ràng buộc & Chú thích</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="pk">docId</td><td class="type">String</td><td>PK cục bộ, Mã định danh tệp tin</td></tr>
+          <tr><td>fileName, fileSize</td><td class="type">String</td><td>Tên tệp gốc và dung lượng hiển thị</td></tr>
+          <tr><td>fileHash</td><td class="type">String</td><td>Mã băm SHA-256 dữ liệu nhị phân</td></tr>
+          <tr><td>ipfsCID</td><td class="type">String</td><td>Địa chỉ CID tệp bản mã trên IPFS</td></tr>
+          <tr><td>encKey</td><td class="type">String</td><td>Khóa AES bọc bằng MASTER_KEY (GCM)</td></tr>
+          <tr><td>visibility</td><td class="type">Enum</td><td>private (riêng tư) / public (công khai)</td></tr>
+          <tr><td class="fk">replacesDocId</td><td class="type">String</td><td>FK, Mã tệp phiên bản cũ bị thay thế</td></tr>
+          <tr><td>isRevoked, reason</td><td class="type">Mixed</td><td>Cờ thu hồi và lý do thu hồi</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 4. DEVICE_SESSION -->
+    <div class="entity-card">
+      <div class="entity-header">
+        <span>4. DeviceSession (Phiên máy)</span>
+        <span class="entity-desc">Bảo mật đa thiết bị</span>
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr><th>Trường</th><th>Kiểu</th><th>Ràng buộc & Chú thích</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="fk">address</td><td class="type">String</td><td>FK, Địa chỉ ví chủ sở hữu phiên</td></tr>
+          <tr><td class="pk">deviceId</td><td class="type">String</td><td>PK, Mã định danh thiết bị phần cứng</td></tr>
+          <tr><td>deviceLabel</td><td class="type">String</td><td>Hệ điều hành và trình duyệt đăng nhập</td></tr>
+          <tr><td>ip, userAgent</td><td class="type">String</td><td>Địa chỉ IP mạng và thông tin Agent client</td></tr>
+          <tr><td>status</td><td class="type">Enum</td><td>pending (chờ duyệt), active, revoked</td></tr>
+          <tr><td>otpHash, otpExpires</td><td class="type">Mixed</td><td>Băm scrypt mã OTP và thời gian hết hạn</td></tr>
+          <tr><td>otpAttempts</td><td class="type">Number</td><td>Số lần nhập sai OTP tích lũy (tối đa 5)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 5. NOTIFICATION & 6. AUTH_CHALLENGE -->
+    <div class="entity-card">
+      <div class="entity-header">
+        <span>5. Notification & 6. Challenge</span>
+        <span class="entity-desc">Thông báo & Nonce SIWE</span>
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr><th>Thực thể & Trường</th><th>Kiểu</th><th>Mô tả chức năng</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="pk">Notification._id</td><td class="type">ObjectId</td><td>PK, Mã thông báo hệ thống</td></tr>
+          <tr><td class="fk">Notification.address</td><td class="type">String</td><td>FK, Ví nhận cảnh báo an ninh</td></tr>
+          <tr><td>Notification.type</td><td class="type">Enum</td><td>new_device, doc_revoked, alert</td></tr>
+          <tr><td>Notification.read</td><td class="type">Boolean</td><td>Trạng thái đã xem của người dùng</td></tr>
+          <tr><td class="pk">Challenge.address</td><td class="type">String</td><td>PK, Địa chỉ ví gửi yêu cầu đăng nhập</td></tr>
+          <tr><td>Challenge.challenge</td><td class="type">String</td><td>Chuỗi ngẫu nhiên Nonce một lần</td></tr>
+          <tr><td>Challenge.expiresAt</td><td class="type">Date</td><td>TTL 5 phút, MongoDB tự động dọn rác</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 7. API_KEY & PARTNER_DOCUMENT -->
+    <div class="entity-card">
+      <div class="entity-header">
+        <span>7. Phân hệ tích hợp đối tác B2B</span>
+        <span class="entity-desc">ApiKey & PartnerDocument</span>
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr><th>Thực thể & Trường</th><th>Kiểu</th><th>Mô tả chức năng</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="pk">ApiKey.keyHash</td><td class="type">String</td><td>PK, Băm SHA-256 mã token bí mật</td></tr>
+          <tr><td>ApiKey.name, prefix</td><td class="type">String</td><td>Tên đơn vị đối tác và tiền tố nhận diện</td></tr>
+          <tr><td class="fk">ApiKey.createdBy</td><td class="type">String</td><td>FK, Ví Admin chịu trách nhiệm cấp khóa</td></tr>
+          <tr><td class="pk">PartnerDoc.docId</td><td class="type">String</td><td>PK, Mã tài liệu đối tác chứng thực</td></tr>
+          <tr><td class="fk">PartnerDoc.apiKeyId</td><td class="type">ObjectId</td><td>FK, Liên kết đến khóa API sở hữu</td></tr>
+          <tr><td>PartnerDoc.fileHash</td><td class="type">String</td><td>Mã băm SHA-256 dữ liệu tệp đối tác</td></tr>
+          <tr><td>PartnerDoc.txHash</td><td class="type">String</td><td>Hash giao dịch do ví Server ký thay</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    <b>Ghi chú:</b> Lược đồ cơ sở dữ liệu MongoDB áp dụng thiết kế phi quan hệ (Document-oriented) có cấu trúc. Khóa bí mật giải mã tệp (encKey) không bao giờ lưu dưới dạng văn bản thô (Plaintext) mà luôn được bọc bằng Master Key qua thuật toán AES-256-GCM. Thực thể <code>AuthChallenge</code> sử dụng chỉ mục TTL Index tự động dọn dẹp bộ nhớ đệm, tối ưu hiệu năng và độ an toàn hệ thống.
+  </div>
+</div>
+
+</body>
+</html>

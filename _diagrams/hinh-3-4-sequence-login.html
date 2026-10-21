@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.4 — Biểu đồ tuần tự quy trình xác thực Web3 và quản lý phiên</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #4a4a4a;
+    display: flex;
+    justify-content: center;
+    padding: 25px 10px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1050px;
+    padding: 35px 45px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header-box {
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  .title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .sub-title {
+    font-size: 11pt;
+    font-style: italic;
+    color: #333;
+    margin-top: 3px;
+  }
+  .diagram-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .mermaid {
+    width: 100%;
+  }
+  .mermaid svg {
+    max-width: 100%;
+    height: auto;
+  }
+  .footer-note {
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    margin-top: 15px;
+    font-size: 10pt;
+    line-height: 1.4;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="header-box">
+    <div class="title">Hình 3.4. Biểu đồ tuần tự quy trình xác thực Web3 và quản lý phiên</div>
+    <div class="sub-title">(Đăng nhập không mật khẩu bằng chữ ký số EIP-191 và xác thực hai lớp qua OTP)</div>
+  </div>
+
+  <div class="diagram-container">
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User as Người dùng
+    participant MM as Ví MetaMask
+    participant FE as Web Client (SPA)
+    participant BE as Máy chủ Backend & CSDL
+    participant SC as Smart Contract
+
+    Note over User, SC: Bước 1: Kết nối ví điện tử
+    User->>FE: Bấm "Kết nối ví MetaMask"
+    FE->>MM: Yêu cầu truy cập địa chỉ ví (eth_requestAccounts)
+    MM-->>User: Hiển thị popup chấp thuận kết nối
+    User->>MM: Xác nhận cấp quyền kết nối
+    MM-->>FE: Trả về địa chỉ ví người dùng (Address)
+
+    Note over User, SC: Bước 2: Thử thách và Ký số (SIWE)
+    FE->>BE: Yêu cầu Nonce (GET /api/auth/challenge?address=...)
+    BE->>BE: Tạo chuỗi thử thách ngẫu nhiên & lưu vào MongoDB (TTL 5p)
+    BE-->>FE: Trả về chuỗi thử thách Challenge
+    FE->>MM: Yêu cầu ký thông điệp cá nhân (personal_sign)
+    MM-->>User: Hiển thị hộp thoại ký thông điệp EIP-191
+    User->>MM: Xác nhận ký điện tử bằng khóa riêng
+    MM-->>FE: Trả về chữ ký mật mã (Signature)
+
+    Note over User, SC: Bước 3: Xác minh chữ ký và kiểm soát phiên đa thiết bị
+    FE->>BE: Gửi đăng nhập (POST /api/auth/login kèm Signature, DeviceId)
+    BE->>BE: Khôi phục địa chỉ ví từ chữ ký (ethers.verifyMessage)
+    BE->>BE: Kiểm tra trạng thái phiên thiết bị trong CSDL
+
+    alt Trường hợp thiết bị đã kích hoạt (Active)
+        BE->>SC: Truy vấn vai trò on-chain (userRoles)
+        SC-->>BE: Phản hồi cấp độ quyền hạn (Rank 0..3)
+        BE-->>FE: Cấp chứng chỉ JWT (thời hạn 24h)
+        FE-->>User: Cho phép truy cập vào bảng điều khiển chính
+    else Trường hợp thiết bị mới đăng nhập lần đầu
+        BE-->>FE: Từ chối tạm thời: Mã lỗi DEVICE_PENDING
+        FE-->>User: Chuyển sang màn hình chờ phê duyệt thiết bị
+        opt Phương án xác thực bổ sung qua Email OTP
+            User->>FE: Bấm chọn "Gửi mã xác nhận qua Email"
+            FE->>BE: Yêu cầu mã OTP (POST /api/auth/request-otp)
+            BE->>BE: Sinh mã OTP 6 số, băm scrypt bảo mật
+            BE-->>User: Gửi thư điện tử chứa mã OTP tới chủ ví
+            User->>FE: Nhập mã 6 chữ số vào giao diện
+            FE->>BE: Xác minh OTP (POST /api/auth/verify-otp)
+            BE->>BE: So sánh thời gian thực (timingSafeEqual) & Active phiên
+            BE-->>FE: Cấp JWT Token đăng nhập thành công
+        end
+    end
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <b>Ghi chú:</b> Hệ thống áp dụng cơ chế xác thực không mật khẩu (Sign-In with Ethereum - SIWE): người dùng chứng minh quyền sở hữu ví thông qua chữ ký số EIP-191 trên thông điệp chứa Nonce dùng một lần. Khi phát hiện thiết bị lạ truy cập, hệ thống kích hoạt tường lửa phiên (DeviceSession) và yêu cầu phê duyệt từ thiết bị cũ hoặc xác minh mã OTP bảo mật bằng thuật toán scrypt.
+  </div>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#ffffff',
+      primaryTextColor: '#000000',
+      primaryBorderColor: '#000000',
+      lineColor: '#000000',
+      fontSize: '11.5px',
+      fontFamily: "'Times New Roman', serif",
+      actorTextColor: '#000000',
+      actorBkg: '#ffffff',
+      actorBorder: '#000000',
+      noteBkgColor: '#f7f7f7',
+      noteBorderColor: '#000000',
+      noteTextColor: '#000000',
+      activationBorderColor: '#000000',
+      activationBkgColor: '#efefef',
+      sequenceNumberColor: '#000000'
+    }
+  });
+</script>
+</body>
+</html>

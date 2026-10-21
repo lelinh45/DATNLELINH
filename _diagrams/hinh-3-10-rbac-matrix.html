@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.10 — Ma trận phân quyền kiểm soát truy cập RBAC</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #555;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    font-family: 'Times New Roman', Times, serif;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1123px;
+    padding: 40px 45px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .figure-title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .figure-sub {
+    font-size: 11pt;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 24px;
+    color: #333;
+  }
+  .table-container {
+    width: 100%;
+    margin-top: 10px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11pt;
+  }
+  th, td {
+    border: 1px solid #000;
+    padding: 8px 10px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+    color: #000;
+  }
+  .group-header {
+    background-color: #fafafa;
+    font-weight: bold;
+    text-align: left;
+    padding-left: 14px;
+    font-style: italic;
+  }
+  .func-name {
+    text-align: left;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10pt;
+    padding-left: 12px;
+  }
+  .allow {
+    font-weight: bold;
+  }
+  .deny {
+    color: #666;
+  }
+  .figure-note {
+    margin-top: 25px;
+    font-size: 10.5pt;
+    text-align: justify;
+    line-height: 1.5;
+    border-top: 1px solid #000;
+    padding-top: 10px;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="figure-title">Hình 3.10. Ma trận phân quyền kiểm soát truy cập (RBAC) trên Smart Contract</div>
+  <div class="figure-sub">(Đặc tả mức độ thẩm quyền thực thi hàm hợp đồng DataIntegrity.sol theo từng vai trò)</div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2" style="width: 36%;">Hàm thực thi nghiệp vụ (Solidity Interface)</th>
+          <th colspan="4" style="width: 64%;">Cấp bậc vai trò người dùng (User Role Rank)</th>
+        </tr>
+        <tr>
+          <th style="width: 16%;">Khách vãng lai<br>(Rank 0: NONE)</th>
+          <th style="width: 16%;">Nhân viên<br>(Rank 1: ENTRY)</th>
+          <th style="width: 16%;">Cán bộ quản lý<br>(Rank 2: MANAGER)</th>
+          <th style="width: 16%;">Quản trị viên<br>(Rank 3: ADMIN)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="5" class="group-header">1. Nhóm hàm truy vấn dữ liệu (View Function - Không tiêu hao phí Gas)</td>
+        </tr>
+        <tr>
+          <td class="func-name">getDocument(documentId)</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+        <tr>
+          <td class="func-name">getDocIdByHash(uploader, hash)</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+        <tr>
+          <td class="func-name">getMerkleBatch(batchId)</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+        <tr>
+          <td class="func-name">userRoles(accountAddress)</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+
+        <tr>
+          <td colspan="5" class="group-header">2. Nhóm hàm ghi dữ liệu chứng thực (Transaction Function - Tiêu hao phí Gas)</td>
+        </tr>
+        <tr>
+          <td class="func-name">addDocument(id, hash, uri)</td>
+          <td class="deny">-</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+        <tr>
+          <td class="func-name">addDocuments(ids[], hashes[], uris[])</td>
+          <td class="deny">-</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+        <tr>
+          <td class="func-name">addMerkleBatch(batchId, root, uri)</td>
+          <td class="deny">-</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+        <tr>
+          <td class="func-name">revokeDocument(documentId, reason)</td>
+          <td class="deny">-</td>
+          <td class="deny">-</td>
+          <td class="allow">Có điều kiện (*)</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+
+        <tr>
+          <td colspan="5" class="group-header">3. Nhóm hàm quản trị hệ thống và điều phối phân quyền</td>
+        </tr>
+        <tr>
+          <td class="func-name">assignRole(account, newRole)</td>
+          <td class="deny">-</td>
+          <td class="deny">-</td>
+          <td class="deny">-</td>
+          <td class="allow">Cho phép</td>
+        </tr>
+        <tr>
+          <td class="func-name">transferOwnership(newOwner)</td>
+          <td class="deny">-</td>
+          <td class="deny">-</td>
+          <td class="deny">-</td>
+          <td class="allow">Chỉ Chủ sở hữu (**)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="figure-note">
+    <p><b>Chú giải điều kiện ràng buộc:</b></p>
+    <p>(*) <i>Quy tắc bảo vệ cấp bậc:</i> Cán bộ Quản lý (Rank 2) được phép thu hồi tài liệu của nhân viên Nhập liệu và của chính mình, nhưng bị cấm tuyệt đối việc thu hồi tài liệu do tài khoản Quản trị viên (Admin) tạo ra nhằm ngăn chặn hành vi vượt quyền.</p>
+    <p>(**) <i>Chủ sở hữu gốc (Owner):</i> Là địa chỉ ví duy nhất thực hiện triển khai Smart Contract lên mạng lưới. Chủ sở hữu nắm giữ quyền chuyển giao quyền quản trị cao nhất và không một quản trị viên nào có thể giáng cấp vai trò của địa chỉ Owner gốc.</p>
+  </div>
+</div>
+
+</body>
+</html>

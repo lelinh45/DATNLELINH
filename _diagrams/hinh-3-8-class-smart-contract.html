@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.8 — Biểu đồ lớp cấu trúc Hợp đồng thông minh</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #555;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    font-family: 'Times New Roman', Times, serif;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1123px;
+    padding: 40px 45px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .figure-title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .figure-sub {
+    font-size: 11pt;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 24px;
+    color: #333;
+  }
+  .diagram-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .mermaid {
+    width: 100%;
+  }
+  .mermaid svg {
+    max-width: 100%;
+    height: auto;
+  }
+  .figure-note {
+    margin-top: 20px;
+    font-size: 10.5pt;
+    text-align: justify;
+    line-height: 1.4;
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="figure-title">Hình 3.8. Biểu đồ lớp cấu trúc Hợp đồng thông minh DataIntegrity.sol</div>
+  <div class="figure-sub">(Mô tả chi tiết cấu trúc dữ liệu, các biến trạng thái, bộ bổ trợ và phương thức thực thi)</div>
+
+  <div class="diagram-container">
+    <div class="mermaid">
+classDiagram
+    class DataIntegrity {
+        +uint8 ROLE_NONE = 0
+        +uint8 ROLE_ENTRY = 1
+        +uint8 ROLE_MANAGER = 2
+        +uint8 ROLE_ADMIN = 3
+        +address owner
+        +mapping(address => uint8) userRoles
+        -mapping(string => Document) documents
+        -mapping(string => MerkleBatch) batches
+        +mapping(address => mapping(string => string)) uploaderHashToDocId
+        --
+        +constructor()
+        +assignRole(address _account, uint8 _role) : void
+        +addDocument(string _documentId, string _fileHash, string _ipfsURI) : void
+        +addDocuments(string[] _documentIds, string[] _fileHashes, string[] _ipfsURIs) : void
+        +addMerkleBatch(string _batchId, bytes32 _merkleRoot, string _ipfsURI) : void
+        +revokeDocument(string _documentId, string _reason) : void
+        +getDocument(string _documentId) : Document
+        +getDocIdByHash(address _uploader, string _hash) : string
+        +getMerkleBatch(string _batchId) : MerkleBatch
+        +transferOwnership(address _newOwner) : void
+    }
+
+    class Document {
+        +string fileHash
+        +string ipfsURI
+        +uint256 timestamp
+        +address uploader
+        +bool isRevoked
+        +string revocationReason
+    }
+
+    class MerkleBatch {
+        +bytes32 merkleRoot
+        +string ipfsURI
+        +uint256 timestamp
+        +address uploader
+    }
+
+    class Modifiers {
+        <<Bộ lọc quyền>>
+        +onlyAdmin()
+        +canUpload()
+    }
+
+    class Events {
+        <<Sự kiện Blockchain>>
+        +DocumentAdded(documentId, fileHash, ipfsURI, uploader)
+        +DocumentRevoked(documentId, revokedBy, reason)
+        +BatchAdded(batchId, merkleRoot, ipfsURI, uploader)
+        +RoleAssigned(admin, account, role)
+    }
+
+    DataIntegrity "1" *-- "*" Document : Lưu trữ cấu trúc bản ghi
+    DataIntegrity "1" *-- "*" MerkleBatch : Lưu trữ lô băm Merkle
+    DataIntegrity ..> Modifiers : Thực thi kiểm tra quyền
+    DataIntegrity ..> Events : Phát sự kiện trạng thái
+    </div>
+  </div>
+
+  <div class="figure-note">
+    <b>Ghi chú:</b> Hợp đồng thông minh <code>DataIntegrity.sol</code> được phát triển trên ngôn ngữ Solidity phiên bản 0.8.24. Cấu trúc thiết kế áp dụng mô hình phân quyền dựa trên vai trò (RBAC) với 4 cấp độ phân tầng. Cơ chế <code>uploaderHashToDocId</code> hỗ trợ đa tổ chức (Multi-tenant), ngăn ngừa việc trùng lặp tệp tin theo từng ví phát hành và tự động giải phóng khi tài liệu bị thu hồi.
+  </div>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#ffffff',
+      primaryTextColor: '#000000',
+      primaryBorderColor: '#000000',
+      lineColor: '#000000',
+      fontSize: '11px',
+      fontFamily: "'Times New Roman', serif",
+      classText: '#000000',
+      edgeLabelBackground: '#ffffff'
+    }
+  });
+</script>
+</body>
+</html>

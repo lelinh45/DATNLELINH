@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.5 — Biểu đồ tuần tự quy trình đóng dấu và lưu trữ tài liệu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #4a4a4a;
+    display: flex;
+    justify-content: center;
+    padding: 25px 10px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1050px;
+    padding: 35px 45px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header-box {
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  .title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .sub-title {
+    font-size: 11pt;
+    font-style: italic;
+    color: #333;
+    margin-top: 3px;
+  }
+  .diagram-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .mermaid {
+    width: 100%;
+  }
+  .mermaid svg {
+    max-width: 100%;
+    height: auto;
+  }
+  .footer-note {
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    margin-top: 15px;
+    font-size: 10pt;
+    line-height: 1.4;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="header-box">
+    <div class="title">Hình 3.5. Biểu đồ tuần tự quy trình đóng dấu và lưu trữ tài liệu</div>
+    <div class="sub-title">(Mã hóa AES-256 phía client, lưu trữ phân tán IPFS và ghi nhận on-chain)</div>
+  </div>
+
+  <div class="diagram-container">
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User as Nhân viên nhập liệu
+    participant FE as Web Client (SPA)
+    participant BE as API Gateway & IPFS
+    participant MM as Ví MetaMask
+    participant SC as Smart Contract Sepolia
+
+    Note over User, SC: Giai đoạn 1: Mã hóa cục bộ và phân tán tệp tin lên IPFS
+    User->>FE: Chọn danh mục tệp và nhập mật khẩu AES-256
+    FE->>FE: Băm SHA-256 xác định dấu vân tay nhị phân của từng tệp
+    FE->>FE: Mã hóa AES-256 cục bộ in-memory tại trình duyệt
+    loop Lần lượt từng tệp tin trong lô (tối đa 100 tệp)
+        FE->>BE: Tải tệp bản mã (POST /api/upload)
+        BE->>BE: Kiểm tra hạn ngạch ví & đẩy lên mạng Pinata IPFS
+        BE-->>FE: Trả về mã định danh phân tán {ipfsCID, fileHash, qrCode}
+    end
+
+    Note over User, SC: Giai đoạn 2: Tính toán Merkle Tree & Khởi tạo Manifest
+    FE->>FE: Tính cây Merkle và trích xuất gốc Merkle Root của lô
+    FE->>BE: Tải tệp kê khai danh mục lô (Manifest JSON) lên IPFS
+    BE-->>FE: Trả về IPFS CID của tệp Manifest
+
+    Note over User, SC: Giai đoạn 3: Xác thực và đóng dấu sổ cái Blockchain
+    FE->>MM: Kích hoạt giao dịch ghi nhận lô (addDocuments)
+    MM-->>User: Hiển thị ước lượng phí Gas và yêu cầu ký phê duyệt
+    User->>MM: Xác nhận ký điện tử bằng khóa riêng
+    MM->>SC: Gửi giao dịch thực thi hợp đồng trên Sepolia
+    SC->>SC: Kiểm tra quyền upload & sổ chống trùng lặp theo ví
+    SC->>SC: Lưu trữ Document và phát sinh sự kiện DocumentAdded
+    SC-->>FE: Phản hồi biên lai xác nhận giao dịch (txHash)
+
+    Note over User, SC: Giai đoạn 4: Đồng bộ siêu dữ liệu ngoại chuỗi
+    FE->>BE: Gửi siêu dữ liệu lô hoàn tất (POST /api/batches)
+    BE->>BE: Bọc khóa bí mật AES bằng MASTER_KEY (AES-256-GCM)
+    BE->>BE: Lưu Batch vào MongoDB & cập nhật hạn mức dung lượng ví
+    BE-->>FE: Xác nhận cập nhật cơ sở dữ liệu thành công
+    FE-->>User: Xuất báo cáo chứng thư số định dạng PDF
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <b>Ghi chú:</b> Quy trình thực hiện theo nguyên tắc Zero-Knowledge: tệp tin được mã hóa AES-256 tại máy người dùng trước khi tải lên mạng phân tán IPFS. Khóa giải mã được lưu trữ theo cơ chế ủy thác khóa (Key Escrow) an toàn trên máy chủ. Giao dịch on-chain gom cụm tối đa 100 tài liệu trong 1 lần ký duy nhất nhằm tiết kiệm phí Gas và tối ưu thời gian xác nhận khối.
+  </div>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#ffffff',
+      primaryTextColor: '#000000',
+      primaryBorderColor: '#000000',
+      lineColor: '#000000',
+      fontSize: '11.5px',
+      fontFamily: "'Times New Roman', serif",
+      actorTextColor: '#000000',
+      actorBkg: '#ffffff',
+      actorBorder: '#000000',
+      noteBkgColor: '#f7f7f7',
+      noteBorderColor: '#000000',
+      noteTextColor: '#000000',
+      activationBorderColor: '#000000',
+      activationBkgColor: '#efefef',
+      sequenceNumberColor: '#000000'
+    }
+  });
+</script>
+</body>
+</html>

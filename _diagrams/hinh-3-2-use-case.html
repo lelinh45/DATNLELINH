@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.2 — Biểu đồ Ca sử dụng (Use-Case Diagram) hệ thống BDI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #4a4a4a;
+    display: flex;
+    justify-content: center;
+    padding: 25px 10px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1050px;
+    padding: 35px 45px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header-box {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+  .title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .sub-title {
+    font-size: 11pt;
+    font-style: italic;
+    color: #333;
+    margin-top: 3px;
+  }
+
+  /* Bố cục chính 2 cột: Cột Tác nhân & Cột Phân hệ Ca sử dụng */
+  .uc-layout {
+    display: grid;
+    grid-template-columns: 210px 1fr;
+    gap: 16px;
+    width: 100%;
+  }
+
+  /* Cột tác nhân bên trái */
+  .actors-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .actor-card {
+    border: 1.5px solid #000;
+    border-radius: 4px;
+    padding: 8px 10px;
+    background: #fafafa;
+  }
+  .actor-name {
+    font-size: 11pt;
+    font-weight: bold;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .actor-rank {
+    font-size: 9.5pt;
+    font-weight: normal;
+    color: #444;
+  }
+  .actor-scope {
+    font-size: 9.5pt;
+    color: #333;
+    line-height: 1.3;
+  }
+
+  /* Ranh giới hệ thống (System Boundary) */
+  .system-boundary {
+    border: 2px solid #000;
+    border-radius: 5px;
+    padding: 12px 14px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .system-title {
+    font-size: 11.5pt;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 1px dashed #666;
+    padding-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Các phân hệ chức năng */
+  .subsystem-group {
+    border: 1px solid #777;
+    border-radius: 4px;
+    padding: 6px 10px 10px;
+    background: #fafafa;
+  }
+  .subsystem-name {
+    font-size: 10.5pt;
+    font-weight: bold;
+    color: #111;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .subsystem-actors {
+    font-size: 9pt;
+    font-weight: normal;
+    font-style: italic;
+    color: #444;
+  }
+
+  .uc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .uc-oval {
+    border: 1.2px solid #000;
+    border-radius: 14px;
+    background: #fff;
+    padding: 4px 8px;
+    text-align: center;
+    font-size: 9.5pt;
+    line-height: 1.25;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Chân trang */
+  .footer-note {
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    margin-top: 15px;
+    font-size: 10pt;
+    line-height: 1.4;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="header-box">
+    <div class="title">Hình 3.2. Biểu đồ Ca sử dụng (Use-Case Diagram) tổng thể hệ thống BDI</div>
+    <div class="sub-title">(Phân định thẩm quyền tương tác cho 6 nhóm tác nhân theo mô hình kiểm soát truy cập RBAC)</div>
+  </div>
+
+  <div class="uc-layout">
+
+    <!-- CỘT 1: CÁC TÁC NHÂN HỆ THỐNG -->
+    <div class="actors-panel">
+      <div style="font-size: 11pt; font-weight: bold; text-align: center; border-bottom: 1.5px solid #000; padding-bottom: 4px;">
+        DANH SÁCH TÁC NHÂN
+      </div>
+
+      <div class="actor-card">
+        <div class="actor-name">
+          <span>Khách vãng lai</span>
+          <span class="actor-rank">Rank 0</span>
+        </div>
+        <div class="actor-scope">Người dùng đại chúng không cần tài khoản, chỉ có quyền xác thực và tra cứu tính hợp lệ của tài liệu.</div>
+      </div>
+
+      <div class="actor-card">
+        <div class="actor-name">
+          <span>Nhân viên nhập liệu</span>
+          <span class="actor-rank">Rank 1</span>
+        </div>
+        <div class="actor-scope">Cán bộ chuyên trách tải tệp, mã hóa AES cục bộ, đóng dấu ghi nhận vào Smart Contract và xuất chứng thư.</div>
+      </div>
+
+      <div class="actor-card">
+        <div class="actor-name">
+          <span>Cán bộ quản lý</span>
+          <span class="actor-rank">Rank 2</span>
+        </div>
+        <div class="actor-scope">Thực hiện thẩm định, kiểm tra sai lệch bằng AI và thu hồi tài liệu sai phạm của nhân viên cấp dưới.</div>
+      </div>
+
+      <div class="actor-card">
+        <div class="actor-name">
+          <span>Quản trị viên (Admin)</span>
+          <span class="actor-rank">Rank 3</span>
+        </div>
+        <div class="actor-scope">Toàn quyền hệ thống, phê duyệt tài khoản ví, phân quyền on-chain, quản lý API Key và gửi thông báo.</div>
+      </div>
+
+      <div class="actor-card">
+        <div class="actor-name">
+          <span>Người xem (Viewer)</span>
+          <span class="actor-rank">Off-chain</span>
+        </div>
+        <div class="actor-scope">Được cấp quyền xem sổ cái nội bộ và giải mã tài liệu công khai mà không có quyền ký giao dịch blockchain.</div>
+      </div>
+
+      <div class="actor-card">
+        <div class="actor-name">
+          <span>Hệ thống đối tác (B2B)</span>
+          <span class="actor-rank">API Key</span>
+        </div>
+        <div class="actor-scope">Các ứng dụng bên ngoài tích hợp tự động qua RESTful API, server ký thay on-chain.</div>
+      </div>
+    </div>
+
+    <!-- CỘT 2: RANH GIỚI HỆ THỐNG BDI & CÁC CA SỬ DỤNG -->
+    <div class="system-boundary">
+      <div class="system-title">Ranh giới hệ thống: Nền tảng BDI (Blockchain Data Integrity)</div>
+
+      <!-- Phân hệ 1 -->
+      <div class="subsystem-group">
+        <div class="subsystem-name">
+          <span>1. Phân hệ Xác thực & Quản lý phiên</span>
+          <span class="subsystem-actors">Tác nhân: Khách, Nhân viên, Quản lý, Admin</span>
+        </div>
+        <div class="uc-grid">
+          <div class="uc-oval">UC01: Đăng nhập bằng chữ ký số ví MetaMask (EIP-191)</div>
+          <div class="uc-oval">UC02: Phê duyệt / Từ chối phiên thiết bị mới</div>
+          <div class="uc-oval">UC03: Xác thực 2 bước qua mã OTP Email (scrypt)</div>
+          <div class="uc-oval">UC04: Cập nhật thông tin liên lạc và nhận diện ví</div>
+        </div>
+      </div>
+
+      <!-- Phân hệ 2 -->
+      <div class="subsystem-group">
+        <div class="subsystem-name">
+          <span>2. Phân hệ Quản lý & Chứng thực tài liệu</span>
+          <span class="subsystem-actors">Tác nhân: Khách, Nhân viên, Quản lý, Admin, Người xem</span>
+        </div>
+        <div class="uc-grid">
+          <div class="uc-oval">UC05: Mã hóa AES-256 và đóng dấu tệp lên IPFS/Chain</div>
+          <div class="uc-oval">UC06: Xác thực tính toàn vẹn (đối chiếu mã băm)</div>
+          <div class="uc-oval">UC07: Truy xuất sổ cái lịch sử chứng thực (Ledger)</div>
+          <div class="uc-oval">UC08: Giải mã và tải tệp tin gốc (Key Escrow)</div>
+          <div class="uc-oval">UC09: Truy vết dòng đời và cây phiên bản (Lineage)</div>
+          <div class="uc-oval">UC10: Tìm kiếm tệp tin nội dung tương tự (CTPH)</div>
+        </div>
+      </div>
+
+      <!-- Phân hệ 3 -->
+      <div class="subsystem-group">
+        <div class="subsystem-name">
+          <span>3. Phân hệ Giám định sai lệch & Thu hồi</span>
+          <span class="subsystem-actors">Tác nhân: Cán bộ quản lý, Quản trị viên</span>
+        </div>
+        <div class="uc-grid">
+          <div class="uc-oval">UC11: Thu hồi tài liệu sai phạm trên Blockchain</div>
+          <div class="uc-oval">UC12: Giám định pháp y số bằng AI (Gemini 1.5 Flash)</div>
+          <div class="uc-oval">UC13: Trích xuất bản đồ nhiệt sai khác điểm ảnh (Pixel Diff)</div>
+          <div class="uc-oval">UC14: So khớp sai biệt văn bản Word/Text (Text Diff)</div>
+        </div>
+      </div>
+
+      <!-- Phân hệ 4 & 5 -->
+      <div class="subsystem-group">
+        <div class="subsystem-name">
+          <span>4. Phân hệ Quản trị hệ thống & Tích hợp B2B</span>
+          <span class="subsystem-actors">Tác nhân: Quản trị viên, Đối tác B2B</span>
+        </div>
+        <div class="uc-grid">
+          <div class="uc-oval">UC15: Phân quyền vai trò on-chain (assignRole)</div>
+          <div class="uc-oval">UC16: Quản lý và cấp phát API Key đối tác</div>
+          <div class="uc-oval">UC17: Kiểm soát và khóa/mở khóa tài khoản ví</div>
+          <div class="uc-oval">UC18: Đóng dấu & xác thực tự động qua API B2B</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    <b>Ghi chú:</b> Biểu đồ tổ chức các ca sử dụng theo từng phân hệ chức năng tương ứng với 6 nhóm tác nhân. Kiến trúc tuân thủ nguyên tắc đặc quyền tối thiểu (Least Privilege): quyền hạn phân cấp tăng dần từ Khách vãng lai đến Quản trị viên, đảm bảo việc thực thi các chức năng có tính rủi ro cao (thu hồi, phân quyền) luôn được kiểm soát chặt chẽ ở mức mã nguồn hợp đồng thông minh.
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.7 — Biểu đồ tuần tự quy trình thu hồi tài liệu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #4a4a4a;
+    display: flex;
+    justify-content: center;
+    padding: 25px 10px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1050px;
+    padding: 35px 45px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header-box {
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  .title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .sub-title {
+    font-size: 11pt;
+    font-style: italic;
+    color: #333;
+    margin-top: 3px;
+  }
+  .diagram-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .mermaid {
+    width: 100%;
+  }
+  .mermaid svg {
+    max-width: 100%;
+    height: auto;
+  }
+  .footer-note {
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    margin-top: 15px;
+    font-size: 10pt;
+    line-height: 1.4;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="header-box">
+    <div class="title">Hình 3.7. Biểu đồ tuần tự quy trình thu hồi tài liệu</div>
+    <div class="sub-title">(Ghi nhận trạng thái vô hiệu hóa trên Blockchain và hoàn trả hạn ngạch lưu trữ)</div>
+  </div>
+
+  <div class="diagram-container">
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Mgr as Cán bộ Quản lý / Admin
+    participant FE as Web Client (SPA)
+    participant MM as Ví MetaMask
+    participant SC as Smart Contract Sepolia
+    participant BE as API Server & MongoDB
+
+    Note over Mgr, BE: Giai đoạn 1: Thiết lập lệnh và kiểm tra thẩm quyền RBAC
+    Mgr->>FE: Chọn tài liệu sai phạm và nhập lý do thu hồi
+    FE->>SC: Truy vấn hồ sơ tài liệu on-chain (getDocument)
+    SC-->>FE: Trả về trạng thái hiện tại (isRevoked, uploader)
+    FE->>FE: Kiểm tra cấp bậc: Yêu cầu Rank >= 2 (Quản lý hoặc Admin)
+    FE->>FE: Quy tắc bảo vệ: Quản lý không được thu hồi tài liệu của Admin
+
+    Note over Mgr, BE: Giai đoạn 2: Ký duyệt và thực thi giao dịch On-chain
+    FE->>MM: Kích hoạt hàm thu hồi on-chain (revokeDocument)
+    MM-->>Mgr: Hiển thị giao dịch thu hồi và ước tính phí Gas
+    Mgr->>MM: Xác nhận ký điện tử bằng khóa riêng
+    MM->>SC: Gửi giao dịch lên mạng lưới Sepolia
+    SC->>SC: Thiết lập trạng thái isRevoked = true
+    SC->>SC: Ghi nhận vĩnh viễn lý do thu hồi (revocationReason)
+    SC->>SC: Xóa mã băm khỏi sổ chống trùng của uploader
+    SC->>SC: Phát sinh sự kiện DocumentRevoked
+    SC-->>FE: Trả về biên lai xác nhận giao dịch (Receipt)
+
+    Note over Mgr, BE: Giai đoạn 3: Cập nhật siêu dữ liệu ngoại chuỗi và thông báo
+    FE->>BE: Gửi lệnh đồng bộ ngoại chuỗi (POST /api/batches/revoke)
+    BE->>BE: Đánh dấu trạng thái thu hồi trong danh mục lô (Batch.files)
+    BE->>BE: Khấu trừ dung lượng, hoàn trả hạn ngạch cho ví người upload
+    BE->>BE: Tạo thông báo cảnh báo bảo mật (Notification) gửi đến ví người nộp gốc
+    BE-->>FE: Xác nhận hoàn tất quy trình đồng bộ cơ sở dữ liệu
+    FE-->>Mgr: Cập nhật giao diện: chuyển tài liệu sang danh sách đã thu hồi
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <b>Ghi chú:</b> Thu hồi tài liệu trong kiến trúc chuỗi khối không đồng nghĩa với xóa bỏ dữ liệu vật lý khỏi khối, mà là ghi nhận vĩnh viễn trạng thái vô hiệu hóa kèm lý do và địa chỉ ví của cán bộ ra quyết định. Cơ chế này đảm bảo tính minh bạch, chống chối bỏ trách nhiệm, đồng thời giải phóng sổ chống trùng lặp để nhân viên có thể phát hành phiên bản sửa đổi kế tiếp.
+  </div>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#ffffff',
+      primaryTextColor: '#000000',
+      primaryBorderColor: '#000000',
+      lineColor: '#000000',
+      fontSize: '11.5px',
+      fontFamily: "'Times New Roman', serif",
+      actorTextColor: '#000000',
+      actorBkg: '#ffffff',
+      actorBorder: '#000000',
+      noteBkgColor: '#f7f7f7',
+      noteBorderColor: '#000000',
+      noteTextColor: '#000000',
+      activationBorderColor: '#000000',
+      activationBkgColor: '#efefef',
+      sequenceNumberColor: '#000000'
+    }
+  });
+</script>
+</body>
+</html>

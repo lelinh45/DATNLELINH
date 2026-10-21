@@ -233,6 +233,15 @@ export const ApiService = {
         } catch { return null; }
     },
 
+    // Chuỗi phiên bản v1→v2→v3 của tài liệu — public
+    async getDocumentLineage(docId) {
+        try {
+            const res = await fetch(`${CONFIG.API_BASE}/documents/${encodeURIComponent(docId)}/lineage`);
+            if (!res.ok) return null;
+            return await res.json(); // { success, chain: [{docId,fileName,version,isRevoked,...}], isLatest, supersededBy, latest }
+        } catch { return null; }
+    },
+
     // Trạng thái thu hồi trong MongoDB — public, để verify đối chiếu 2 nguồn
     async getDocumentStatus(docId) {
         try {
@@ -240,6 +249,17 @@ export const ApiService = {
             if (!res.ok) return null;
             return await res.json(); // { isRevoked, revocationReason }
         } catch { return null; }
+    },
+
+    // Map docId -> orgName của tài liệu đối tác (server ký on-chain hộ) —
+    // sổ cái hiện badge "ĐỐI TÁC" thay vì nhầm là doc của ví ADMIN
+    async getPartnerDocs() {
+        try {
+            const res = await fetch(`${CONFIG.API_BASE}/partner-docs`, { headers: authHeaders() });
+            if (!res.ok) return {};
+            const data = await res.json();
+            return data.partners || {};
+        } catch { return {}; }
     },
 
     // ---- Thông báo & phiên thiết bị ----

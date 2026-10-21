@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cổng Đối Tác — Blockchain Data Integrity</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; }
+        .card { background: #111827; border: 1px solid #1f2937; border-radius: 0.75rem; }
+        .btn-primary { background: #059669; } .btn-primary:hover { background: #10b981; }
+        input[type=text], input[type=password] { background:#0b0f19; }
+    </style>
+</head>
+<body class="bg-[#0b0f19] min-h-screen text-gray-200">
+
+<!-- ============ MÀN HÌNH ĐĂNG NHẬP ============ -->
+<div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="card p-8 w-full max-w-md">
+        <div class="text-center mb-6">
+            <i class="fa-solid fa-handshake text-4xl text-amber-400 mb-3"></i>
+            <h1 class="text-xl font-bold text-white">CỔNG ĐỐI TÁC</h1>
+            <p class="text-sm text-gray-400 mt-1">Hệ thống xác thực & chống giả mạo dữ liệu — Blockchain</p>
+        </div>
+        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">API Key của tổ chức</label>
+        <input id="api-key-input" type="password" placeholder="sk_live_..." autocomplete="off"
+               class="w-full px-4 py-3 rounded-lg border border-gray-700 focus:border-emerald-500 focus:outline-none font-mono text-sm mb-4">
+        <button onclick="login()" id="btn-login"
+                class="btn-primary w-full py-3 rounded-lg font-bold text-white transition">
+            <i class="fa-solid fa-right-to-bracket mr-2"></i>Đăng nhập
+        </button>
+        <p class="text-[11px] text-gray-500 mt-4 text-center">
+            Key do quản trị viên hệ thống cấp. Giới hạn 60 request/phút.<br>
+            Key chỉ lưu trong phiên trình duyệt này (sessionStorage).
+        </p>
+    </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div id="dashboard" class="hidden max-w-6xl mx-auto p-4 md:p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div>
+            <h1 class="text-lg font-bold text-white"><i class="fa-solid fa-handshake text-amber-400 mr-2"></i>CỔNG ĐỐI TÁC</h1>
+            <p class="text-xs text-gray-500">Giao dịch on-chain do server ký hộ — trên blockchain hiển thị ví ADMIN</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="key-prefix" class="font-mono text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded"></span>
+            <button onclick="logout()" class="text-red-400 hover:text-red-300 text-sm font-bold">
+                <i class="fa-solid fa-right-from-bracket mr-1"></i>Thoát
+            </button>
+        </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mb-6">
+        <!-- UPLOAD -->
+        <div class="card p-5">
+            <h2 class="font-bold text-emerald-400 mb-3"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & đóng dấu tài liệu</h2>
+            <input id="up-file" type="file" class="w-full text-sm text-gray-400 mb-3 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-900/40 file:text-emerald-300 hover:file:bg-emerald-900/60">
+            <button onclick="uploadDoc()" id="btn-upload" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-white w-full transition">
+                <i class="fa-solid fa-stamp mr-1"></i>Mã hóa → IPFS → Ghi blockchain
+            </button>
+            <div id="up-result" class="mt-3 text-xs"></div>
+        </div>
+
+        <!-- VERIFY -->
+        <div class="card p-5">
+            <h2 class="font-bold text-blue-400 mb-3"><i class="fa-solid fa-shield-halved mr-2"></i>Xác thực tài liệu</h2>
+            <input id="vf-docid" type="text" placeholder="documentId (vd: hopdong.pdf_1729...)" class="w-full px-3 py-2 rounded-lg border border-gray-700 text-xs font-mono mb-2 focus:border-blue-500 focus:outline-none">
+            <input id="vf-file" type="file" class="w-full text-sm text-gray-400 mb-3 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-900/40 file:text-blue-300 hover:file:bg-blue-900/60">
+            <button onclick="verifyDoc()" id="btn-verify" class="w-full py-2 rounded-lg text-sm font-bold text-white bg-blue-700 hover:bg-blue-600 transition">
+                <i class="fa-solid fa-magnifying-glass mr-1"></i>So hash với blockchain
+            </button>
+            <div id="vf-result" class="mt-3 text-xs"></div>
+        </div>
+    </div>
+
+    <!-- DANH SÁCH -->
+    <div class="card p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-purple-400"><i class="fa-solid fa-folder-open mr-2"></i>Tài liệu của tổ chức</h2>
+            <button onclick="loadDocs()" class="text-xs text-gray-400 hover:text-white font-bold"><i class="fa-solid fa-rotate mr-1"></i>Làm mới</button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead><tr class="text-gray-500 border-b border-gray-800 text-left">
+                    <th class="py-2 pr-3">#</th><th class="py-2 pr-3">Tài liệu</th><th class="py-2 pr-3">Hash / CID</th>
+                    <th class="py-2 pr-3">Thời điểm</th><th class="py-2 pr-3">Trạng thái</th><th class="py-2">Tải về</th>
+                </tr></thead>
+                <tbody id="docs-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+const KEY_STORE = 'bdi_partner_key';
+const apiKey = () => sessionStorage.getItem(KEY_STORE) || '';
+
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+}
+function toast(icon, title) {
+    Swal.fire({ toast: true, position: 'top-end', icon, title, showConfirmButton: false, timer: 2500, background: '#111827', color: '#fff' });
+}
+async function api(path, opts = {}) {
+    opts.headers = { ...(opts.headers || {}), 'x-api-key': apiKey() };
+    const res = await fetch(path, opts);
+    if (res.status === 401) { logout(); throw new Error('API key không hợp lệ hoặc đã bị thu hồi'); }
+    if (res.status === 429) throw new Error('Quá giới hạn 60 request/phút — thử lại sau');
+    return res;
+}
+function fmtSize(b) {
+    b = Number(b) || 0;
+    return b >= 1048576 ? (b/1048576).toFixed(1)+' MB' : b >= 1024 ? (b/1024).toFixed(1)+' KB' : b+' B';
+}
+
+// ---------- ĐĂNG NHẬP ----------
+async function login() {
+    const key = document.getElementById('api-key-input').value.trim();
+    if (!key.startsWith('sk_live_')) return toast('error', 'API key phải bắt đầu bằng sk_live_');
+    const btn = document.getElementById('btn-login');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Đang kiểm tra...';
+    try {
+        sessionStorage.setItem(KEY_STORE, key);
+        const res = await api('/api/v1/documents');
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'Key bị từ chối');
+        showDashboard();
+        renderDocs(data.documents || []);
+    } catch (e) {
+        sessionStorage.removeItem(KEY_STORE);
+        toast('error', e.message);
+    } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-right-to-bracket mr-2"></i>Đăng nhập';
+    }
+}
+function logout() {
+    sessionStorage.removeItem(KEY_STORE);
+    document.getElementById('dashboard').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+}
+function showDashboard() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('key-prefix').textContent = apiKey().slice(0, 14) + '…';
+}
+
+// ---------- UPLOAD ----------
+async function uploadDoc() {
+    const f = document.getElementById('up-file').files[0];
+    if (!f) return toast('warning', 'Chọn file cần đóng dấu');
+    const btn = document.getElementById('btn-upload');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Đang mã hóa & ghi on-chain...';
+    document.getElementById('up-result').innerHTML = '<span class="text-gray-400"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Upload → IPFS → chờ xác nhận Sepolia (có thể ~30-60s)...</span>';
+    try {
+        const fd = new FormData();
+        fd.append('document', f);
+        const res = await api('/api/v1/documents', { method: 'POST', body: fd });
+        const d = await res.json();
+        if (!res.ok || !d.success) throw new Error(d.message || 'Upload thất bại');
+        document.getElementById('up-result').innerHTML = `
+            <div class="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
+                <div class="text-emerald-400 font-bold mb-2"><i class="fa-solid fa-circle-check mr-1"></i>Đóng dấu thành công</div>
+                <div class="font-mono break-all"><b>docId:</b> ${esc(d.documentId)}</div>
+                <div class="font-mono break-all text-gray-500"><b>hash:</b> ${esc(d.fileHash)}</div>
+                <div class="mt-2 flex gap-3">
+                    <a href="https://sepolia.etherscan.io/tx/${esc(d.txHash)}" target="_blank" rel="noopener noreferrer" class="text-purple-400 font-bold"><i class="fa-solid fa-link mr-1"></i>Etherscan</a>
+                    <a href="https://ipfs.io/ipfs/${esc(d.ipfsCID)}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 font-bold"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>
+                </div>
+            </div>`;
+        document.getElementById('vf-docid').value = d.documentId;
+        loadDocs();
+    } catch (e) {
+        document.getElementById('up-result').innerHTML = `<div class="text-red-400"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(e.message)}</div>`;
+    } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-stamp mr-1"></i>Mã hóa → IPFS → Ghi blockchain';
+    }
+}
+
+// ---------- VERIFY ----------
+async function verifyDoc() {
+    const docId = document.getElementById('vf-docid').value.trim();
+    const f = document.getElementById('vf-file').files[0];
+    if (!docId || !f) return toast('warning', 'Cần documentId và file để so');
+    const btn = document.getElementById('btn-verify');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Đang so hash...';
+    try {
+        const fd = new FormData();
+        fd.append('document', f); fd.append('documentId', docId);
+        const res = await api('/api/v1/verify', { method: 'POST', body: fd });
+        const d = await res.json();
+        if (!res.ok || !d.success) throw new Error(d.message || 'Xác thực thất bại');
+        const box = document.getElementById('vf-result');
+        const when = d.timestamp ? new Date(d.timestamp).toLocaleString('vi-VN') : '';
+        if (d.isRevoked) {
+            box.innerHTML = `<div class="bg-amber-900/20 border border-amber-800 rounded-lg p-3 text-amber-300 font-bold"><i class="fa-solid fa-ban mr-1"></i>TÀI LIỆU ĐÃ BỊ THU HỒI — đóng dấu ${esc(when)}</div>`;
+        } else if (d.match) {
+            box.innerHTML = `<div class="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3 text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>NGUYÊN VẸN — khớp bản ghi on-chain (${esc(when)})</div>`;
+        } else {
+            box.innerHTML = `<div class="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>PHÁT HIỆN GIẢ MẠO — hash không khớp bản ghi</div>`;
+        }
+    } catch (e) {
+        document.getElementById('vf-result').innerHTML = `<div class="text-red-400"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(e.message)}</div>`;
+    } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i>So hash với blockchain';
+    }
+}
+
+// ---------- DANH SÁCH ----------
+async function loadDocs() {
+    try {
+        const res = await api('/api/v1/documents');
+        const d = await res.json();
+        renderDocs(d.documents || []);
+    } catch (e) { toast('error', e.message); }
+}
+function renderDocs(docs) {
+    const tb = document.getElementById('docs-body');
+    if (!docs.length) {
+        tb.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-gray-600">Chưa có tài liệu nào — upload file đầu tiên ở trên</td></tr>';
+        return;
+    }
+    tb.innerHTML = docs.map((d, i) => `
+        <tr class="border-b border-gray-800/60 hover:bg-gray-800/30">
+            <td class="py-2 pr-3 text-gray-600">${i + 1}</td>
+            <td class="py-2 pr-3">
+                <div class="font-bold text-gray-200">${esc(d.fileName || d.docId)}</div>
+                <div class="font-mono text-[10px] text-blue-400 truncate max-w-[180px]" title="${esc(d.docId)}">${esc(d.docId)}</div>
+                <div class="text-[10px] text-gray-600">${fmtSize(d.fileSize)}</div>
+            </td>
+            <td class="py-2 pr-3 font-mono text-[10px] text-gray-500">
+                <div class="truncate max-w-[140px]" title="${esc(d.fileHash)}">${esc((d.fileHash||'').slice(0,18))}…</div>
+                <a href="https://ipfs.io/ipfs/${esc(d.ipfsCID)}" target="_blank" rel="noopener noreferrer" class="text-emerald-500">IPFS</a>
+                ${d.txHash ? `· <a href="https://sepolia.etherscan.io/tx/${esc(d.txHash)}" target="_blank" rel="noopener noreferrer" class="text-purple-400">Etherscan</a>` : ''}
+            </td>
+            <td class="py-2 pr-3 text-gray-400 whitespace-nowrap">${d.createdAt ? new Date(d.createdAt).toLocaleString('vi-VN') : '—'}</td>
+            <td class="py-2 pr-3">${d.isRevoked
+                ? '<span class="bg-red-900/40 text-red-400 px-2 py-0.5 rounded text-[10px] font-bold">THU HỒI</span>'
+                : '<span class="bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold">HIỆU LỰC</span>'}</td>
+            <td class="py-2"><button onclick="downloadDoc('${esc(d.docId)}','${esc(d.fileName||'file')}')" class="text-blue-400 hover:text-blue-300 font-bold"><i class="fa-solid fa-download mr-1"></i>Tải</button></td>
+        </tr>`).join('');
+}
+async function downloadDoc(docId, fileName) {
+    try {
+        const res = await api(`/api/v1/documents/${encodeURIComponent(docId)}/download`);
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || 'Tải thất bại'); }
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName || docId;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast('success', 'Đã tải file gốc (đã giải mã)');
+    } catch (e) { toast('error', e.message); }
+}
+
+// ---------- KHỞI ĐỘNG: còn key trong phiên → vào thẳng dashboard ----------
+(async () => {
+    if (!apiKey()) return;
+    try {
+        const res = await api('/api/v1/documents');
+        const d = await res.json();
+        if (res.ok && d.success) { showDashboard(); renderDocs(d.documents || []); }
+    } catch (e) {}
+})();
+document.getElementById('api-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+</script>
+</body>
+</html>

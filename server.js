@@ -29,6 +29,7 @@ import DeviceSession from './models/DeviceSession.js';
 import ApiKey from './models/ApiKey.js';
 import PartnerDocument from './models/PartnerDocument.js';
 import { createAuth } from './auth.js';
+import { buildVersionChain } from './lineage.js';
 
 // --- BỔ SUNG LỚP 1: Import thư viện AI ---
 import { GoogleGenAI } from '@google/genai';
@@ -480,9 +481,19 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
             }
         }
 
+        // Dòng đời phiên bản: tài liệu đã có bản kế nhiệm → cảnh báo "bản cũ"
+        // ngay trong kết quả verify. DB lỗi không được chặn verify (chain là nguồn sự thật).
+        let supersededBy = null;
+        try {
+            const succ = await Batch.findOne({ 'files.replacesDocId': documentId }).select('files.$').lean();
+            const sf = succ && succ.files && succ.files[0];
+            if (sf) supersededBy = { docId: sf.docId, fileName: sf.fileName || '' };
+        } catch (_) { /* MongoDB lỗi → verify vẫn trả kết quả on-chain */ }
+
         res.json({
             success: true,
             isMatch, isRevoked, revocationReason, currentFileHash, originalHash,
+            supersededBy,
             differences: textDifferences, 
             imageDiff: imageDiffBase64, 
             aiReport: aiForensicReport, // Bổ sung key này để đẩy lên Frontend
@@ -781,6 +792,8 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
         const safeFiles = Array.isArray(files) ? files.map(f => ({
             docId: f && f.docId, fileHash: f && f.fileHash, ipfsCID: f && f.ipfsCID,
             fileName: f && f.fileName, fileSize: f && f.fileSize, qrCode: f && f.qrCode,
+            // liên kết dòng đời: chỉ nhận docId hợp lệ, quyền sở hữu kiểm tra bên dưới
+            replacesDocId: (f && typeof f.replacesDocId === 'string' && /^[\w.\-]{1,300}$/.test(f.replacesDocId)) ? f.replacesDocId : undefined,
             visibility: ['public', 'private'].includes(f && f.visibility) ? f.visibility : 'private',
             // fuzzy hash theo đoạn — chỉ nhận mảng hex 64 ký tự, chặn payload rác
             chunkHashes: Array.isArray(f && f.chunkHashes)
@@ -789,6 +802,15 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             // AES key do user nhập — bọc bằng MASTER_KEY trước khi ghi DB
             encKey: f && f.encKey ? wrapKey(f.encKey) : undefined
         })) : [];
+        // Liên kết phiên bản: docId bị thay thế phải tồn tại VÀ do chính ví này upload
+        // — không cho phép gắn dòng đời vào tài liệu của người khác.
+        const linkIds = [...new Set(safeFiles.map(f => f.replacesDocId).filter(Boolean))];
+        for (const pid of linkIds) {
+            const prev = await Batch.findOne({ uploader: req.user.address, 'files.docId': pid }).select('_id');
+            if (!prev) {
+                return res.status(400).json({ success: false, message: `Tài liệu bị thay thế (${pid}) không tồn tại hoặc không thuộc ví của bạn` });
+            }
+        }
         // Retry an toàn: batchId đã tồn tại (VD: bản ghi phục hồi từ manifest
         // thiếu encKey) → merge field CÒN THIẾU của file trùng docId thay vì 409.
         // Không ghi đè dữ liệu có sẵn — chỉ bổ sung chỗ trống
@@ -803,7 +825,7 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             for (const nf of safeFiles) {
                 const ef = existing.files.find(x => x.docId === nf.docId);
                 if (!ef) { existing.files.push(nf); changed = true; continue; }
-                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes']) {
+                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes', 'replacesDocId']) {
                     if (!ef[k] && nf[k]) { ef[k] = nf[k]; changed = true; }
                 }
             }
@@ -947,6 +969,43 @@ app.get('/api/documents/:docId/status', async (req, res) => {
     }
 });
 
+// Truy vết dòng đời phiên bản — public: chuỗi v1 → v2 → v3 của một tài liệu,
+// ai được thay thế bởi ai. Liên kết replacesDocId lưu ở MongoDB (truy vấn);
+// khi bản cũ bị thu hồi, con trỏ ngược "Thay thế bởi <docId>" nằm bất biến
+// trong revocationReason on-chain.
+app.get('/api/documents/:docId/lineage', async (req, res) => {
+    try {
+        const docId = req.params.docId;
+        if (!/^[\w.\-]{1,300}$/.test(docId)) {
+            return res.status(400).json({ success: false, message: 'docId không hợp lệ' });
+        }
+        const batches = await Batch.find({}).select('uploader timestamp files').lean();
+        const all = [];
+        for (const b of batches) for (const f of b.files) {
+            all.push({ ...f, timestamp: f.timestamp || b.timestamp });
+        }
+        const r = buildVersionChain(all, docId);
+        if (!r) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu' });
+        res.json({ success: true, ...r });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi truy vết phiên bản' });
+    }
+});
+
+// Map docId -> orgName của tài liệu đối tác (upload qua /api/v1 bằng API key,
+// server ký on-chain hộ bằng ví ADMIN). Sổ cái dùng map này để hiện badge
+// "ĐỐI TÁC" thay vì hiểu nhầm là tài liệu do ADMIN tự upload.
+app.get('/api/partner-docs', requireAuth, requireViewer, async (req, res) => {
+    try {
+        const docs = await PartnerDocument.find({}, 'docId orgName fileName').lean();
+        const partners = {};
+        for (const d of docs) partners[d.docId] = d.orgName || 'Tổ chức đối tác';
+        res.json({ success: true, partners });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi lấy danh sách tài liệu đối tác' });
+    }
+});
+
 // Trả khóa giải mã cho người được phép. public: mọi ví đăng nhập; private:
 // CHỈ uploader — quyền riêng tư là cá nhân tuyệt đối, kể cả ADMIN cũng
 // không mở được tài liệu private của ví khác.
@@ -1026,8 +1085,18 @@ app.post('/api/batches/revoke', requireAuth, requireRole('QUẢN LÝ'), async (r
             return res.status(403).json({ success: false, message: 'Quản lý không được thu hồi tài liệu của Admin' });
         }
 
+        // Dòng đời phiên bản: doc đã có bản kế nhiệm mà reason trống → tự điền
+        // "Thay thế bởi <docId_mới>" — con trỏ v1→v2 này nằm bất biến trong
+        // revocationReason khi giao dịch thu hồi ghi on-chain.
+        let effectiveReason = (typeof reason === 'string' && reason.trim()) || '';
+        if (!effectiveReason) {
+            const succ = await Batch.findOne({ 'files.replacesDocId': docId }).select('files.$').lean();
+            const sf = succ && succ.files && succ.files[0];
+            if (sf) effectiveReason = `Thay thế bởi ${sf.docId}`;
+        }
+
         file.isRevoked = true;
-        file.revocationReason = reason || '';
+        file.revocationReason = effectiveReason;
         file.revokedBy = req.user.address; // lấy từ JWT — chống giả mạo người ra lệnh
         file.revokedAt = Date.now();
         await batch.save();
@@ -1039,8 +1108,8 @@ app.post('/api/batches/revoke', requireAuth, requireRole('QUẢN LÝ'), async (r
                 await Notification.create({
                     address: uploaderAddr, type: 'doc_revoked',
                     title: 'Tài liệu của bạn đã bị thu hồi',
-                    message: `Tài liệu "${file.fileName || docId}" (ID: ${docId}) đã bị thu hồi bởi ${req.user.address}. Lý do: ${reason || 'Không ghi'}`,
-                    meta: { docId, fileName: file.fileName, reason: reason || '', revokedBy: req.user.address }
+                    message: `Tài liệu "${file.fileName || docId}" (ID: ${docId}) đã bị thu hồi bởi ${req.user.address}. Lý do: ${effectiveReason || 'Không ghi'}`,
+                    meta: { docId, fileName: file.fileName, reason: effectiveReason, revokedBy: req.user.address }
                 });
             } catch (e) { console.warn('[NOTIF] Lỗi tạo thông báo thu hồi:', e.message); }
         }
@@ -1284,7 +1353,16 @@ app.post('/api/v1/verify', requireApiKey, uploadSingle('document'), async (req, 
             return res.status(400).json({ success: false, message: 'documentId không hợp lệ' });
         }
         const currentFileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-        const [originalHash, ipfsURI, timestamp, uploader, isRevoked, revocationReason] = await getChainContract().getDocument(documentId);
+        let doc;
+        try {
+            doc = await getChainContract().getDocument(documentId);
+        } catch (chainErr) {
+            return res.status(404).json({ success: false, message: 'documentId không tồn tại trên blockchain' });
+        }
+        const [originalHash, ipfsURI, timestamp, uploader, isRevoked, revocationReason] = doc;
+        if (!originalHash) {
+            return res.status(404).json({ success: false, message: 'documentId không tồn tại trên blockchain' });
+        }
         res.json({
             success: true,
             match: currentFileHash === originalHash,
@@ -1386,6 +1464,9 @@ app.post('/api/apikeys/:id/revoke', requireAuth, requireRole('ADMIN'), async (re
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// Cổng đối tác: giao diện đăng nhập bằng API key (sk_live_...) — upload/verify/
+// list/download qua /api/v1 mà không cần ví MetaMask hay JWT
+app.get('/partner', (req, res) => res.sendFile(path.join(__dirname, 'partner.html')));
 
 app.listen(port, () => {
     console.log(`🚀 Server backend (API + xác thực) chạy tại cổng ${port}`);

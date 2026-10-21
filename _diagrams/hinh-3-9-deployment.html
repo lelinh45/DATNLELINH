@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.9 — Kiến trúc triển khai hạ tầng và tích hợp hệ thống BDI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #4a4a4a;
+    display: flex;
+    justify-content: center;
+    padding: 25px 10px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1050px;
+    padding: 35px 45px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header-box {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .sub-title {
+    font-size: 11pt;
+    font-style: italic;
+    color: #333;
+    margin-top: 3px;
+  }
+
+  /* Khung sơ đồ triển khai */
+  .deploy-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+  }
+
+  .node-block {
+    border: 1.5px solid #000;
+    border-radius: 4px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .node-header {
+    background: #eeeeee;
+    border-bottom: 1.5px solid #000;
+    padding: 5px 12px;
+    font-weight: bold;
+    font-size: 11pt;
+    display: flex;
+    justify-content: space-between;
+    text-transform: uppercase;
+  }
+  .node-tag {
+    font-size: 9.5pt;
+    font-weight: normal;
+    font-style: italic;
+    text-transform: none;
+    color: #444;
+  }
+  .node-body {
+    padding: 10px 14px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .item-card {
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 8px 10px;
+    background: #fafafa;
+    text-align: center;
+  }
+  .item-title {
+    font-size: 10.5pt;
+    font-weight: bold;
+    margin-bottom: 3px;
+  }
+  .item-desc {
+    font-size: 9.5pt;
+    color: #444;
+    line-height: 1.3;
+  }
+
+  /* Mũi tên giao tiếp */
+  .flow-arrow {
+    text-align: center;
+    font-size: 9.5pt;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: -5px 0;
+  }
+  .flow-label {
+    background: #fff;
+    border: 1px dashed #555;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-style: italic;
+  }
+
+  .footer-note {
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    margin-top: 15px;
+    font-size: 10pt;
+    line-height: 1.4;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="header-box">
+    <div class="title">Hình 3.9. Kiến trúc triển khai hạ tầng và tích hợp hệ thống BDI</div>
+    <div class="sub-title">(Mô hình triển khai phân tán trên nền tảng Điện toán đám mây và Chuỗi khối Sepolia)</div>
+  </div>
+
+  <div class="deploy-container">
+
+    <!-- KHỐI 1: PHÍA NGƯỜI DÙNG -->
+    <div class="node-block">
+      <div class="node-header">
+        <span>1. Môi trường thiết bị đầu cuối máy khách (Client Device Node)</span>
+        <span class="node-tag">Trình duyệt Web người dùng</span>
+      </div>
+      <div class="node-body grid-2">
+        <div class="item-card">
+          <div class="item-title">Trình duyệt Web hiện đại</div>
+          <div class="item-desc">Chrome, Edge, Firefox, Cốc Cốc<br>Thực thi ứng dụng Web SPA tĩnh (HTML5, JS ES6)</div>
+        </div>
+        <div class="item-card">
+          <div class="item-title">Tiện ích ví MetaMask (EIP-1193)</div>
+          <div class="item-desc">Lưu trữ khóa riêng an toàn trên máy khách<br>Ký thông điệp EIP-191 và phát sinh giao dịch on-chain</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mũi tên 1 -> 2 -->
+    <div class="flow-arrow">
+      ▼ <span class="flow-label">Kết nối bảo mật HTTPS (TLS 1.3) & Ký số mật mã</span> ▼
+    </div>
+
+    <!-- KHỐI 2: MÁY CHỦ CLOUD RENDER -->
+    <div class="node-block">
+      <div class="node-header">
+        <span>2. Nền tảng máy chủ ứng dụng đám mây (Render Cloud PaaS)</span>
+        <span class="node-tag">Môi trường thực thi Node.js v20+</span>
+      </div>
+      <div class="node-body grid-2">
+        <div class="item-card">
+          <div class="item-title">Máy chủ nghiệp vụ API (Express v5)</div>
+          <div class="item-desc">Điều hướng RESTful API, xác thực JWT 24h, quản lý phiên đa thiết bị, bảo mật CORS & Rate-limit</div>
+        </div>
+        <div class="item-card">
+          <div class="item-title">Động cơ xử lý mã hóa & Pháp y số</div>
+          <div class="item-desc">Ủy thác khóa Master Key (AES-256-GCM), trích xuất sai biệt Text/Pixel Diff và gọi SDK Gemini AI</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mũi tên 2 -> 3 -->
+    <div class="flow-arrow">
+      ▼ <span class="flow-label">Phân chia luồng tích hợp: Cơ sở dữ liệu, Mạng IPFS, Chuỗi khối & Dịch vụ AI</span> ▼
+    </div>
+
+    <!-- KHỐI 3: CÁC DỊCH VỤ NGOẠI VI & PHÂN TÁN -->
+    <div class="node-block">
+      <div class="node-header">
+        <span>3. Hạ tầng dịch vụ phân tán và chuỗi khối (Distributed Services & Blockchain)</span>
+        <span class="node-tag">Đa đám mây & Web3</span>
+      </div>
+      <div class="node-body grid-3">
+        <div class="item-card">
+          <div class="item-title">MongoDB Atlas (NoSQL)</div>
+          <div class="item-desc">Cụm CSDL đám mây lưu trữ siêu dữ liệu ví, danh mục lô, phiên thiết bị, kết nối bảo mật qua TLS</div>
+        </div>
+        <div class="item-card">
+          <div class="item-title">Pinata IPFS Cloud</div>
+          <div class="item-desc">Hệ thống lưu trữ tệp phân tán phi tập trung, ghim tệp bản mã vĩnh viễn với hạn mức 1GB</div>
+        </div>
+        <div class="item-card">
+          <div class="item-title">Ethereum Sepolia RPC</div>
+          <div class="item-desc">Mạng chuỗi khối công khai thực thi Smart Contract, lưu trữ mã băm SHA-256 bất biến</div>
+        </div>
+      </div>
+      <div class="node-body grid-2" style="padding-top: 0;">
+        <div class="item-card">
+          <div class="item-title">Google Gemini 1.5 Flash AI</div>
+          <div class="item-desc">Dịch vụ trí tuệ nhân tạo chuyên biệt tiếp nhận ngữ cảnh sai lệch và tự động xuất biên bản pháp y số</div>
+        </div>
+        <div class="item-card">
+          <div class="item-title">Hạ tầng máy chủ SMTP Email</div>
+          <div class="item-desc">Cổng phát thư điện tử xác thực đa yếu tố, gửi mã OTP 6 chữ số phục vụ phê duyệt phiên đăng nhập lạ</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    <b>Ghi chú:</b> Hạ tầng được cấu hình tự động thông qua tệp khai báo Infrastructure as Code (render.yaml). Quá trình biên dịch sản phẩm áp dụng cờ <code>--omit=dev</code> nhằm loại bỏ các thư viện phát triển nặng (Hardhat), rút ngắn thời gian triển khai lên môi trường đám mây và tối ưu hóa tài nguyên phần cứng.
+  </div>
+</div>
+
+</body>
+</html>

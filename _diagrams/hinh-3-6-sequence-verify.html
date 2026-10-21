@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.6 — Biểu đồ tuần tự quy trình giám định và xác thực tính toàn vẹn</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #4a4a4a;
+    display: flex;
+    justify-content: center;
+    padding: 25px 10px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1050px;
+    padding: 35px 45px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header-box {
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  .title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .sub-title {
+    font-size: 11pt;
+    font-style: italic;
+    color: #333;
+    margin-top: 3px;
+  }
+  .diagram-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .mermaid {
+    width: 100%;
+  }
+  .mermaid svg {
+    max-width: 100%;
+    height: auto;
+  }
+  .footer-note {
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    margin-top: 15px;
+    font-size: 10pt;
+    line-height: 1.4;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="header-box">
+    <div class="title">Hình 3.6. Biểu đồ tuần tự quy trình giám định và xác thực tính toàn vẹn</div>
+    <div class="sub-title">(Đối chiếu mã băm on-chain, trích xuất sai lệch Diff và phân tích pháp y số AI)</div>
+  </div>
+
+  <div class="diagram-container">
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User as Người kiểm định
+    participant FE as Web Client (SPA)
+    participant SC as Smart Contract Sepolia
+    participant BE as API Server & IPFS
+    participant AI as Gemini 1.5 Flash AI
+
+    Note over User, AI: Giai đoạn 1: Băm tệp kiểm định và đối chiếu với Blockchain
+    User->>FE: Tải tệp tin cần kiểm tra vào hệ thống và nhập mã docId
+    FE->>FE: Băm SHA-256 dữ liệu nhị phân của tệp tại máy khách
+    FE->>SC: Truy vấn hồ sơ tài liệu lưu trữ (getDocument)
+    SC-->>FE: Trả về {fileHash, ipfsURI, uploader, timestamp, isRevoked}
+
+    alt Trường hợp 1: Mã băm trùng khớp & Chưa bị thu hồi
+        FE-->>User: Kết luận: TÀI LIỆU NGUYÊN VẸN, CHUẨN XÁC
+    else Trường hợp 2: Tài liệu đã bị thu hồi trên sổ cái
+        FE-->>User: Cảnh báo: TÀI LIỆU ĐÃ BỊ THU HỒI (kèm lý do và phiên bản thay thế)
+    else Trường hợp 3: Mã băm không khớp — Phát hiện dữ liệu bị can thiệp
+        FE-->>User: Cảnh báo sai lệch, yêu cầu cung cấp khóa giải mã bản gốc
+        User->>FE: Cung cấp khóa bí mật AES
+        FE->>BE: Gửi yêu cầu giám định chuyên sâu (POST /api/verify)
+        
+        Note over BE, AI: Giai đoạn 2: Trích xuất bản gốc từ IPFS và so khớp sai biệt
+        BE->>BE: Tải tệp bản mã từ IPFS và giải mã AES in-memory
+        alt Tệp văn bản (TXT, DOCX)
+            BE->>BE: Thực thi Text Diff: xác định từng từ ngữ bị thêm/bớt/sửa
+        else Tệp hình ảnh (PNG, JPG)
+            BE->>BE: Thực thi Pixel Diff: tạo bản đồ nhiệt sai khác điểm ảnh
+        end
+
+        Note over BE, AI: Giai đoạn 3: Phân tích pháp y số bằng trí tuệ nhân tạo
+        BE->>AI: Gửi ngữ cảnh sai biệt đến mô hình Gemini 1.5 Flash
+        AI-->>BE: Phản hồi báo cáo phân tích rủi ro giả mạo tài liệu
+        BE-->>FE: Trả về {diffHtml, forensicReport, mismatchPercent}
+        FE-->>User: Hiển thị bản đồ nhiệt sai khác và báo cáo pháp y AI
+    end
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <b>Ghi chú:</b> Quy trình kiểm định cho phép phát hiện tức thì mọi hành vi can thiệp dữ liệu dù chỉ 1 bit thông qua cơ chế băm mật mã học SHA-256. Trong trường hợp dữ liệu bị sai lệch, hệ thống tích hợp công nghệ phân tích sai biệt (Diff Engine) và trí tuệ nhân tạo Gemini để hỗ trợ giám định viên xác định chính xác nội dung, vị trí bị sửa đổi và mức độ nguy hại của hành vi giả mạo.
+  </div>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#ffffff',
+      primaryTextColor: '#000000',
+      primaryBorderColor: '#000000',
+      lineColor: '#000000',
+      fontSize: '11.5px',
+      fontFamily: "'Times New Roman', serif",
+      actorTextColor: '#000000',
+      actorBkg: '#ffffff',
+      actorBorder: '#000000',
+      noteBkgColor: '#f7f7f7',
+      noteBorderColor: '#000000',
+      noteTextColor: '#000000',
+      activationBorderColor: '#000000',
+      activationBkgColor: '#efefef',
+      sequenceNumberColor: '#000000'
+    }
+  });
+</script>
+</body>
+</html>

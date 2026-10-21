@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hình 3.1 — Mô hình kiến trúc phân tầng hệ thống BDI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #4a4a4a;
+    display: flex;
+    justify-content: center;
+    padding: 25px 10px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .a4-page {
+    background: #fff;
+    width: 794px;
+    min-height: 1050px;
+    padding: 40px 50px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .header-box {
+    text-align: center;
+    margin-bottom: 25px;
+  }
+  .title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .sub-title {
+    font-size: 11pt;
+    font-style: italic;
+    color: #333;
+    margin-top: 4px;
+  }
+
+  /* Khung kiến trúc phân tầng */
+  .arch-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+  }
+
+  .layer-card {
+    border: 1.5px solid #000;
+    border-radius: 4px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .layer-header {
+    background: #f0f0f0;
+    border-bottom: 1.5px solid #000;
+    padding: 6px 14px;
+    font-weight: bold;
+    font-size: 11.5pt;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-transform: uppercase;
+  }
+  .layer-tag {
+    font-size: 10pt;
+    font-weight: normal;
+    font-style: italic;
+    text-transform: none;
+    color: #444;
+  }
+  .layer-body {
+    padding: 12px 14px;
+    display: grid;
+    gap: 10px;
+  }
+
+  /* Grid 4 cột */
+  .grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  /* Grid 3 cột */
+  .grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  /* Grid 2 cột */
+  .grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .comp-box {
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 8px 6px;
+    text-align: center;
+    background: #fafafa;
+    min-height: 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .comp-title {
+    font-weight: bold;
+    font-size: 11pt;
+    margin-bottom: 3px;
+    color: #000;
+  }
+  .comp-desc {
+    font-size: 9.5pt;
+    color: #444;
+    line-height: 1.25;
+  }
+
+  /* Mũi tên chuyển tầng */
+  .arrow-divider {
+    text-align: center;
+    font-size: 10pt;
+    font-weight: bold;
+    color: #222;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: -4px 0;
+  }
+  .arrow-divider span {
+    background: #fff;
+    padding: 0 8px;
+    border: 1px dashed #666;
+    border-radius: 10px;
+    font-size: 9.5pt;
+    font-style: italic;
+  }
+
+  /* Footer ghi chú */
+  .footer-note {
+    border-top: 1px solid #000;
+    padding-top: 10px;
+    margin-top: 20px;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+  <div class="header-box">
+    <div class="title">Hình 3.1. Mô hình kiến trúc phân tầng hệ thống BDI</div>
+    <div class="sub-title">(Blockchain Data Integrity — Kiến trúc phân tầng tích hợp AI và Lưu trữ phân tán)</div>
+  </div>
+
+  <div class="arch-container">
+
+    <!-- TẦNG 1 -->
+    <div class="layer-card">
+      <div class="layer-header">
+        <span>Tầng 1: Trình diễn (Presentation Layer)</span>
+        <span class="layer-tag">Client-side / Web SPA</span>
+      </div>
+      <div class="layer-body grid-4">
+        <div class="comp-box">
+          <div class="comp-title">Giao diện Web SPA</div>
+          <div class="comp-desc">HTML5, CSS3, JS<br>Điều hướng Tab nghiệp vụ</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Ví MetaMask</div>
+          <div class="comp-desc">Quản lý khóa riêng<br>Ký giao dịch EIP-191</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Web3Service</div>
+          <div class="comp-desc">Thư viện ethers.js v6<br>Giao tiếp RPC Blockchain</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">ApiService</div>
+          <div class="comp-desc">REST Client Axios<br>Xác thực qua JWT Token</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mũi tên 1 -> 2 -->
+    <div class="arrow-divider">
+      ▼ <span>Giao tiếp HTTPS (REST API) & Chữ ký số Web3</span> ▼
+    </div>
+
+    <!-- TẦNG 2 -->
+    <div class="layer-card">
+      <div class="layer-header">
+        <span>Tầng 2: Ứng dụng & Dịch vụ nghiệp vụ (Application & Logic Layer)</span>
+        <span class="layer-tag">Node.js / Express Server v5</span>
+      </div>
+      <div class="layer-body grid-3">
+        <div class="comp-box">
+          <div class="comp-title">Cổng Gateway & Phân quyền</div>
+          <div class="comp-desc">Xác thực SIWE, cấp JWT 24h, kiểm soát phiên đa thiết bị, OTP Email</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Mật mã & Ủy thác khóa</div>
+          <div class="comp-desc">Key Escrow bọc khóa AES-256 bằng Master Key (AES-256-GCM)</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Động cơ Diff & Pháp y AI</div>
+          <div class="comp-desc">Text Diff (mammoth), Pixel Diff, tích hợp Gemini 1.5 Flash giám định</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Truy vết dòng đời (Lineage)</div>
+          <div class="comp-desc">Xây dựng đồ thị phiên bản (v1→v2→v3), phát hiện vòng lặp tham chiếu</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Quản trị & Kiểm soát hạn ngạch</div>
+          <div class="comp-desc">Bảo vệ quota IPFS 1GB, chống spam rate-limit, danh sách IP vi phạm</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Dịch vụ tích hợp B2B</div>
+          <div class="comp-desc">REST API cho đối tác, chứng thực qua API Key, server ký thay on-chain</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mũi tên 2 -> 3,4 -->
+    <div class="arrow-divider">
+      ▼ <span>Phân chia dữ liệu: Siêu dữ liệu (Off-chain) & Bằng chứng xác thực (On-chain)</span> ▼
+    </div>
+
+    <!-- TẦNG 3 -->
+    <div class="layer-card">
+      <div class="layer-header">
+        <span>Tầng 3: Lưu trữ dữ liệu phân tán & CSDL (Data Storage Layer)</span>
+        <span class="layer-tag">Lưu trữ ngoại chuỗi (Off-chain)</span>
+      </div>
+      <div class="layer-body grid-2">
+        <div class="comp-box">
+          <div class="comp-title">Cơ sở dữ liệu MongoDB Atlas (NoSQL)</div>
+          <div class="comp-desc">Lưu trữ siêu dữ liệu ví, danh mục lô tài liệu (Batch), phiên thiết bị (DeviceSession), thông báo và nhật ký kiểm toán</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Hệ thống tệp phân tán IPFS (Pinata Cloud)</div>
+          <div class="comp-desc">Lưu trữ bản mã tệp tin lớn (đã mã hóa AES-256 cục bộ), định danh nội dung bất biến qua địa chỉ phân tán CID</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mũi tên 3 -> 4 -->
+    <div class="arrow-divider">
+      ▼ <span>Ghi nhận bằng chứng băm SHA-256 và gốc Merkle Root lên sổ cái</span> ▼
+    </div>
+
+    <!-- TẦNG 4 -->
+    <div class="layer-card">
+      <div class="layer-header">
+        <span>Tầng 4: Chuỗi khối bảo chứng chân lý (Blockchain Immutable Layer)</span>
+        <span class="layer-tag">On-chain / Sổ cái phân tán</span>
+      </div>
+      <div class="layer-body grid-2">
+        <div class="comp-box">
+          <div class="comp-title">Hợp đồng thông minh DataIntegrity.sol</div>
+          <div class="comp-desc">Thực thi kiểm soát truy cập RBAC 4 cấp, sổ chống trùng lặp theo ví (Multi-tenant), ghi nhận đóng dấu và trạng thái thu hồi</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-title">Mạng chuỗi khối Ethereum Sepolia Testnet</div>
+          <div class="comp-desc">Hạ tầng sổ cái bất biến công khai, lưu trữ mốc thời gian block, địa chỉ người ký và lịch sử giao dịch không thể tẩy xóa</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    <b>Ghi chú:</b> Kiến trúc hệ thống áp dụng mô hình lai (Hybrid On-chain / Off-chain) tối ưu: dữ liệu nhị phân dung lượng lớn được mã hóa và lưu tại IPFS; siêu dữ liệu tìm kiếm lưu tại MongoDB; chỉ các giá trị băm mật mã học (SHA-256) và gốc Merkle Tree được ghi trực tiếp lên Smart Contract nhằm đảm bảo tính toàn vẹn tuyệt đối với chi phí Gas tối thiểu.
+  </div>
+</div>
+
+</body>
+</html>

@@ -19,6 +19,7 @@ document.addEventListener('click', (e) => {
     switch (d.act) {
         case 'copy':            UI.copyToClipboard(d.v || ''); break;
         case 'revoke':          if (d.v) window.revokeDoc(d.v); break;
+        case 'lineage':         if (d.v) window.showLineage(d.v); break;
         case 'vis':             if (d.v) window.toggleDocVisibility(d.v, d.vis); break;
         case 'decrypt':         window.downloadAndDecrypt(d.v, d.name || 'document', d.id); break;
         case 'preview':         window.previewDocument(d.v, d.name || 'document', d.id); break;
@@ -417,6 +418,14 @@ window.getWalletName = function(address) {
     }
     
     return `<span class="text-blue-400 font-mono bg-blue-900/10 px-1.5 py-0.5 rounded border border-blue-900/30">${displayName}</span>`;
+};
+
+// Badge "ĐỐI TÁC · orgName" cho tài liệu upload qua API key đối tác —
+// giao dịch on-chain do server ký hộ bằng ví ADMIN nên cần badge phân biệt
+window.partnerBadge = (partnerOrgs, docId) => {
+    const org = partnerOrgs && partnerOrgs[docId];
+    if (!org) return '';
+    return `<div class="mt-1"><span class="text-amber-400 font-bold bg-amber-900/20 px-1.5 py-0.5 rounded border border-amber-800/50 text-[9px] uppercase" title="Tài liệu upload qua API đối tác — server ký giao dịch hộ bằng ví ADMIN"><i class="fa-solid fa-handshake mr-1"></i>Đối tác · ${esc(org)}</span></div>`;
 };
 
 window.copyDocId = (text) => UI.copyToClipboard(text);
@@ -1466,6 +1475,17 @@ async function promptPasswordAndUpload() {
         }
     } catch (e) { console.warn('Bỏ qua kiểm tra trùng (RPC lỗi):', e); }
 
+    // Tài liệu đang hoạt động của chính ví này — làm option cho select
+    // "đây là bản mới của tài liệu cũ". Server vẫn kiểm tra lại quyền sở hữu.
+    const myAddrUp = String(web3.currentAccount || '').toLowerCase();
+    const myActiveDocs = [];
+    try {
+        for (const b of (await ApiService.getBatchesFromDatabase() || [])) {
+            if (String(b.uploader || '').toLowerCase() !== myAddrUp) continue;
+            for (const f of (b.files || [])) if (!f.isRevoked) myActiveDocs.push(f);
+        }
+    } catch (e) {}
+
     // Danh sách file được duyệt — mỗi file chọn chế độ riêng, tùy chọn khóa riêng
     const rowsHtml = finalFiles.map((f, i) => `
         <div class="bdi-file-row" data-i="${Number(i)}" style="display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid #1f2937;border-radius:8px;margin-bottom:6px;background:#0b0f19;text-align:left">
@@ -1480,6 +1500,10 @@ async function promptPasswordAndUpload() {
                 <input type="checkbox" class="bdi-ownkey" style="accent-color:#2563eb;cursor:pointer"> Đặt khóa riêng (không dùng khóa chung)
             </label>
             <input type="password" class="bdi-key" placeholder="Nhập khóa riêng cho tệp này..." autocomplete="new-password" style="display:none;width:100%;box-sizing:border-box;padding:6px 10px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:12px;outline:none">
+            ${myActiveDocs.length ? `<select class="bdi-replace" title="Nếu đây là phiên bản mới của một tài liệu đã đóng dấu, chọn tài liệu cũ bị thay thế" style="padding:4px 6px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:11px;cursor:pointer">
+                <option value="">— Không phải bản mới của tài liệu cũ —</option>
+                ${myActiveDocs.map(d => `<option value="${esc(d.docId)}">Thay thế: ${esc(d.fileName || d.docId)}</option>`).join('')}
+            </select>` : ''}
         </div>`).join('');
 
     const aesHtml = `<style>
@@ -1523,7 +1547,8 @@ async function promptPasswordAndUpload() {
                 const own = row.querySelector('.bdi-ownkey').checked;
                 const k = row.querySelector('.bdi-key').value;
                 if (own && !k) missingName = finalFiles[i].name;
-                perFile[i] = { key: own ? k : null, vis: row.querySelector('.bdi-vis').value };
+                const rep = row.querySelector('.bdi-replace');
+                perFile[i] = { key: own ? k : null, vis: row.querySelector('.bdi-vis').value, replaces: rep ? (rep.value || null) : null };
             });
             if (missingName) { Swal.showValidationMessage(`Tệp "${esc(missingName)}" đã chọn khóa riêng nhưng chưa nhập`); return false; }
             return { key, vis, perFile };
@@ -1541,6 +1566,7 @@ async function promptPasswordAndUpload() {
         if (pf && finalFiles[i]) {
             finalFiles[i]._key = pf.key;
             finalFiles[i]._vis = pf.vis;
+            finalFiles[i]._replacesDocId = pf.replaces || null;
         }
     });
 
@@ -1623,7 +1649,9 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
                 fileSize: fileItem.size,
                 qrCode: qrCodeBase64,
                 encKey: fileKey, // khóa AES — chỉ gửi lên server bọc trong MongoDB, TUYỆT ĐỐI không đưa vào manifest IPFS
-                visibility: fileItem._vis || visibility
+                visibility: fileItem._vis || visibility,
+                // Liên kết dòng đời: docId phiên bản cũ mà file này thay thế (nếu có)
+                replacesDocId: fileItem._replacesDocId || undefined
             });
         }
 
@@ -1785,6 +1813,17 @@ async function handleVerify() {
                 <p class="text-gray-400">Thời gian khắc chuỗi: <span class="text-white">${esc(timestamp)}</span></p>
             </div>`;
 
+        // Dòng đời phiên bản: tài liệu đã có bản kế nhiệm → cảnh báo "bản cũ"
+        // trong mọi kết quả (khớp / thu hồi / sai lệch)
+        let supersededHtml = '';
+        try {
+            const lin = await ApiService.getDocumentLineage(docId);
+            if (lin && lin.success && lin.supersededBy) {
+                const latestId = (lin.latest && lin.latest.docId) || lin.supersededBy.docId;
+                supersededHtml = `<div class="bg-amber-900/30 border border-amber-700 p-3 rounded text-amber-300 text-sm mt-3 text-left"><i class="fa-solid fa-code-branch mr-1"></i><b>Đây là bản cũ</b> — đã có phiên bản mới thay thế. Bản mới nhất: <span class="font-mono text-xs break-all">${esc(latestId)}</span></div>`;
+            }
+        } catch (e) {}
+
         if (currentHash.toLowerCase() === originalHash.toLowerCase()) {
             let isRevoked = docData[4];
             let revocationReason = docData[5];
@@ -1808,6 +1847,7 @@ async function handleVerify() {
                             <p>Mã băm hoàn toàn trùng khớp với bản gốc, tuy nhiên tài liệu này đã bị <b class="text-red-500">VÔ HIỆU HÓA</b> bởi cơ quan phát hành.</p>
                             <div class="bg-red-900/20 border border-red-800 p-3 rounded text-red-400"><b>Lý do thu hồi:</b> ${esc(revocationReason)}</div>
                         </div>
+                        ${supersededHtml}
                         ${traceHTML}`,
                     confirmButtonText: 'Đóng', confirmButtonColor: '#dc2626'
                 }).then(() => UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY"));
@@ -1823,6 +1863,7 @@ async function handleVerify() {
                     icon: 'success', background: '#111827', color: '#fff',
                     html: `
                         <p class="text-gray-300 text-sm mb-4">Mã băm hoàn toàn trùng khớp với bản gốc trên Blockchain.</p>
+                        ${supersededHtml}
                         ${traceHTML}
                         <button data-act="pdf" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-bold shadow-md transition">
                             <i class="fa-solid fa-file-pdf mr-2"></i> Tải Báo Cáo Chứng Thực (PDF)
@@ -1891,10 +1932,10 @@ async function handleVerify() {
                         </div>
                     </div>`;
             }
-            html += traceHTML;
+            html += supersededHtml + traceHTML;
 
             Swal.fire({
-                icon: 'error', title: 'PHÁT HIỆN GIẢ MẠO!', 
+                icon: 'error', title: 'PHÁT HIỆN GIẢ MẠO!',
                 text: 'Mã băm không khớp với chuỗi khối!', 
                 background: '#111827', color: '#fff',
                 showCancelButton: true, confirmButtonText: 'Xem bằng chứng', cancelButtonText: 'Đóng', 
@@ -2098,6 +2139,15 @@ window.revokeDoc = async (docId) => {
         }
     }
 
+    // Tài liệu đã có bản kế nhiệm → gợi ý sẵn lý do "Thay thế bởi <docId>".
+    // Chuỗi này ghi vào revocationReason ON-CHAIN — trở thành con trỏ bất biến
+    // v1→v2, ai verify bản cũ đều thấy bản thay thế.
+    let suggestedReason = '';
+    for (const b of localBatches) {
+        const succ = (b.files || []).find(f => f.replacesDocId === docId);
+        if (succ) { suggestedReason = `Thay thế bởi ${succ.docId}`; break; }
+    }
+
     // Nếu không phải lô nội bộ, quét mạng Blockchain để tìm chủ nhân
     if (!isBatchFile) {
         try {
@@ -2124,8 +2174,9 @@ window.revokeDoc = async (docId) => {
     }
 
     const { value: reason } = await Swal.fire({
-        title: 'THU HỒI TÀI LIỆU', text: `Bạn đang vô hiệu hóa tài liệu ID: ${esc(docId)}`, 
+        title: 'THU HỒI TÀI LIỆU', text: `Bạn đang vô hiệu hóa tài liệu ID: ${esc(docId)}`,
         input: 'text', inputAttributes: { autocomplete: 'off' },
+        inputValue: suggestedReason || '',
         inputPlaceholder: 'Nhập lý do thu hồi (Bắt buộc)...',
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Xác nhận Thu hồi', cancelButtonText: 'Hủy', 
         background: '#111827', color: '#fff', confirmButtonColor: '#dc2626',
@@ -2187,6 +2238,33 @@ window.revokeDoc = async (docId) => {
     }
 };
 
+// Truy vết dòng đời phiên bản — chuỗi v1→v2→v3 kèm trạng thái từng bản
+window.showLineage = async (docId) => {
+    const r = await ApiService.getDocumentLineage(docId);
+    if (!r || !r.success) {
+        return Swal.fire({ title: 'Không có dữ liệu', text: 'Không tìm thấy dòng đời của tài liệu này.', icon: 'info', background: '#111827', color: '#fff' });
+    }
+    const arrow = '<div class="text-center text-purple-500 text-xs py-0.5"><i class="fa-solid fa-arrow-down"></i></div>';
+    const rows = r.chain.map(n => `
+        <div class="flex items-center gap-3 ${n.docId === docId ? '' : 'opacity-70'}">
+            <span class="bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded text-[10px] font-bold w-10 text-center flex-shrink-0">v${n.version}</span>
+            <div class="min-w-0 flex-1 text-left">
+                <div class="text-xs text-gray-200 truncate" title="${esc(n.fileName || '')}">${esc(n.fileName || '(không tên)')}</div>
+                <div class="text-[10px] font-mono text-gray-500 truncate">${esc(n.docId)}${n.docId === docId ? ' — đang xem' : ''}</div>
+            </div>
+            ${n.isRevoked ? '<span class="text-red-400 text-[10px] font-bold flex-shrink-0">THU HỒI</span>' : '<span class="text-emerald-400 text-[10px] font-bold flex-shrink-0">HỢP LỆ</span>'}
+        </div>`).join(arrow);
+    Swal.fire({
+        title: 'DÒNG ĐỜI TÀI LIỆU',
+        html: `
+            <div class="space-y-1 mt-2">
+${rows}
+            </div>
+            ${r.supersededBy ? `<div class="mt-3 p-2.5 bg-amber-900/30 border border-amber-800 rounded text-amber-300 text-xs text-left">Tài liệu đang xem là <b>bản cũ</b> — bản mới nhất: <span class="font-mono">${esc(r.latest.docId)}</span></div>` : ''}`,
+        background: '#111827', color: '#fff', confirmButtonColor: '#374151', confirmButtonText: 'Đóng', width: '34rem'
+    });
+};
+
 async function loadTransactionHistory() {
     const tbody = document.getElementById('history-table-body');
     if (!tbody) return;
@@ -2208,6 +2286,9 @@ async function loadTransactionHistory() {
 
         // Lấy batch Mongo trước — cần visibility/uploader để đánh dấu ổ khóa tài liệu riêng tư
         const localBatches = await ApiService.getBatchesFromDatabase();
+        // Map docId -> orgName: tài liệu đối tác upload qua API key được server
+        // ký on-chain hộ bằng ví ADMIN — cần badge để không nhầm là doc của ADMIN
+        const partnerOrgs = await ApiService.getPartnerDocs();
         const fileMeta = {}; // docId -> { visibility, uploader }
         for (const b of localBatches) {
             for (const f of (b.files || [])) {
@@ -2228,6 +2309,25 @@ async function loadTransactionHistory() {
             const owner = (meta && meta.uploader) || (uploaderAddr || '').toLowerCase();
             return owner === myAddr;
         };
+        // Bản đồ dòng đời phiên bản từ replacesDocId (MongoDB):
+        // verOf = số thứ tự phiên bản, succOf = docId bản kế nhiệm (nếu đã bị thay thế)
+        const predOf = {}, succOf = {};
+        for (const b of localBatches) for (const f of (b.files || [])) {
+            if (f.replacesDocId) { predOf[f.docId] = f.replacesDocId; succOf[f.replacesDocId] = f.docId; }
+        }
+        const verOf = (id) => {
+            let v = 1, cur = id;
+            const seen = new Set([id]);
+            while (predOf[cur] && !seen.has(predOf[cur])) { cur = predOf[cur]; seen.add(cur); v++; }
+            return v;
+        };
+        const verBadge = (docId) => {
+            const v = verOf(docId), next = succOf[docId];
+            if (v <= 1 && !next) return '';
+            const stale = next ? ' · cũ' : '';
+            return `<span class="bg-purple-900/50 text-purple-300 px-1.5 py-0.5 rounded text-[9px] font-bold ml-1 whitespace-nowrap" title="${esc('Phiên bản ' + v + (next ? ' — đã có bản mới thay thế' : ''))}">v${v}${stale}</span>`;
+        };
+        const hasLineage = (docId) => verOf(docId) > 1 || !!succOf[docId];
 
         // 1. Quét file On-chain
         const events = await web3.queryHistory();
@@ -2253,23 +2353,25 @@ async function loadTransactionHistory() {
                 seenDocIds.add(docId);
                 
                 let fileName = docId.replace(/_\d+$/, '').replace(/\.enc$/, '');
-                const searchPayload = esc(`${docId} ${fileName} ${uploader} ${createTime} ${hash}`.toLowerCase());
+                const searchPayload = esc(`${docId} ${fileName} ${uploader} ${createTime} ${hash} ${partnerOrgs[docId] || ''}`.toLowerCase());
 
                 html += `
                 <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                     <td class="px-3 py-2 font-bold text-center text-gray-500">${stt++}</td>
                         <td class="px-3 py-2 font-mono text-blue-400 text-xs">
-                            <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(docId)}">${esc(docId)}</span></div>
+                            <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(docId)}">${esc(docId)}</span>${verBadge(docId)}</div>
                             <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
                             <div class="mt-1 text-[9px] ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'text-emerald-400' : 'text-gray-500'}"><i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
                             <div class="mt-1.5 flex gap-3">
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-purple-400 hover:text-purple-300 transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
                                 ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
                                 <button data-act="revoke" data-v="${esc(docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>
                             </div>
                         </td>
                     <td class="px-3 py-2 text-xs text-gray-300">
                         <div class="mb-1">${window.getWalletName(uploader)}</div>
+                        ${window.partnerBadge(partnerOrgs, docId)}
                         <div class="text-gray-400 text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                     </td>
                     <td class="px-3 py-2 font-mono text-[10px] text-gray-500">
@@ -2314,11 +2416,12 @@ async function loadTransactionHistory() {
                     <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                         <td class="px-3 py-2 font-bold text-center text-gray-500">${stt++}</td>
                         <td class="px-3 py-2 font-mono text-blue-400 text-xs">
-                            <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</span></div>
+                            <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</span>${verBadge(fileDoc.docId)}</div>
                             <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileDoc.fileName)}">File: ${esc(fileDoc.fileName)}</div>
                             <div class="mt-1 text-[9px] ${fileDoc.visibility === 'public' ? 'text-emerald-400' : 'text-gray-500'}"><i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
                             <div class="mt-1.5 flex gap-3">
                                 <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                ${hasLineage(fileDoc.docId) ? `<button data-act="lineage" data-v="${esc(fileDoc.docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-purple-400 hover:text-purple-300 transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
                                 ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
                                 <button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>
                             </div>
@@ -2373,6 +2476,7 @@ async function loadRevokedHistory() {
         let html = ''; 
         let stt = 1;
         const seenRevoked = new Set(); // on-chain + DB cùng đánh dấu 1 tài liệu — chỉ render 1 dòng
+        const partnerOrgs = await ApiService.getPartnerDocs(); // badge ĐỐI TÁC
 
         // 1. Quét On-chain
         const events = await web3.queryRevokedHistory();
@@ -2402,6 +2506,7 @@ async function loadRevokedHistory() {
                     </td>
                     <td class="px-3 py-2 text-xs text-gray-300">
                         <div class="mb-1">${window.getWalletName(uploader)}</div>
+                        ${window.partnerBadge(partnerOrgs, docId)}
                         <div class="text-gray-400 text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                     </td>
                     <td class="px-3 py-2 text-xs text-gray-300">
