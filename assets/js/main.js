@@ -462,11 +462,54 @@ const matchTableRow = (row, input) => {
     return searchData.includes(input);
 };
 
+// Chuyển chế độ sổ cái: tài liệu ví ↔ tài liệu đối tác (API key)
+window.switchLedgerTab = (mode) => {
+    const w = document.getElementById('ledger-pane-wallet');
+    const p = document.getElementById('ledger-pane-partner');
+    const bw = document.getElementById('ltab-wallet');
+    const bp = document.getElementById('ltab-partner');
+    if (!w || !p || !bw || !bp) return;
+    const isWallet = mode === 'wallet';
+    w.classList.toggle('hidden', !isWallet);
+    p.classList.toggle('hidden', isWallet);
+    p.classList.toggle('flex', !isWallet);
+    const base = 'ledger-tab text-xs font-bold px-4 py-2 rounded-lg border transition';
+    bw.className = base + (isWallet ? ' bg-blue-600/20 text-blue-300 border-blue-500/60' : ' bg-gray-800/50 text-gray-400 border-gray-700 hover:text-blue-300');
+    bp.className = base + (!isWallet ? ' bg-amber-600/20 text-amber-300 border-amber-500/60' : ' bg-gray-800/50 text-gray-400 border-gray-700 hover:text-amber-300');
+};
+
+// Lọc tài liệu đối tác theo API key/tổ chức — chip "đang hoạt động"
+let activePartnerOrg = 'all';
+let partnerOrgCounts = {};
+window.selectPartnerOrg = (org) => { activePartnerOrg = org; renderPartnerOrgChips(); filterHistoryTable(); };
+function renderPartnerOrgChips() {
+    const box = document.getElementById('partner-org-chips');
+    if (!box) return;
+    const orgs = Object.keys(partnerOrgCounts);
+    if (!orgs.length) {
+        box.innerHTML = '<span class="text-xs text-gray-600">Chưa có tài liệu đối tác nào được đóng dấu.</span>';
+        return;
+    }
+    if (!orgs.includes(activePartnerOrg)) activePartnerOrg = 'all';
+    const total = orgs.reduce((s, o) => s + partnerOrgCounts[o], 0);
+    const cls = (on) => 'text-xs font-bold px-3 py-1.5 rounded-full border transition ' +
+        (on ? 'bg-amber-600/20 text-amber-300 border-amber-500/60' : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-amber-300');
+    box.innerHTML = '<span class="text-[10px] text-gray-500 font-bold uppercase mr-1">API Key đang hoạt động:</span>'
+        + `<button type="button" data-org="all" class="${cls(activePartnerOrg === 'all')}">Tất cả (${total})</button>`
+        + orgs.map(o => `<button type="button" data-org="${esc(o)}" class="${cls(activePartnerOrg === o)}"><i class="fa-solid fa-key mr-1"></i>${esc(o)} (${partnerOrgCounts[o]})</button>`).join('');
+    box.querySelectorAll('button[data-org]').forEach(b => b.addEventListener('click', () => selectPartnerOrg(b.dataset.org)));
+}
+
 window.filterHistoryTable = () => {
     const input = document.getElementById('search-history-input')?.value.toLowerCase().trim() || '';
-    // Lọc cả bảng sổ cái ví lẫn bảng riêng của tài liệu đối tác
-    const rows = document.querySelectorAll('#history-table-body tr, #partner-docs-body tr');
-    rows.forEach(row => { row.style.display = matchTableRow(row, input) ? '' : 'none'; });
+    document.querySelectorAll('#history-table-body tr').forEach(row => {
+        row.style.display = matchTableRow(row, input) ? '' : 'none';
+    });
+    // Bảng đối tác: lọc theo ô search VÀ chip tổ chức đang chọn
+    document.querySelectorAll('#partner-docs-body tr[data-org]').forEach(row => {
+        const orgOk = activePartnerOrg === 'all' || row.dataset.org === activePartnerOrg;
+        row.style.display = orgOk && matchTableRow(row, input) ? '' : 'none';
+    });
 };
 
 window.filterRevokedTable = () => {
@@ -2277,6 +2320,7 @@ async function loadTransactionHistory() {
         let stt = 1;
         let partnerHtml = ''; // bảng riêng cho tài liệu đối tác (API key)
         let pStt = 1;
+        partnerOrgCounts = {};
         const seenDocIds = new Set(); // chống render trùng giữa nguồn chain và MongoDB
 
         // Event DocumentRevoked là nguồn sự thật chắc chắn đã mine —
@@ -2361,9 +2405,11 @@ async function loadTransactionHistory() {
                 // Tài liệu đối tác (API key) → bảng riêng, không lẫn sổ cái ví:
                 // chỉ hiện metadata, không nút Xem/Tải — không ai (kể cả ADMIN)
                 // mở được nội dung ngoài tổ chức sở hữu key.
-                if (partnerOrgs[docId]) {
+                const org = partnerOrgs[docId];
+                if (org) {
+                    partnerOrgCounts[org] = (partnerOrgCounts[org] || 0) + 1;
                     partnerHtml += `
-                    <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
+                    <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}" data-org="${esc(org)}">
                         <td class="px-3 py-2 font-bold text-center text-gray-500">${pStt++}</td>
                         <td class="px-3 py-2 font-mono text-blue-400 text-xs">
                             <div class="truncate max-w-[150px]" title="${esc(docId)}">${esc(docId)}</div>
@@ -2497,11 +2543,11 @@ async function loadTransactionHistory() {
             }
         }
         tbody.innerHTML = html === '' ? '<tr><td colspan="6" class="px-4 py-10 text-center text-gray-600">Không có tài liệu hợp lệ nào.</td></tr>' : html;
-        // Bảng riêng tài liệu đối tác — ẩn hẳn khi chưa có doc nào
+        // Bảng riêng tài liệu đối tác + chip chọn API key/tổ chức
         const pBody = document.getElementById('partner-docs-body');
-        const pCard = document.getElementById('partner-docs-card');
-        if (pBody) pBody.innerHTML = partnerHtml;
-        if (pCard) pCard.classList.toggle('hidden', !partnerHtml);
+        if (pBody) pBody.innerHTML = partnerHtml ||
+            '<tr><td colspan="6" class="px-4 py-10 text-center text-gray-600">Chưa có tài liệu đối tác nào.</td></tr>';
+        renderPartnerOrgChips();
         filterHistoryTable();
         fillTxFees(tbody); // điền phí gas sau khi render — không chặn bảng
         if (pBody) fillTxFees(pBody);
