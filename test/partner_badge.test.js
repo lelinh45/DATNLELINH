@@ -42,9 +42,10 @@ test('frontend: sổ cái render badge Đối tác qua window.partnerBadge', () 
 });
 
 test('frontend: cả bảng đang hoạt động lẫn bảng đã thu hồi đều nạp partner map', () => {
-    // loadTransactionHistory + loadRevokedHistory là 2 hàm riêng — cả hai đều cần map
+    // loadTransactionHistory + loadRevokedHistory (+ openStorageModal) — chỗ nào
+    // render doc cũng cần map để nhận diện tài liệu đối tác
     const fetches = main.match(/ApiService\.getPartnerDocs\(\)/g) || [];
-    assert.equal(fetches.length, 2);
+    assert.ok(fetches.length >= 2, `cần >=2 chỗ nạp partner map, có ${fetches.length}`);
 });
 
 // ===== Cổng đối tác partner.html: login bằng API key, không cần ví =====

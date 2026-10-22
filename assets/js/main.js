@@ -3748,6 +3748,17 @@ window.openStorageModal = async function(walletAddress) {
         const mongoByDocId = {};
         for (const b of localBatches) for (const f of (b.files || [])) mongoByDocId[f.docId] = f;
 
+        // Map docId -> orgName: nhận diện tài liệu ĐỐI TÁC đang nằm trong sổ cái
+        // của ví server (uploader = ADMIN). Áp cùng luật với sổ cái chính:
+        // chỉ ví ADMIN thấy; không ai mở nội dung ngoài tổ chức sở hữu key.
+        const partnerOrgs = await ApiService.getPartnerDocs();
+        const myAddr = (web3.currentAccount || '').toLowerCase();
+        const isAdminViewer = window.__isAdminWallet === true;
+        // File private chỉ chủ ví mở — kể cả ADMIN xem hồ sơ ví khác cũng chỉ thấy khóa
+        const lockChip = `<span class="ml-2 text-gray-500 text-[11px] uppercase font-bold bg-gray-800/60 px-2 py-1 rounded border border-gray-700" title="Tài liệu riêng tư — chỉ người tải lên xem được"><i class="fa-solid fa-lock mr-1"></i>Riêng tư</span>`;
+        const partnerChip = `<span class="ml-2 text-amber-500/90 text-[11px] uppercase font-bold bg-amber-900/20 px-2 py-1 rounded border border-amber-900/40" title="Chỉ tổ chức sở hữu API key tải về tại cổng /partner"><i class="fa-solid fa-lock mr-1"></i>Chỉ tổ chức mở được</span>`;
+        const locked = (docUploader, vis) => (vis || 'private') !== 'public' && docUploader.toLowerCase() !== myAddr;
+
         // Lấy file đơn lẻ (On-chain)
         const events = await web3.queryHistory();
         if (events && events.length > 0) {
@@ -3766,13 +3777,17 @@ window.openStorageModal = async function(walletAddress) {
 
                 if (uploader.toLowerCase() === walletAddress.toLowerCase()) {
                     seenDocIds.add(docId);
+                    const org = partnerOrgs[docId];
+                    if (org && !isAdminViewer) continue; // doc đối tác: không phải ADMIN → ẩn luôn
                     const mongoFile = mongoByDocId[docId];
                     const sizeText = (mongoFile && mongoFile.fileSize) || '---';
                     let fileName = docId.replace(/_\d+$/, '').replace(/\.enc$/, '');
                     const statusBadge = isRevoked ? '<span class="bg-red-900/40 text-red-400 px-2 py-1 rounded text-[10px] font-bold">BỊ THU HỒI</span>' : '<span class="bg-emerald-900/40 text-emerald-400 px-2 py-1 rounded text-[10px] font-bold uppercase">HỢP LỆ</span>';
-                    
-                    // Nút xem/tải chỉ hiện nếu file chưa bị thu hồi
-                    const downloadBtn = isRevoked ? '' : `<button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" class="ml-2 text-emerald-400 hover:text-emerald-300 text-[11px] bg-emerald-900/20 px-2 py-1 rounded border border-emerald-900/50 transition" title="Xem trực tiếp"><i class="fa-solid fa-eye mr-1"></i> Xem</button><button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" class="ml-2 text-blue-400 hover:text-blue-300 text-[11px] bg-blue-900/20 px-2 py-1 rounded border border-blue-900/50 transition" title="Tải & Giải mã"><i class="fa-solid fa-download mr-1"></i> Tải về</button>`;
+                    const orgBadge = org ? `<div class="mt-1">${window.partnerBadge(partnerOrgs, docId)}</div>` : '';
+
+                    // Nút xem/tải: thu hồi → ẩn; doc đối tác → khóa tổ chức; private của ví khác → khóa
+                    const downloadBtn = isRevoked ? '' : org ? partnerChip : locked(uploader, mongoFile && mongoFile.visibility) ? lockChip
+                        : `<button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" class="ml-2 text-emerald-400 hover:text-emerald-300 text-[11px] bg-emerald-900/20 px-2 py-1 rounded border border-emerald-900/50 transition" title="Xem trực tiếp"><i class="fa-solid fa-eye mr-1"></i> Xem</button><button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" class="ml-2 text-blue-400 hover:text-blue-300 text-[11px] bg-blue-900/20 px-2 py-1 rounded border border-blue-900/50 transition" title="Tải & Giải mã"><i class="fa-solid fa-download mr-1"></i> Tải về</button>`;
 
                     html += `
                     <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition ${isRevoked ? 'opacity-50' : ''}">
@@ -3783,6 +3798,7 @@ window.openStorageModal = async function(walletAddress) {
                         <button data-act="copy" data-v="${esc(docId)}" class="ml-2 text-gray-400 hover:text-white"><i class="fa-regular fa-copy"></i></button>
                         </div>
                         <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
+                        ${orgBadge}
                         </td>
                         <td class="px-3 py-2 text-left font-mono text-[11px] text-gray-300">${esc(sizeText)}</td>
                         <td class="px-3 py-2 text-xs text-gray-400">${esc(createTime)}</td>
@@ -3803,9 +3819,10 @@ window.openStorageModal = async function(walletAddress) {
                     seenDocIds.add(fileDoc.docId);
                     const isRevoked = fileDoc.isRevoked;
                     const statusBadge = isRevoked ? '<span class="bg-red-900/40 text-red-400 px-2 py-1 rounded text-[10px] font-bold">BỊ THU HỒI</span>' : '<span class="bg-emerald-900/40 text-emerald-400 px-2 py-1 rounded text-[10px] font-bold uppercase">HỢP LỆ</span>';
-                    
-                    // Nút xem/tải chỉ hiện nếu file chưa bị thu hồi
-                    const downloadBtn = isRevoked ? '' : `<button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="ml-2 text-emerald-400 hover:text-emerald-300 text-[11px] bg-emerald-900/20 px-2 py-1 rounded border border-emerald-900/50 transition" title="Xem trực tiếp"><i class="fa-solid fa-eye mr-1"></i> Xem</button><button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="ml-2 text-blue-400 hover:text-blue-300 text-[11px] bg-blue-900/20 px-2 py-1 rounded border border-blue-900/50 transition" title="Tải & Giải mã"><i class="fa-solid fa-download mr-1"></i> Tải về</button>`;
+
+                    // Nút xem/tải: thu hồi → ẩn; private của ví khác → khóa (kể cả ADMIN)
+                    const downloadBtn = isRevoked ? '' : locked(batch.uploader, fileDoc.visibility) ? lockChip
+                        : `<button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="ml-2 text-emerald-400 hover:text-emerald-300 text-[11px] bg-emerald-900/20 px-2 py-1 rounded border border-emerald-900/50 transition" title="Xem trực tiếp"><i class="fa-solid fa-eye mr-1"></i> Xem</button><button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="ml-2 text-blue-400 hover:text-blue-300 text-[11px] bg-blue-900/20 px-2 py-1 rounded border border-blue-900/50 transition" title="Tải & Giải mã"><i class="fa-solid fa-download mr-1"></i> Tải về</button>`;
 
                     html += `
                     <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition ${isRevoked ? 'opacity-50' : ''}">
