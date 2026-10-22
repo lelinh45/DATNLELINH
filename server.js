@@ -1017,19 +1017,10 @@ app.get('/api/documents/:docId/key', requireAuth, async (req, res) => {
         }
         const batch = await Batch.findOne({ "files.docId": docId }).lean();
         const file = batch && batch.files.find(f => f.docId === docId);
-        if (!file) {
-            // Tài liệu đối tác (upload qua API key) không nằm trong Batch —
-            // khóa bọc sẵn trong PartnerDocument. Chỉ ADMIN mở trên sổ cái;
-            // tổ chức tự tải file của mình qua /api/v1/documents/:docId/download.
-            const pdoc = await PartnerDocument.findOne({ docId }).lean();
-            if (!pdoc) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu' });
-            const rank = await getRoleRank(req.user.address);
-            if (rank < 3) return res.status(403).json({ success: false, message: 'Tài liệu của đối tác — chỉ ADMIN được mở' });
-            if (!pdoc.encKey) return res.status(404).json({ success: false, message: 'Tài liệu không có khóa lưu trữ' });
-            const key = unwrapKey(pdoc.encKey);
-            if (key === null) return res.status(500).json({ success: false, message: 'Không giải được khóa lưu trữ' });
-            return res.json({ success: true, key });
-        }
+        // Tài liệu đối tác (PartnerDocument) không nằm trong Batch → 404:
+        // không ví nào — kể cả ADMIN — được lấy khóa/mở nội dung trên sổ cái.
+        // Chỉ tổ chức sở hữu API key tải về qua /api/v1/documents/:docId/download.
+        if (!file) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu' });
 
         const isUploader = String(batch.uploader || '').toLowerCase() === req.user.address;
         if (!isUploader && (file.visibility || 'private') !== 'public') {

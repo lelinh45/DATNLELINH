@@ -464,7 +464,8 @@ const matchTableRow = (row, input) => {
 
 window.filterHistoryTable = () => {
     const input = document.getElementById('search-history-input')?.value.toLowerCase().trim() || '';
-    const rows = document.querySelectorAll('#history-table-body tr');
+    // Lọc cả bảng sổ cái ví lẫn bảng riêng của tài liệu đối tác
+    const rows = document.querySelectorAll('#history-table-body tr, #partner-docs-body tr');
     rows.forEach(row => { row.style.display = matchTableRow(row, input) ? '' : 'none'; });
 };
 
@@ -2274,6 +2275,8 @@ async function loadTransactionHistory() {
     try {
         let html = '';
         let stt = 1;
+        let partnerHtml = ''; // bảng riêng cho tài liệu đối tác (API key)
+        let pStt = 1;
         const seenDocIds = new Set(); // chống render trùng giữa nguồn chain và MongoDB
 
         // Event DocumentRevoked là nguồn sự thật chắc chắn đã mine —
@@ -2354,6 +2357,41 @@ async function loadTransactionHistory() {
                 
                 let fileName = docId.replace(/_\d+$/, '').replace(/\.enc$/, '');
                 const searchPayload = esc(`${docId} ${fileName} ${uploader} ${createTime} ${hash} ${partnerOrgs[docId] || ''}`.toLowerCase());
+
+                // Tài liệu đối tác (API key) → bảng riêng, không lẫn sổ cái ví:
+                // chỉ hiện metadata, không nút Xem/Tải — không ai (kể cả ADMIN)
+                // mở được nội dung ngoài tổ chức sở hữu key.
+                if (partnerOrgs[docId]) {
+                    partnerHtml += `
+                    <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
+                        <td class="px-3 py-2 font-bold text-center text-gray-500">${pStt++}</td>
+                        <td class="px-3 py-2 font-mono text-blue-400 text-xs">
+                            <div class="truncate max-w-[150px]" title="${esc(docId)}">${esc(docId)}</div>
+                            <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
+                            <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px] mt-1"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                        </td>
+                        <td class="px-3 py-2 text-xs text-gray-300">
+                            ${window.partnerBadge(partnerOrgs, docId)}
+                            <div class="text-gray-400 text-[11px] font-medium mt-1"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
+                        </td>
+                        <td class="px-3 py-2 font-mono text-[10px] text-gray-500">
+                            <div class="text-gray-400 mb-1 truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
+                            <div class="flex items-center gap-3">
+                                <a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="File mã hóa trên IPFS" class="text-emerald-500 hover:text-emerald-400 text-[10px] uppercase font-bold transition">
+                                    <i class="fa-solid fa-cloud mr-1"></i> IPFS
+                                </a>
+                                <span class="text-amber-500/90 text-[10px] uppercase font-bold bg-amber-900/20 px-2 py-0.5 rounded border border-amber-900/40" title="Chỉ tổ chức sở hữu API key tải về tại cổng /partner">
+                                    <i class="fa-solid fa-lock mr-1"></i> Chỉ tổ chức mở được
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-purple-400 hover:text-purple-300 text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-gray-600 text-[10px]">—</span>'}
+                        </td>
+                        <td class="px-3 py-2 text-center"><span class="bg-amber-900/40 text-amber-400 px-2 py-1 rounded text-[10px] font-bold uppercase">ĐỐI TÁC</span></td>
+                    </tr>`;
+                    continue;
+                }
 
                 html += `
                 <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
@@ -2459,8 +2497,14 @@ async function loadTransactionHistory() {
             }
         }
         tbody.innerHTML = html === '' ? '<tr><td colspan="6" class="px-4 py-10 text-center text-gray-600">Không có tài liệu hợp lệ nào.</td></tr>' : html;
+        // Bảng riêng tài liệu đối tác — ẩn hẳn khi chưa có doc nào
+        const pBody = document.getElementById('partner-docs-body');
+        const pCard = document.getElementById('partner-docs-card');
+        if (pBody) pBody.innerHTML = partnerHtml;
+        if (pCard) pCard.classList.toggle('hidden', !partnerHtml);
         filterHistoryTable();
         fillTxFees(tbody); // điền phí gas sau khi render — không chặn bảng
+        if (pBody) fillTxFees(pBody);
     } catch (err) {
         tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-red-500">Lỗi kết nối RPC. Vui lòng kết nối ví trước.</td></tr>';
     }
@@ -2485,6 +2529,7 @@ async function loadRevokedHistory() {
                 const docId = ev.args[0]; const revokedBy = ev.args[1]; const reason = ev.args[2];
                 if (seenRevoked.has(docId)) continue;
                 seenRevoked.add(docId);
+                if (partnerOrgs[docId]) continue; // doc đối tác không lẫn vào kho thu hồi của ví
                 let uploader = '---'; let createTime = '---';
                 
                 try { 
