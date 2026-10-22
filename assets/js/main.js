@@ -2457,7 +2457,7 @@ async function loadTransactionHistory() {
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                 ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-purple-400 hover:text-purple-300 transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
                                 ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
-                                <button data-act="revoke" data-v="${esc(docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>
+                                ${isOwnDoc(docId, uploader) ? `<button data-act="revoke" data-v="${esc(docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
                             </div>
                         </td>
                     <td class="px-3 py-2 text-xs text-gray-300">
@@ -2514,7 +2514,7 @@ async function loadTransactionHistory() {
                                 <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                 ${hasLineage(fileDoc.docId) ? `<button data-act="lineage" data-v="${esc(fileDoc.docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-purple-400 hover:text-purple-300 transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
                                 ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
-                                <button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>
+                                ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
                             </div>
                         </td>
                         <td class="px-3 py-2 text-xs text-gray-300">
