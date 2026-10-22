@@ -68,13 +68,13 @@
         <div class="card p-5">
             <h2 class="font-bold text-emerald-400 mb-3"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & đóng dấu tài liệu</h2>
             <div id="up-drop" class="dropzone mb-3 p-6 text-center">
-                <input id="up-file" type="file" class="hidden">
+                <input id="up-file" type="file" class="hidden" multiple>
                 <div id="up-drop-inner">
                     <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-emerald-900/40 flex items-center justify-center">
                         <i class="fa-solid fa-cloud-arrow-up text-2xl text-emerald-400"></i>
                     </div>
-                    <p class="font-bold text-gray-200">Kéo thả tài liệu vào đây</p>
-                    <p class="text-xs text-gray-500 mt-1">hoặc <span class="text-emerald-400 font-bold underline">chọn tệp</span> từ thiết bị</p>
+                    <p class="font-bold text-gray-200">Kéo thả hàng loạt tài liệu vào đây</p>
+                    <p class="text-xs text-gray-500 mt-1">hoặc <span class="text-emerald-400 font-bold underline">chọn nhiều tệp</span> từ thiết bị</p>
                     <p class="text-[10px] text-gray-600 mt-2 font-mono">Hỗ trợ: PDF, DOCX, PNG, JPG, TXT (Max 50MB/file)</p>
                 </div>
             </div>
@@ -177,54 +177,71 @@ function showDashboard() {
 function bindDropzone(zoneId, inputId, innerId, iconCls) {
     const zone = document.getElementById(zoneId);
     const input = document.getElementById(inputId);
+    const inner = document.getElementById(innerId);
+    const emptyHTML = inner.innerHTML;
     zone.addEventListener('click', () => input.click());
-    input.addEventListener('change', () => showFile(input.files[0]));
+    input.addEventListener('change', showFiles);
     ['dragover', 'dragenter'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('dragover'); }));
     ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('dragover'); }));
-    zone.addEventListener('drop', e => { if (e.dataTransfer.files[0]) { input.files = e.dataTransfer.files; showFile(input.files[0]); } });
-    function showFile(f) {
-        if (!f) return;
-        document.getElementById(innerId).innerHTML = `
-            <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-900/40 flex items-center justify-center">
-                <i class="fa-solid ${iconCls} text-emerald-400"></i>
-            </div>
-            <p class="font-bold text-emerald-400 text-sm break-all">${esc(f.name)}</p>
-            <p class="text-[10px] text-gray-500 font-mono mt-1">${fmtSize(f.size)} — bấm để chọn lại</p>`;
+    zone.addEventListener('drop', e => { if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; showFiles(); } });
+    function showFiles() {
+        const fs = Array.from(input.files);
+        if (!fs.length) return;
+        inner.innerHTML = fs.map(f => `
+            <div class="flex items-center gap-2 py-1 text-left border-b border-gray-800/50 last:border-0">
+                <i class="fa-solid ${iconCls} text-emerald-400 shrink-0"></i>
+                <span class="font-bold text-emerald-400 text-xs break-all flex-1">${esc(f.name)}</span>
+                <span class="text-[10px] text-gray-500 font-mono shrink-0">${fmtSize(f.size)}</span>
+            </div>`).join('')
+            + `<p class="text-[10px] text-gray-500 mt-2">${fs.length} file đã chọn — bấm để chọn lại</p>`;
     }
+    return { reset() { input.value = ''; inner.innerHTML = emptyHTML; } };
 }
-bindDropzone('up-drop', 'up-file', 'up-drop-inner', 'fa-file-circle-check');
-bindDropzone('vf-drop', 'vf-file', 'vf-drop-inner', 'fa-file-circle-check');
+const upDz = bindDropzone('up-drop', 'up-file', 'up-drop-inner', 'fa-file-circle-check');
+const vfDz = bindDropzone('vf-drop', 'vf-file', 'vf-drop-inner', 'fa-file-circle-check');
 
-// ---------- UPLOAD ----------
+// ---------- UPLOAD (hỗ trợ nhiều file — xử lý tuần tự, báo kết quả từng file) ----------
 async function uploadDoc() {
-    const f = document.getElementById('up-file').files[0];
-    if (!f) return toast('warning', 'Chọn file cần đóng dấu');
+    const input = document.getElementById('up-file');
+    const files = Array.from(input.files);
+    if (!files.length) return toast('warning', 'Chọn file cần đóng dấu');
     const btn = document.getElementById('btn-upload');
-    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Đang mã hóa & ghi on-chain...';
-    document.getElementById('up-result').innerHTML = '<span class="text-gray-400"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Upload → IPFS → chờ xác nhận Sepolia (có thể ~30-60s)...</span>';
-    try {
-        const fd = new FormData();
-        fd.append('document', f);
-        const res = await api('/api/v1/documents', { method: 'POST', body: fd });
-        const d = await res.json();
-        if (!res.ok || !d.success) throw new Error(d.message || 'Upload thất bại');
-        document.getElementById('up-result').innerHTML = `
-            <div class="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
-                <div class="text-emerald-400 font-bold mb-2"><i class="fa-solid fa-circle-check mr-1"></i>Đóng dấu thành công</div>
-                <div class="font-mono break-all"><b>docId:</b> ${esc(d.documentId)}</div>
-                <div class="font-mono break-all text-gray-500"><b>hash:</b> ${esc(d.fileHash)}</div>
-                <div class="mt-2 flex gap-3">
-                    <a href="https://sepolia.etherscan.io/tx/${esc(d.txHash)}" target="_blank" rel="noopener noreferrer" class="text-purple-400 font-bold"><i class="fa-solid fa-link mr-1"></i>Etherscan</a>
-                    <a href="https://ipfs.io/ipfs/${esc(d.ipfsCID)}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 font-bold"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>
-                </div>
-            </div>`;
-        document.getElementById('vf-docid').value = d.documentId;
-        loadDocs();
-    } catch (e) {
-        document.getElementById('up-result').innerHTML = `<div class="text-red-400"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(e.message)}</div>`;
-    } finally {
-        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-stamp mr-1"></i>Mã hóa → IPFS → Ghi blockchain';
+    const box = document.getElementById('up-result');
+    btn.disabled = true;
+    box.innerHTML = '';
+    let ok = 0, fail = 0;
+    for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Đang xử lý ${i + 1}/${files.length}…`;
+        box.insertAdjacentHTML('beforeend', `<div id="up-row-${i}" class="text-gray-400 mb-2"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i>${esc(f.name)} — đang mã hóa & ghi on-chain (~30-60s)...</div>`);
+        const row = document.getElementById(`up-row-${i}`);
+        try {
+            const fd = new FormData();
+            fd.append('document', f);
+            const res = await api('/api/v1/documents', { method: 'POST', body: fd });
+            const d = await res.json();
+            if (!res.ok || !d.success) throw new Error(d.message || 'Upload thất bại');
+            ok++;
+            row.outerHTML = `
+                <div class="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3 mb-2">
+                    <div class="text-emerald-400 font-bold mb-1"><i class="fa-solid fa-circle-check mr-1"></i>${esc(f.name)} — đóng dấu thành công</div>
+                    <div class="font-mono break-all text-[11px]"><b>docId:</b> ${esc(d.documentId)}</div>
+                    <div class="mt-1 flex gap-3">
+                        <a href="https://sepolia.etherscan.io/tx/${esc(d.txHash)}" target="_blank" rel="noopener noreferrer" class="text-purple-400 font-bold"><i class="fa-solid fa-link mr-1"></i>Etherscan</a>
+                        <a href="https://ipfs.io/ipfs/${esc(d.ipfsCID)}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 font-bold"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>
+                    </div>
+                </div>`;
+            if (i === 0) document.getElementById('vf-docid').value = d.documentId;
+        } catch (e) {
+            fail++;
+            row.outerHTML = `<div class="text-red-400 mb-2"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(f.name)} — ${esc(e.message)}</div>`;
+        }
     }
+    toast(fail ? 'warning' : 'success', fail ? `${ok} thành công, ${fail} lỗi` : `Đã đóng dấu ${ok} file`);
+    upDz.reset(); // file đã xử lý xong — trả dropzone về trạng thái trống
+    loadDocs();
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-stamp mr-1"></i>Mã hóa → IPFS → Ghi blockchain';
 }
 
 // ---------- VERIFY ----------
