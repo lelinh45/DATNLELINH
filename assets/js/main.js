@@ -2362,6 +2362,26 @@ async function loadTransactionHistory() {
             const owner = (meta && meta.uploader) || (uploaderAddr || '').toLowerCase();
             return owner === myAddr;
         };
+        // Nút Thu hồi khớp luật contract revokeDocument:
+        // ADMIN thu hồi mọi doc; QUẢN LÝ thu hồi doc của ví không phải ADMIN;
+        // NHẬP LIỆU/NGƯỜI XEM không thu hồi (kể cả doc mình up).
+        const myRank = await getMyRoleRank(myAddr);
+        const upRankCache = {};
+        const uploaderRankOf = async (addr) => {
+            const a = (addr || '').toLowerCase();
+            if (!a) return null;
+            if (a === myAddr) return myRank;
+            if (!(a in upRankCache)) {
+                const r = await web3.getUserRole(a);
+                upRankCache[a] = (r === null || r === undefined) ? null : (r === 99 ? 3 : Number(r));
+            }
+            return upRankCache[a];
+        };
+        const canRevokeDoc = async (uploaderAddr) => {
+            if (myRank === 3) return true;
+            if (myRank !== 2) return false;
+            return (await uploaderRankOf(uploaderAddr)) !== 3;
+        };
         // Bản đồ dòng đời phiên bản từ replacesDocId (MongoDB):
         // verOf = số thứ tự phiên bản, succOf = docId bản kế nhiệm (nếu đã bị thay thế)
         const predOf = {}, succOf = {};
@@ -2446,6 +2466,7 @@ async function loadTransactionHistory() {
                     continue;
                 }
 
+                const canRevoke = await canRevokeDoc(uploader);
                 html += `
                 <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                     <td class="px-3 py-2 font-bold text-center text-gray-500">${stt++}</td>
@@ -2457,7 +2478,7 @@ async function loadTransactionHistory() {
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                 ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-purple-400 hover:text-purple-300 transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
                                 ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
-                                ${isOwnDoc(docId, uploader) ? `<button data-act="revoke" data-v="${esc(docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+                                ${canRevoke ? `<button data-act="revoke" data-v="${esc(docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
                             </div>
                         </td>
                     <td class="px-3 py-2 text-xs text-gray-300">
@@ -2496,7 +2517,8 @@ async function loadTransactionHistory() {
             for (let batch of [...localBatches].reverse()) {
                 const createTime = window.formatTimeForce(batch.timestamp);
                 const uploader = batch.uploader;
-                
+                const batchCanRevoke = await canRevokeDoc(uploader);
+
                 batch.files.forEach(fileDoc => {
                     if (fileDoc.isRevoked || revokedIds.has(fileDoc.docId)) return;
                     if (seenDocIds.has(fileDoc.docId)) return; // đã render ở phần on-chain
@@ -2514,7 +2536,7 @@ async function loadTransactionHistory() {
                                 <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                 ${hasLineage(fileDoc.docId) ? `<button data-act="lineage" data-v="${esc(fileDoc.docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-purple-400 hover:text-purple-300 transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
                                 ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
-                                ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+                                ${batchCanRevoke ? `<button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
                             </div>
                         </td>
                         <td class="px-3 py-2 text-xs text-gray-300">
