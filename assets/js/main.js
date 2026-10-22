@@ -125,15 +125,42 @@ async function renderNotifPanel() {
         }).join('');
 }
 
+// Step-up auth: các thao tác nhạy cảm (thu hồi/duyệt phiên, đổi email) phải
+// ký MetaMask lại tại thời điểm thực hiện — JWT phiên không đủ, chống kẻ
+// mượn session sống chiếm quyền ví.
+async function stepUp() {
+    return ApiService.stepUpSign(web3.signer);
+}
+
+// Lưu liên hệ ví. Đổi email khi đã có email cũ → server gửi mã 6 số về
+// email CŨ, phải nhập mã mới chuyển thật (pending → confirm).
+async function saveContactWithConfirm(email, phone) {
+    const res = await ApiService.setWalletContact(email, phone, await stepUp());
+    if (res && res.pending) {
+        const ask = await Swal.fire({
+            title: 'Xác nhận trên email hiện tại',
+            html: `Mã 6 số đã gửi về <b>${esc(res.maskedEmail || 'email hiện tại')}</b>.<br>Nhập mã để hoàn tất đổi email.`,
+            input: 'text', inputAttributes: { maxlength: '6', inputmode: 'numeric', autocomplete: 'one-time-code' },
+            icon: 'info', showCancelButton: true, confirmButtonText: 'Xác nhận', cancelButtonText: 'Để sau',
+            background: '#111827', color: '#fff'
+        });
+        if (ask.isConfirmed && ask.value) {
+            await ApiService.confirmEmailChange(ask.value.trim());
+            res.pending = false;
+        }
+    }
+    return res;
+}
+
 window.kickDeviceSession = async (deviceId) => {
     const ok = await Swal.fire({
-        title: 'Thu hồi phiên?', text: 'Thiết bị này sẽ bị đăng xuất ngay và phải ký lại MetaMask để vào.',
+        title: 'Thu hồi phiên?', text: 'Thiết bị này sẽ bị đăng xuất ngay. Bạn cần ký MetaMask để xác nhận.',
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Thu hồi', cancelButtonText: 'Hủy',
         background: '#111827', color: '#fff', confirmButtonColor: '#dc2626'
     });
     if (!ok.isConfirmed) return;
     try {
-        await ApiService.revokeSession(deviceId);
+        await ApiService.revokeSession(deviceId, await stepUp());
         Swal.fire({ title: 'Đã thu hồi', text: 'Phiên trên thiết bị đó đã bị vô hiệu hóa.', icon: 'success', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
         renderNotifPanel();
     } catch (e) {
@@ -144,13 +171,13 @@ window.kickDeviceSession = async (deviceId) => {
 // Duyệt thiết bị đang pending — thiết bị kia sẽ tự vào được ở lần poll kế tiếp
 window.approveDeviceSession = async (deviceId) => {
     const ok = await Swal.fire({
-        title: 'Phê duyệt thiết bị?', text: 'Thiết bị này sẽ được cấp quyền đăng nhập vào ví của bạn.',
+        title: 'Phê duyệt thiết bị?', text: 'Thiết bị này sẽ được cấp quyền đăng nhập vào ví của bạn. Bạn cần ký MetaMask để xác nhận.',
         icon: 'question', showCancelButton: true, confirmButtonText: 'Phê duyệt', cancelButtonText: 'Hủy',
         background: '#111827', color: '#fff', confirmButtonColor: '#059669'
     });
     if (!ok.isConfirmed) return;
     try {
-        await ApiService.approveSession(deviceId);
+        await ApiService.approveSession(deviceId, await stepUp());
         Swal.fire({ title: 'Đã phê duyệt', text: 'Thiết bị đó giờ có thể đăng nhập.', icon: 'success', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
         renderNotifPanel();
     } catch (e) {
@@ -640,7 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         try {
-            await ApiService.setWalletContact(email, phone);
+            const contactRes = await saveContactWithConfirm(email, phone);
             // Alias do chủ ví tự đặt — giúp Admin nhận diện khi duyệt quyền
             if (web3.currentAccount) {
                 const selfUpdate = {};
@@ -652,7 +679,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             setContactSavedUI(true);
-            Swal.fire({ title: 'Đã lưu thông tin', text: 'Admin sẽ nhận diện ví của bạn qua tên và thông tin liên hệ này.', icon: 'success', background: '#111827', color: '#fff', timer: 1800, showConfirmButton: false });
+            Swal.fire({
+                title: contactRes?.pending ? 'Chờ xác nhận email' : 'Đã lưu thông tin',
+                text: contactRes?.pending ? 'SĐT đã lưu — email sẽ đổi sau khi bạn nhập mã gửi về email hiện tại.' : 'Admin sẽ nhận diện ví của bạn qua tên và thông tin liên hệ này.',
+                icon: 'success', background: '#111827', color: '#fff', timer: 2200, showConfirmButton: false
+            });
         } catch (e) {
             Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
         }
@@ -692,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         try {
-            await ApiService.setWalletContact(email, phone);
+            await saveContactWithConfirm(email, phone);
             if (web3.currentAccount) {
                 const selfUpdate = { requestedRole: reqRole };
                 if (alias) selfUpdate.alias = alias;

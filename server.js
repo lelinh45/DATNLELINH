@@ -215,6 +215,15 @@ const mailer = (process.env.SMTP_USER && process.env.SMTP_PASS) ? {
         secure: Number(process.env.SMTP_PORT || 465) === 465,
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
     }),
+    async sendEmailChange(to, code, newEmail) {
+        await this.transport.sendMail({
+            from: process.env.OTP_FROM || process.env.SMTP_USER,
+            to,
+            subject: '[BDI] Xac nhan thay doi email lien he vi',
+            text: `He thong Blockchain Data Integrity\n\nVi cua ban dang yeu cau doi email lien he sang: ${newEmail}\n\nMa xac nhan: ${code}\nHet han sau 5 phut.\n\nNeu khong phai ban, hay doi mat khau/email va thu hoi moi phien dang nhap ngay.`,
+            html: `<p>Ví của bạn đang yêu cầu đổi email liên hệ sang: <b>${newEmail}</b></p><p>Mã xác nhận: <b style="font-size:20px;letter-spacing:4px">${code}</b></p><p>Hết hạn sau 5 phút. Nếu không phải bạn, hãy thu hồi mọi phiên đăng nhập ngay.</p>`
+        });
+    },
     async sendOtp(to, code, deviceLabel) {
         await this.transport.sendMail({
             from: process.env.OTP_FROM || process.env.SMTP_USER,
@@ -227,7 +236,7 @@ const mailer = (process.env.SMTP_USER && process.env.SMTP_PASS) ? {
 } : null;
 if (!mailer) console.warn('⚠️  SMTP chưa cấu hình — OTP email tắt, thiết bị mới chỉ duyệt được từ thiết bị cũ.');
 
-const { router: authRouter, requireAuth, requireRole, getRoleRank } = createAuth({
+const { router: authRouter, requireAuth, requireRole, requireStepUp, getRoleRank, hashOtp, verifyOtpHash } = createAuth({
     walletModel: Wallet,
     jwtSecret: process.env.JWT_SECRET,
     roleProvider: async (addr) => getChainContract().userRoles(addr),
@@ -753,8 +762,14 @@ app.post('/api/wallets/sync', requireAuth, async (req, res) => {
     }
 });
 
-// Đăng ký/đổi email + SĐT chủ ví — email nhận OTP duyệt thiết bị mới. Chỉ chủ ví tự đặt cho mình.
-app.post('/api/wallets/email', requireAuth, async (req, res) => {
+// Đăng ký/đổi email + SĐT chủ ví — email nhận OTP duyệt thiết bị mới.
+// requireStepUp: bắt ký MetaMask lại — kẻ mượn session không đổi được email cứu hộ.
+// Nếu ví ĐÃ có email: email mới chỉ vào pendingEmail + mã 6 số gửi về email CŨ;
+// chỉ /api/wallets/email/confirm với mã đúng mới chuyển thật. Không có email cũ
+// (đăng ký lần đầu) hoặc SMTP chết → áp dụng trực tiếp (chữ ký đã là đủ bằng chứng).
+const EMAIL_CHANGE_TTL_MS = 5 * 60 * 1000;
+const EMAIL_CHANGE_MAX_ATTEMPTS = 5;
+app.post('/api/wallets/email', requireAuth, requireStepUp, async (req, res) => {
     try {
         const { email, phone } = req.body || {};
         const $set = {};
@@ -774,14 +789,87 @@ app.post('/api/wallets/email', requireAuth, async (req, res) => {
         if (Object.keys($set).length === 0) {
             return res.status(400).json({ success: false, message: 'Không có dữ liệu để lưu' });
         }
-        await Wallet.findOneAndUpdate(
+
+        const w = await Wallet.findOneAndUpdate(
             { address: req.user.address },
-            { $set },
-            { upsert: true }
+            { $setOnInsert: { address: req.user.address } },
+            { upsert: true, returnDocument: 'after' }
         );
+
+        // SĐT áp dụng ngay — không nằm trong đường cứu OTP nên không cần xác nhận
+        if ($set.phone !== undefined) {
+            w.phone = $set.phone;
+        }
+
+        // Email chỉ đổi khi khác email hiện tại
+        const newEmail = $set.email;
+        if (newEmail !== undefined && newEmail !== (w.email || '')) {
+            if (w.email && mailer && mailer.sendEmailChange) {
+                // Có email cũ → gửi mã xác nhận về email CŨ, chờ /confirm
+                const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+                w.pendingEmail = newEmail;
+                w.emailChangeHash = await hashOtp(code);
+                w.emailChangeExpires = Date.now() + EMAIL_CHANGE_TTL_MS;
+                w.emailChangeAttempts = 0;
+                await w.save();
+                await mailer.sendEmailChange(w.email, code, newEmail);
+                try {
+                    await Notification.create({
+                        address: req.user.address, type: 'email_change',
+                        title: 'Yêu cầu thay đổi email liên hệ',
+                        message: `Có yêu cầu đổi email ví sang "${newEmail}". Mã xác nhận đã gửi về email hiện tại (${w.email.replace(/^(.{2}).+(@.+)$/, '$1***$2')}). Nếu không phải bạn, hãy thu hồi mọi phiên đăng nhập ngay.`,
+                    });
+                } catch (e) {}
+                return res.json({
+                    success: true, pending: true,
+                    maskedEmail: w.email.replace(/^(.{2}).+(@.+)$/, '$1***$2'),
+                    message: 'Đã gửi mã xác nhận về email hiện tại — nhập mã để hoàn tất đổi email'
+                });
+            }
+            // Không có email cũ (đăng ký lần đầu) hoặc SMTP chết → áp dụng trực tiếp
+            w.email = newEmail;
+            w.pendingEmail = ''; w.emailChangeHash = ''; w.emailChangeExpires = 0; w.emailChangeAttempts = 0;
+        }
+        await w.save();
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, message: 'Lỗi lưu thông tin liên hệ' });
+    }
+});
+
+// Bước 2 đổi email: nhập mã 6 số đã gửi về email CŨ → chuyển email thật
+app.post('/api/wallets/email/confirm', requireAuth, async (req, res) => {
+    try {
+        const { code } = req.body || {};
+        if (typeof code !== 'string') {
+            return res.status(400).json({ success: false, message: 'Thiếu mã xác nhận' });
+        }
+        const w = await Wallet.findOne({ address: req.user.address });
+        if (!w || !w.pendingEmail || !w.emailChangeHash || w.emailChangeExpires < Date.now()) {
+            return res.status(400).json({ success: false, message: 'Không có yêu cầu đổi email hoặc mã đã hết hạn' });
+        }
+        if ((w.emailChangeAttempts || 0) >= EMAIL_CHANGE_MAX_ATTEMPTS) {
+            return res.status(429).json({ success: false, message: 'Nhập sai quá nhiều lần — hãy yêu cầu đổi lại' });
+        }
+        if (!await verifyOtpHash(code, w.emailChangeHash)) {
+            w.emailChangeAttempts = (w.emailChangeAttempts || 0) + 1;
+            await w.save();
+            return res.status(401).json({ success: false, message: 'Mã xác nhận không đúng' });
+        }
+        const oldMasked = (w.email || '').replace(/^(.{2}).+(@.+)$/, '$1***$2');
+        w.email = w.pendingEmail;
+        w.pendingEmail = ''; w.emailChangeHash = ''; w.emailChangeExpires = 0; w.emailChangeAttempts = 0;
+        await w.save();
+        try {
+            await Notification.create({
+                address: req.user.address, type: 'email_change',
+                title: 'Email liên hệ đã thay đổi',
+                message: `Email ví đã đổi từ ${oldMasked} sang ${w.email.replace(/^(.{2}).+(@.+)$/, '$1***$2')}. Nếu không phải bạn, hãy thu hồi mọi phiên đăng nhập ngay.`,
+            });
+        } catch (e) {}
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Lỗi xác nhận đổi email' });
     }
 });
 
@@ -1239,8 +1327,9 @@ app.get('/api/sessions', requireAuth, async (req, res) => {
     }
 });
 
-// Phê duyệt một thiết bị đang pending — chỉ từ thiết bị đang active của cùng ví
-app.post('/api/sessions/approve', requireAuth, async (req, res) => {
+// Phê duyệt một thiết bị đang pending — chỉ từ thiết bị đang active của cùng ví.
+// requireStepUp: bắt ký MetaMask lại — kẻ mượn session sống không duyệt được máy mình.
+app.post('/api/sessions/approve', requireAuth, requireStepUp, async (req, res) => {
     try {
         const { deviceId } = req.body || {};
         if (typeof deviceId !== 'string' || !/^[a-z0-9_-]{8,64}$/i.test(deviceId)) {
@@ -1266,8 +1355,9 @@ app.post('/api/sessions/approve', requireAuth, async (req, res) => {
     }
 });
 
-// Kick/từ chối một thiết bị — JWT của thiết bị đó sẽ bị requireAuth từ chối từ request kế tiếp
-app.post('/api/sessions/revoke', requireAuth, async (req, res) => {
+// Kick/từ chối một thiết bị — JWT của thiết bị đó sẽ bị requireAuth từ chối từ request kế tiếp.
+// requireStepUp: kẻ chiếm session không thể kick máy chủ ví để chiếm quyền.
+app.post('/api/sessions/revoke', requireAuth, requireStepUp, async (req, res) => {
     try {
         const { deviceId } = req.body || {};
         if (typeof deviceId !== 'string' || !/^[a-z0-9_-]{8,64}$/i.test(deviceId)) {

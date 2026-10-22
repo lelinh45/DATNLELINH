@@ -4,6 +4,10 @@ const walletSchema = new mongoose.Schema({
     address: { type: String, required: true, unique: true, lowercase: true },
     alias: { type: String, default: '' },
     email: { type: String, default: '', lowercase: true, trim: true }, // email chủ ví — nhận OTP duyệt thiết bị mới
+    pendingEmail: { type: String, default: '', lowercase: true, trim: true }, // email mới chờ xác nhận qua email CŨ
+    emailChangeHash: { type: String, default: '' },   // scrypt hash mã 6 số xác nhận đổi email
+    emailChangeExpires: { type: Number, default: 0 }, // mốc ms hết hạn mã
+    emailChangeAttempts: { type: Number, default: 0 }, // chống brute-force mã
     phone: { type: String, default: '', trim: true }, // SĐT chủ ví — liên hệ/cảnh báo bảo mật
     role: { type: String, enum: ['ADMIN', 'QUẢN LÝ', 'NHẬP LIỆU', 'NGƯỜI XEM', 'BỊ KHÓA', 'ĐÃ XÓA'], default: 'NHẬP LIỆU' },
     requestedRole: { type: String, enum: ['NHẬP LIỆU', 'QUẢN LÝ', 'NGƯỜI XEM'], default: null }, // quyền ví tự đề nghị khi chờ duyệt

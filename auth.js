@@ -387,6 +387,55 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
         }
     });
 
+    // =====================================================================
+    // STEP-UP AUTH: thao tác nhạy cảm (đổi email, thu hồi/duyệt phiên) bắt
+    // buộc ký MetaMask lại TẠI THỜI ĐIỂM thực hiện — JWT phiên không đủ.
+    // Kẻ mượn được session sống (máy bỏ quên không khóa) nhưng không có
+    // private key sẽ không ký được → không chiếm được ví.
+    // Challenge lưu cùng store với login nhưng key hậu tố '|step' → một ví
+    // có thể giữ đồng thời challenge đăng nhập lẫn challenge step-up.
+    // =====================================================================
+    router.post('/step-challenge', requireAuth, async (req, res) => {
+        try {
+            const nonce = crypto.randomBytes(16).toString('hex');
+            const challenge = `XAC NHAN THAO TAC NHAY CAM\nDia chi vi: ${req.user.address}\nNonce: ${nonce}`;
+            await store.set(req.user.address + '|step', { challenge, expiresAt: Date.now() + challengeTtlMs });
+            res.json({ success: true, challenge });
+        } catch (e) {
+            res.status(500).json({ success: false, message: 'Lỗi tạo challenge xác nhận' });
+        }
+    });
+
+    // Middleware: body phải kèm { stepChallenge, stepSignature } khớp nonce
+    // mới nhất của ví và chữ ký verify đúng chủ ví. Challenge dùng-1-lần.
+    async function requireStepUp(req, res, next) {
+        try {
+            const { stepChallenge, stepSignature } = req.body || {};
+            const key = req.user.address + '|step';
+            const pending = (typeof stepChallenge === 'string' && typeof stepSignature === 'string')
+                ? await store.get(key) : null;
+            if (!pending || pending.expiresAt < Date.now() || pending.challenge !== stepChallenge) {
+                return res.status(403).json({
+                    success: false, code: 'STEP_UP_REQUIRED',
+                    message: 'Thao tác nhạy cảm cần ký xác nhận lại bằng MetaMask'
+                });
+            }
+            let recovered;
+            try {
+                recovered = ethers.verifyMessage(stepChallenge, stepSignature);
+            } catch {
+                return res.status(403).json({ success: false, code: 'STEP_UP_REQUIRED', message: 'Chữ ký xác nhận không hợp lệ' });
+            }
+            if (recovered.toLowerCase() !== req.user.address) {
+                return res.status(403).json({ success: false, code: 'STEP_UP_REQUIRED', message: 'Chữ ký không khớp ví đang đăng nhập' });
+            }
+            await store.delete(key); // chữ ký xác nhận chỉ dùng 1 lần
+            next();
+        } catch (e) {
+            res.status(500).json({ success: false, message: 'Lỗi kiểm tra chữ ký xác nhận' });
+        }
+    }
+
     // ---- MIDDLEWARE ----
     async function requireAuth(req, res, next) {
         if (!jwtSecret) {
@@ -430,5 +479,5 @@ export function createAuth({ walletModel, jwtSecret, roleProvider, challengeTtlM
         };
     }
 
-    return { router, requireAuth, requireRole, getRoleRank };
+    return { router, requireAuth, requireRole, requireStepUp, getRoleRank, hashOtp, verifyOtpHash };
 }

@@ -282,11 +282,24 @@ export const ApiService = {
             return await res.json();
         } catch { return { sessions: [] }; }
     },
-    async revokeSession(deviceId) {
+    // Step-up auth: xin challenge riêng cho thao tác nhạy cảm rồi ký bằng
+    // MetaMask — JWT phiên không đủ, buộc có private key tại thời điểm thao tác.
+    async stepUpSign(signer) {
+        if (!signer) throw new Error('Cần kết nối MetaMask để ký xác nhận thao tác này');
+        const res = await fetch(`${CONFIG.API_BASE}/auth/step-challenge`, {
+            method: 'POST', headers: authHeaders()
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.challenge) throw new Error(data.message || 'Không lấy được challenge xác nhận');
+        const stepSignature = await signer.signMessage(data.challenge);
+        return { stepChallenge: data.challenge, stepSignature };
+    },
+
+    async revokeSession(deviceId, step) {
         const res = await fetch(`${CONFIG.API_BASE}/sessions/revoke`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({ deviceId })
+            body: JSON.stringify({ deviceId, ...step })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.message || 'Thu hồi phiên thất bại');
@@ -294,11 +307,11 @@ export const ApiService = {
     },
 
     // Duyệt một thiết bị đang pending (gọi từ thiết bị đã đăng nhập)
-    async approveSession(deviceId) {
+    async approveSession(deviceId, step) {
         const res = await fetch(`${CONFIG.API_BASE}/sessions/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({ deviceId })
+            body: JSON.stringify({ deviceId, ...step })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.message || 'Phê duyệt thất bại');
@@ -334,15 +347,28 @@ export const ApiService = {
         return data;
     },
 
-    // Đăng ký email + SĐT chủ ví — email nhận OTP duyệt thiết bị mới
-    async setWalletContact(email, phone) {
+    // Đăng ký email + SĐT chủ ví — email nhận OTP duyệt thiết bị mới.
+    // Bắt buộc step signature; đổi email có sẵn → trả {pending:true} chờ mã về email cũ.
+    async setWalletContact(email, phone, step) {
         const res = await fetch(`${CONFIG.API_BASE}/wallets/email`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({ email, phone })
+            body: JSON.stringify({ email, phone, ...step })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.message || 'Lưu thông tin liên hệ thất bại');
+        return data;
+    },
+
+    // Bước 2 đổi email: xác nhận mã 6 số đã gửi về email CŨ
+    async confirmEmailChange(code) {
+        const res = await fetch(`${CONFIG.API_BASE}/wallets/email/confirm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ code })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Xác nhận đổi email thất bại');
         return data;
     },
 
