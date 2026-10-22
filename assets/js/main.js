@@ -476,7 +476,9 @@ window.switchLedgerTab = (mode) => {
     p.classList.toggle('flex', !isWallet);
     const base = 'ledger-tab flex-1 text-xs font-bold px-4 py-2 rounded-lg border transition';
     bw.className = base + (isWallet ? ' bg-blue-600/20 text-blue-300 border-blue-500/60' : ' bg-gray-800/50 text-gray-400 border-gray-700 hover:text-blue-300');
-    bp.className = base + (!isWallet ? ' bg-amber-600/20 text-amber-300 border-amber-500/60' : ' bg-gray-800/50 text-gray-400 border-gray-700 hover:text-amber-300');
+    // Giữ 'hidden' khi ví không phải ADMIN — className ghi đè toàn bộ nên phải nối lại
+    bp.className = (window.__isAdminWallet ? base : 'hidden ' + base)
+        + (!isWallet ? ' bg-amber-600/20 text-amber-300 border-amber-500/60' : ' bg-gray-800/50 text-gray-400 border-gray-700 hover:text-amber-300');
 };
 
 // Lọc tài liệu đối tác theo API key/tổ chức — chip "đang hoạt động"
