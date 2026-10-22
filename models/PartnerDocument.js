@@ -13,7 +13,10 @@ const partnerDocSchema = new mongoose.Schema({
     encKey: String, // AES key bọc MASTER_KEY — giống cơ chế escrow của luồng web
     txHash: String,
     isRevoked: { type: Boolean, default: false },
-    revocationReason: String
+    revocationReason: String,
+    revokedBy: String,   // ví ADMIN (sổ cái) hoặc "partner:<tên tổ chức>" (tự thu hồi qua API)
+    revokedAt: Date,
+    revokeTxHash: String // tx on-chain của revokeDocument (nếu ghi được)
 }, { timestamps: true });
 
 export default mongoose.model('PartnerDocument', partnerDocSchema);

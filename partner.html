@@ -297,8 +297,27 @@ function renderDocs(docs) {
             <td class="py-2 pr-3">${d.isRevoked
                 ? '<span class="bg-red-900/40 text-red-400 px-2 py-0.5 rounded text-[10px] font-bold">THU HỒI</span>'
                 : '<span class="bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold">HIỆU LỰC</span>'}</td>
-            <td class="py-2"><button onclick="downloadDoc('${esc(d.docId)}','${esc(d.fileName||'file')}')" class="text-blue-400 hover:text-blue-300 font-bold"><i class="fa-solid fa-download mr-1"></i>Tải</button></td>
+            <td class="py-2 whitespace-nowrap">
+                <button onclick="downloadDoc('${esc(d.docId)}','${esc(d.fileName||'file')}')" class="text-blue-400 hover:text-blue-300 font-bold mr-2"><i class="fa-solid fa-download mr-1"></i>Tải</button>
+                ${!d.isRevoked ? `<button onclick="revokeDoc('${esc(d.docId)}')" class="text-red-400 hover:text-red-300 font-bold"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+            </td>
         </tr>`).join('');
+}
+async function revokeDoc(docId) {
+    const reason = prompt('Lý do thu hồi (bắt buộc, sẽ ghi vĩnh viễn lên blockchain):');
+    if (reason === null) return;
+    if (!reason.trim()) return toast('warning', 'Bắt buộc nhập lý do thu hồi');
+    try {
+        const res = await api(`/api/v1/documents/${encodeURIComponent(docId)}/revoke`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason.trim() })
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || !d.success) throw new Error(d.message || 'Thu hồi thất bại');
+        toast('success', `Đã thu hồi on-chain (tx: ${(d.txHash || '').slice(0, 14)}…)`);
+        loadDocs();
+    } catch (e) { toast('error', e.message); }
 }
 async function downloadDoc(docId, fileName) {
     try {

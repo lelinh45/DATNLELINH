@@ -1075,7 +1075,23 @@ app.post('/api/batches/revoke', requireAuth, requireRole('QUẢN LÝ'), async (r
             return res.status(400).json({ success: false, message: 'Thiếu docId hợp lệ' });
         }
         const batch = await Batch.findOne({ "files.docId": docId });
-        if (!batch) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu' });
+        if (!batch) {
+            // Tài liệu đối tác (PartnerDocument) — uploader on-chain là ví server
+            // (ADMIN) nên contract chỉ cho ADMIN thu hồi; đồng bộ cờ vào MongoDB.
+            const pdoc = await PartnerDocument.findOne({ docId });
+            if (!pdoc) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu' });
+            if (pdoc.isRevoked) return res.status(409).json({ success: false, message: 'Tài liệu đã bị thu hồi trước đó' });
+            const callerRank = await getRoleRank(req.user.address);
+            if (callerRank < 3) {
+                return res.status(403).json({ success: false, message: 'Chỉ ADMIN được thu hồi tài liệu đối tác' });
+            }
+            pdoc.isRevoked = true;
+            pdoc.revocationReason = (typeof reason === 'string' && reason.trim()) || 'Thu hồi bởi ADMIN';
+            pdoc.revokedBy = req.user.address;
+            pdoc.revokedAt = new Date();
+            await pdoc.save();
+            return res.json({ success: true });
+        }
 
         const file = batch.files.find(f => f.docId === docId);
         if (!file) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu trong lô' });
@@ -1422,6 +1438,44 @@ app.get('/api/v1/documents/:docId/download', requireApiKey, async (req, res) => 
         res.send(buf);
     } catch (e) {
         res.status(500).json({ success: false, message: 'Lỗi tải tài liệu' });
+    }
+});
+
+// Thu hồi tài liệu đối tác — chỉ doc thuộc apiKeyId đang dùng (cách ly tổ chức,
+// giống download). Server ký revokeDocument on-chain trước (chain là nguồn sự
+// thật), thành công mới đồng bộ cờ vào PartnerDocument.
+app.post('/api/v1/documents/:docId/revoke', requireApiKey, async (req, res) => {
+    try {
+        const docId = req.params.docId;
+        if (!/^[\w.\-]{1,300}$/.test(docId)) {
+            return res.status(400).json({ success: false, message: 'docId không hợp lệ' });
+        }
+        const reason = String(req.body?.reason || '').trim();
+        if (!reason) return res.status(400).json({ success: false, message: 'Bắt buộc nhập lý do thu hồi' });
+        if (reason.length > 500) return res.status(400).json({ success: false, message: 'Lý do quá dài (tối đa 500 ký tự)' });
+
+        const doc = await PartnerDocument.findOne({ docId, apiKeyId: req.apiKey._id });
+        if (!doc) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu của đối tác này' });
+        if (doc.isRevoked) return res.status(409).json({ success: false, message: 'Tài liệu đã bị thu hồi trước đó' });
+
+        let txHash = '';
+        try {
+            const tx = await getChainWriter().revokeDocument(docId, reason);
+            const receipt = await tx.wait();
+            txHash = receipt.hash;
+        } catch (chainErr) {
+            return res.status(502).json({ success: false, message: `Ghi thu hồi on-chain thất bại: ${chainErr.message}` });
+        }
+
+        doc.isRevoked = true;
+        doc.revocationReason = reason;
+        doc.revokedBy = `partner:${req.apiKey.name || req.apiKey.prefix || ''}`;
+        doc.revokedAt = new Date();
+        doc.revokeTxHash = txHash;
+        await doc.save();
+        res.json({ success: true, docId, txHash });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi thu hồi tài liệu' });
     }
 });
 
