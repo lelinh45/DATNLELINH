@@ -65,15 +65,15 @@
 
     <div class="grid md:grid-cols-2 gap-4 mb-6">
         <!-- UPLOAD -->
-        <div class="card p-5">
-            <h2 class="font-bold text-emerald-400 mb-3"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & đóng dấu tài liệu</h2>
-            <div id="up-drop" class="dropzone mb-3 p-6 text-center">
+        <div class="card p-4">
+            <h2 class="font-bold text-emerald-400 text-sm mb-2"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & đóng dấu tài liệu</h2>
+            <div id="up-drop" class="dropzone mb-2 p-4 text-center">
                 <input id="up-file" type="file" class="hidden" multiple>
                 <div id="up-drop-inner">
-                    <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-emerald-900/40 flex items-center justify-center">
-                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-emerald-400"></i>
+                    <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-900/40 flex items-center justify-center">
+                        <i class="fa-solid fa-cloud-arrow-up text-xl text-emerald-400"></i>
                     </div>
-                    <p class="font-bold text-gray-200">Kéo thả hàng loạt tài liệu vào đây</p>
+                    <p class="font-bold text-gray-200 text-sm">Kéo thả hàng loạt tài liệu vào đây</p>
                     <p class="text-xs text-gray-500 mt-1">hoặc <span class="text-emerald-400 font-bold underline">chọn nhiều tệp</span> từ thiết bị</p>
                     <p class="text-[10px] text-gray-600 mt-2 font-mono">Hỗ trợ: PDF, DOCX, PNG, JPG, TXT (Max 50MB/file)</p>
                 </div>
@@ -85,10 +85,10 @@
         </div>
 
         <!-- VERIFY -->
-        <div class="card p-5">
-            <h2 class="font-bold text-blue-400 mb-3"><i class="fa-solid fa-shield-halved mr-2"></i>Xác thực tài liệu</h2>
+        <div class="card p-4">
+            <h2 class="font-bold text-blue-400 text-sm mb-2"><i class="fa-solid fa-shield-halved mr-2"></i>Xác thực tài liệu</h2>
             <input id="vf-docid" type="text" placeholder="documentId (vd: hopdong.pdf_1729...)" class="w-full px-3 py-2 rounded-lg border border-gray-700 text-xs font-mono mb-2 focus:border-blue-500 focus:outline-none">
-            <div id="vf-drop" class="dropzone blue mb-3 p-4 text-center">
+            <div id="vf-drop" class="dropzone blue mb-2 p-3 text-center">
                 <input id="vf-file" type="file" class="hidden">
                 <div id="vf-drop-inner">
                     <i class="fa-solid fa-file-circle-check text-xl text-blue-400 mb-1"></i>
@@ -108,9 +108,9 @@
             <h2 class="font-bold text-purple-400"><i class="fa-solid fa-folder-open mr-2"></i>Tài liệu của tổ chức</h2>
             <button onclick="loadDocs()" class="text-xs text-gray-400 hover:text-white font-bold"><i class="fa-solid fa-rotate mr-1"></i>Làm mới</button>
         </div>
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto overflow-y-auto max-h-72">
             <table class="w-full text-xs">
-                <thead><tr class="text-gray-500 border-b border-gray-800 text-left">
+                <thead class="sticky top-0 bg-[#111827] z-10"><tr class="text-gray-500 border-b border-gray-800 text-left">
                     <th class="py-2 pr-3">#</th><th class="py-2 pr-3">Tài liệu</th><th class="py-2 pr-3">Hash / CID</th>
                     <th class="py-2 pr-3">Thời điểm</th><th class="py-2 pr-3">Trạng thái</th><th class="py-2">Tải về</th>
                 </tr></thead>
@@ -222,22 +222,15 @@ async function uploadDoc() {
             const d = await res.json();
             if (!res.ok || !d.success) throw new Error(d.message || 'Upload thất bại');
             ok++;
-            row.outerHTML = `
-                <div class="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3 mb-2">
-                    <div class="text-emerald-400 font-bold mb-1"><i class="fa-solid fa-circle-check mr-1"></i>${esc(f.name)} — đóng dấu thành công</div>
-                    <div class="font-mono break-all text-[11px]"><b>docId:</b> ${esc(d.documentId)}</div>
-                    <div class="mt-1 flex gap-3">
-                        <a href="https://sepolia.etherscan.io/tx/${esc(d.txHash)}" target="_blank" rel="noopener noreferrer" class="text-purple-400 font-bold"><i class="fa-solid fa-link mr-1"></i>Etherscan</a>
-                        <a href="https://ipfs.io/ipfs/${esc(d.ipfsCID)}" target="_blank" rel="noopener noreferrer" class="text-emerald-400 font-bold"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>
-                    </div>
-                </div>`;
+            row.remove();
+            toast('success', `${f.name} — đóng dấu thành công`);
             if (i === 0) document.getElementById('vf-docid').value = d.documentId;
         } catch (e) {
             fail++;
             row.outerHTML = `<div class="text-red-400 mb-2"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(f.name)} — ${esc(e.message)}</div>`;
         }
     }
-    toast(fail ? 'warning' : 'success', fail ? `${ok} thành công, ${fail} lỗi` : `Đã đóng dấu ${ok} file`);
+    if (fail) toast('warning', `${ok} thành công, ${fail} lỗi — chi tiết ở khung kết quả`);
     upDz.reset(); // file đã xử lý xong — trả dropzone về trạng thái trống
     loadDocs();
     btn.disabled = false;
