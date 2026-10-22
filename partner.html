@@ -13,6 +13,10 @@
         .card { background: #111827; border: 1px solid #1f2937; border-radius: 0.75rem; }
         .btn-primary { background: #059669; } .btn-primary:hover { background: #10b981; }
         input[type=text], input[type=password] { background:#0b0f19; }
+        .dropzone { border: 2px dashed #374151; border-radius: 0.75rem; background: #0b0f19;
+                    cursor: pointer; transition: border-color .2s, background .2s; }
+        .dropzone:hover, .dropzone.dragover { border-color: #10b981; background: #052e22; }
+        .dropzone.blue:hover, .dropzone.blue.dragover { border-color: #3b82f6; background: #0c1e3a; }
     </style>
 </head>
 <body class="bg-[#0b0f19] min-h-screen text-gray-200">
@@ -58,7 +62,17 @@
         <!-- UPLOAD -->
         <div class="card p-5">
             <h2 class="font-bold text-emerald-400 mb-3"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & đóng dấu tài liệu</h2>
-            <input id="up-file" type="file" class="w-full text-sm text-gray-400 mb-3 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-900/40 file:text-emerald-300 hover:file:bg-emerald-900/60">
+            <div id="up-drop" class="dropzone mb-3 p-6 text-center">
+                <input id="up-file" type="file" class="hidden">
+                <div id="up-drop-inner">
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-emerald-900/40 flex items-center justify-center">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-emerald-400"></i>
+                    </div>
+                    <p class="font-bold text-gray-200">Kéo thả tài liệu vào đây</p>
+                    <p class="text-xs text-gray-500 mt-1">hoặc <span class="text-emerald-400 font-bold underline">chọn tệp</span> từ thiết bị</p>
+                    <p class="text-[10px] text-gray-600 mt-2 font-mono">Hỗ trợ: PDF, DOCX, PNG, JPG, TXT (Max 50MB/file)</p>
+                </div>
+            </div>
             <button onclick="uploadDoc()" id="btn-upload" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-white w-full transition">
                 <i class="fa-solid fa-stamp mr-1"></i>Mã hóa → IPFS → Ghi blockchain
             </button>
@@ -69,7 +83,13 @@
         <div class="card p-5">
             <h2 class="font-bold text-blue-400 mb-3"><i class="fa-solid fa-shield-halved mr-2"></i>Xác thực tài liệu</h2>
             <input id="vf-docid" type="text" placeholder="documentId (vd: hopdong.pdf_1729...)" class="w-full px-3 py-2 rounded-lg border border-gray-700 text-xs font-mono mb-2 focus:border-blue-500 focus:outline-none">
-            <input id="vf-file" type="file" class="w-full text-sm text-gray-400 mb-3 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-900/40 file:text-blue-300 hover:file:bg-blue-900/60">
+            <div id="vf-drop" class="dropzone blue mb-3 p-4 text-center">
+                <input id="vf-file" type="file" class="hidden">
+                <div id="vf-drop-inner">
+                    <i class="fa-solid fa-file-circle-check text-xl text-blue-400 mb-1"></i>
+                    <p class="text-xs text-gray-400">Kéo thả file cần kiểm tra hoặc <span class="text-blue-400 font-bold underline">chọn tệp</span></p>
+                </div>
+            </div>
             <button onclick="verifyDoc()" id="btn-verify" class="w-full py-2 rounded-lg text-sm font-bold text-white bg-blue-700 hover:bg-blue-600 transition">
                 <i class="fa-solid fa-magnifying-glass mr-1"></i>So hash với blockchain
             </button>
@@ -147,6 +167,28 @@ function showDashboard() {
     document.getElementById('dashboard').classList.remove('hidden');
     document.getElementById('key-prefix').textContent = apiKey().slice(0, 14) + '…';
 }
+
+// ---------- DROPZONE (giống giao diện ví) ----------
+function bindDropzone(zoneId, inputId, innerId, iconCls) {
+    const zone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    zone.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => showFile(input.files[0]));
+    ['dragover', 'dragenter'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('dragover'); }));
+    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('dragover'); }));
+    zone.addEventListener('drop', e => { if (e.dataTransfer.files[0]) { input.files = e.dataTransfer.files; showFile(input.files[0]); } });
+    function showFile(f) {
+        if (!f) return;
+        document.getElementById(innerId).innerHTML = `
+            <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-900/40 flex items-center justify-center">
+                <i class="fa-solid ${iconCls} text-emerald-400"></i>
+            </div>
+            <p class="font-bold text-emerald-400 text-sm break-all">${esc(f.name)}</p>
+            <p class="text-[10px] text-gray-500 font-mono mt-1">${fmtSize(f.size)} — bấm để chọn lại</p>`;
+    }
+}
+bindDropzone('up-drop', 'up-file', 'up-drop-inner', 'fa-file-circle-check');
+bindDropzone('vf-drop', 'vf-file', 'vf-drop-inner', 'fa-file-circle-check');
 
 // ---------- UPLOAD ----------
 async function uploadDoc() {
