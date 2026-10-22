@@ -48,19 +48,45 @@
             <h1 class="text-2xl font-bold text-white tracking-wide mb-2 relative z-10">Data<span class="text-blue-500">Integrity</span></h1>
             <p class="text-gray-400 text-sm mb-8 relative z-10">Hệ thống Quản trị & Giám định Dữ liệu Phân tán.</p>
             
-            <button id="btn-login-wallet" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-bold text-base shadow-[0_4px_15px_rgba(37,99,235,0.4)] transition flex items-center justify-center gap-3 relative z-10">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-6 h-6" alt="MetaMask">
-                Đăng nhập bằng Ví Web3
-            </button>
-            <p class="text-gray-600 text-[11px] mt-6 relative z-10 uppercase tracking-widest font-bold">Yêu cầu xác thực chữ ký để truy cập</p>
-            
-            <div class="mt-4 flex justify-center">
-                <a href="https://metamask.io/download/" target="_blank" rel="noopener noreferrer" 
-                class="group flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-400 transition-all duration-300">
-                    <span>Chưa có ví bảo mật?</span>
-                    <span class="underline font-semibold group-hover:text-blue-300">Cài đặt MetaMask ngay</span>
-                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-0.5 opacity-70 group-hover:opacity-100 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform"></i>
-                </a>
+            <!-- Pane 1: người dùng ví Web3 -->
+            <div id="login-wallet-pane">
+                <button id="btn-login-wallet" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-bold text-base shadow-[0_4px_15px_rgba(37,99,235,0.4)] transition flex items-center justify-center gap-3 relative z-10">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-6 h-6" alt="MetaMask">
+                    Đăng nhập bằng Ví Web3
+                </button>
+                <p class="text-gray-600 text-[11px] mt-6 relative z-10 uppercase tracking-widest font-bold">Yêu cầu xác thực chữ ký để truy cập</p>
+
+                <div class="mt-4 flex justify-center">
+                    <a href="https://metamask.io/download/" target="_blank" rel="noopener noreferrer"
+                    class="group flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-400 transition-all duration-300">
+                        <span>Chưa có ví bảo mật?</span>
+                        <span class="underline font-semibold group-hover:text-blue-300">Cài đặt MetaMask ngay</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-0.5 opacity-70 group-hover:opacity-100 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform"></i>
+                    </a>
+                </div>
+
+                <div class="mt-6 pt-5 border-t border-gray-800 relative z-10">
+                    <button onclick="showPartnerPane()" class="text-xs text-amber-400/90 hover:text-amber-300 font-bold transition">
+                        <i class="fa-solid fa-handshake mr-1.5"></i>Tổ chức đối tác? Đăng nhập bằng API Key
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pane 2: đối tác API key → vào cổng /partner -->
+            <div id="login-partner-pane" class="hidden relative z-10 text-left">
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">API Key của tổ chức</label>
+                <input id="api-key-input" type="password" placeholder="sk_live_..." autocomplete="off"
+                       class="w-full px-4 py-3 rounded-lg border border-gray-700 bg-[#0b0f19] focus:border-emerald-500 focus:outline-none font-mono text-sm mb-2">
+                <p id="api-key-err" class="hidden text-red-400 text-xs mb-2"><i class="fa-solid fa-circle-xmark mr-1"></i>API key phải bắt đầu bằng sk_live_</p>
+                <button onclick="partnerLogin()" id="btn-login-partner"
+                        class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm transition mt-2">
+                    <i class="fa-solid fa-right-to-bracket mr-2"></i>Vào cổng đối tác
+                </button>
+                <div class="mt-5 text-center">
+                    <button onclick="showWalletPane()" class="text-xs text-gray-400 hover:text-white font-bold transition">
+                        <i class="fa-solid fa-arrow-left mr-1.5"></i>Quay lại đăng nhập ví Web3
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -910,6 +936,27 @@
         ['click', 'input', 'focusin', 'mousemove', 'change'].forEach(ev => box.addEventListener(ev, arm));
         window.openRoleForm = open; // cho fillAssignRole mở form khi bấm Duyệt ở khay chờ
     })();
+
+    // Chuyển đổi 2 luồng đăng nhập trên cùng 1 trang: ví Web3 ↔ đối tác API key
+    function showPartnerPane() {
+        document.getElementById('login-wallet-pane').classList.add('hidden');
+        document.getElementById('login-partner-pane').classList.remove('hidden');
+    }
+    function showWalletPane() {
+        document.getElementById('login-partner-pane').classList.add('hidden');
+        document.getElementById('login-wallet-pane').classList.remove('hidden');
+    }
+    function partnerLogin() {
+        const key = document.getElementById('api-key-input').value.trim();
+        const err = document.getElementById('api-key-err');
+        if (!key.startsWith('sk_live_')) { err.classList.remove('hidden'); return; }
+        // Lưu key vào phiên rồi chuyển sang cổng đối tác — partner.html tự xác thực lại
+        sessionStorage.setItem('bdi_partner_key', key);
+        window.location.href = '/partner';
+    }
+    document.getElementById('api-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') partnerLogin(); });
+    // Mở sẵn pane đối tác khi đi từ link #partner
+    if (window.location.hash === '#partner') showPartnerPane();
     </script>
 </body>
 </html>
