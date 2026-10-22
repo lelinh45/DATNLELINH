@@ -49,7 +49,7 @@
 </div>
 
 <!-- ============ DASHBOARD ============ -->
-<div id="dashboard" class="hidden max-w-6xl mx-auto p-4 md:p-6">
+<div id="dashboard" class="hidden max-w-6xl w-full mx-auto p-4 md:p-6 flex flex-col min-h-screen">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
             <h1 class="text-lg font-bold text-white"><i class="fa-solid fa-handshake text-amber-400 mr-2"></i>CỔNG ĐỐI TÁC</h1>
@@ -65,9 +65,9 @@
 
     <div class="grid md:grid-cols-2 gap-4 mb-6">
         <!-- UPLOAD -->
-        <div class="card p-4">
+        <div class="card p-4 flex flex-col">
             <h2 class="font-bold text-emerald-400 text-sm mb-2"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & đóng dấu tài liệu</h2>
-            <div id="up-drop" class="dropzone mb-2 p-4 text-center">
+            <div id="up-drop" class="dropzone mb-2 p-4 text-center flex-1 flex flex-col items-center justify-center">
                 <input id="up-file" type="file" class="hidden" multiple>
                 <div id="up-drop-inner">
                     <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-900/40 flex items-center justify-center">
@@ -85,10 +85,10 @@
         </div>
 
         <!-- VERIFY -->
-        <div class="card p-4">
+        <div class="card p-4 flex flex-col">
             <h2 class="font-bold text-blue-400 text-sm mb-2"><i class="fa-solid fa-shield-halved mr-2"></i>Xác thực tài liệu</h2>
-            <input id="vf-docid" type="text" placeholder="documentId (vd: hopdong.pdf_1729...)" class="w-full px-3 py-2 rounded-lg border border-gray-700 text-xs font-mono mb-2 focus:border-blue-500 focus:outline-none">
-            <div id="vf-drop" class="dropzone blue mb-2 p-3 text-center">
+            <input id="vf-docid" type="text" placeholder="documentId (vd: hopdong.pdf_1729...)" class="shrink-0 w-full px-3 py-2 rounded-lg border border-gray-700 text-xs font-mono mb-2 focus:border-blue-500 focus:outline-none">
+            <div id="vf-drop" class="dropzone blue mb-2 p-3 text-center flex-1 flex flex-col items-center justify-center">
                 <input id="vf-file" type="file" class="hidden">
                 <div id="vf-drop-inner">
                     <i class="fa-solid fa-file-circle-check text-xl text-blue-400 mb-1"></i>
@@ -102,13 +102,13 @@
         </div>
     </div>
 
-    <!-- DANH SÁCH -->
-    <div class="card p-5">
-        <div class="flex items-center justify-between mb-3">
+    <!-- DANH SÁCH — chiếm hết chiều cao màn hình còn lại trên mọi máy -->
+    <div class="card p-5 flex-1 min-h-0 flex flex-col">
+        <div class="flex items-center justify-between mb-3 shrink-0">
             <h2 class="font-bold text-purple-400"><i class="fa-solid fa-folder-open mr-2"></i>Tài liệu của tổ chức</h2>
             <button onclick="loadDocs()" class="text-xs text-gray-400 hover:text-white font-bold"><i class="fa-solid fa-rotate mr-1"></i>Làm mới</button>
         </div>
-        <div class="overflow-x-auto overflow-y-auto max-h-72">
+        <div class="overflow-x-auto overflow-y-auto flex-1 min-h-40">
             <table class="w-full text-xs">
                 <thead class="sticky top-0 bg-[#111827] z-10"><tr class="text-gray-500 border-b border-gray-800 text-left">
                     <th class="py-2 pr-3">#</th><th class="py-2 pr-3">Tài liệu</th><th class="py-2 pr-3">Hash / CID</th>
