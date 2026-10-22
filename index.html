@@ -406,7 +406,7 @@
                         <!-- TAB 3: HISTORY -->
                         <div id="tab-history" class="flex-1 flex flex-col min-h-0 hidden">
                             <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3 shrink-0">
-                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider">Sổ Cái Lịch Sử & Truy Xuất Nguồn Gốc</label>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider">Sổ Cái Blockchain</label>
                                 <div class="flex items-center gap-2">
                                     <input type="text" id="search-history-input" onkeyup="filterHistoryTable()" title="Gõ chuỗi thường: tìm mờ theo ID/tên file/hash. Dán nguyên địa chỉ 0x...: lọc chính xác theo ví." placeholder="🔍 Tìm kiếm mờ, hoặc dán ví 0x... để lọc chặt" class="bg-[#0b0f19] border border-gray-800 rounded-md px-3 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500 w-64">
                                     <button id="btn-refresh-history" class="text-blue-400 hover:text-blue-300 text-sm font-bold transition bg-blue-900/20 px-3 py-1 rounded-md whitespace-nowrap">
@@ -415,12 +415,12 @@
                                 </div>
                             </div>
 
-                            <!-- Thanh chuyển chế độ: tài liệu ví ↔ tài liệu đối tác (API key) -->
-                            <div class="flex items-center gap-2 mb-4 shrink-0">
-                                <button id="ltab-wallet" onclick="switchLedgerTab('wallet')" class="ledger-tab text-xs font-bold px-4 py-2 rounded-lg border transition bg-blue-600/20 text-blue-300 border-blue-500/60">
+                            <!-- Thanh chuyển chế độ: 2 tab chia đôi ngang bằng bảng dưới -->
+                            <div class="flex items-stretch gap-2 mb-4 shrink-0">
+                                <button id="ltab-wallet" onclick="switchLedgerTab('wallet')" class="ledger-tab flex-1 text-xs font-bold px-4 py-2 rounded-lg border transition bg-blue-600/20 text-blue-300 border-blue-500/60">
                                     <i class="fa-solid fa-wallet mr-2"></i>TÀI LIỆU VÍ
                                 </button>
-                                <button id="ltab-partner" onclick="switchLedgerTab('partner')" class="ledger-tab text-xs font-bold px-4 py-2 rounded-lg border transition bg-gray-800/50 text-gray-400 border-gray-700 hover:text-amber-300">
+                                <button id="ltab-partner" onclick="switchLedgerTab('partner')" class="ledger-tab flex-1 text-xs font-bold px-4 py-2 rounded-lg border transition bg-gray-800/50 text-gray-400 border-gray-700 hover:text-amber-300">
                                     <i class="fa-solid fa-handshake mr-2"></i>TÀI LIỆU ĐỐI TÁC (API KEY)
                                 </button>
                             </div>
