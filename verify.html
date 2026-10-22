@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xác Thực Công Khai — DataIntegrity</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  body { background: #050810; }
+  .dz { transition: border-color .2s, background .2s; }
+  .dz.drag { border-color: #3b82f6; background: rgba(37,99,235,.08); }
+</style>
+</head>
+<body class="min-h-screen text-slate-200 flex flex-col items-center px-4 py-10">
+
+  <div class="w-full max-w-2xl">
+    <div class="text-center mb-8">
+      <div class="bg-blue-600 w-14 h-14 rounded-2xl shadow-[0_0_20px_rgba(37,99,235,0.6)] flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-shield-halved text-white text-2xl"></i>
+      </div>
+      <h1 class="text-2xl font-bold text-white tracking-wide">Data<span class="text-blue-500">Integrity</span></h1>
+      <p class="text-blue-400 text-sm font-bold mt-1 uppercase tracking-widest">Xác thực tài liệu công khai</p>
+      <p class="text-gray-500 text-xs mt-2">Không cần tài khoản — file được băm ngay trên trình duyệt của bạn, không tải lên máy chủ.</p>
+    </div>
+
+    <!-- Thả file -->
+    <div id="dz" class="dz border-2 border-dashed border-gray-700 rounded-2xl p-10 text-center cursor-pointer bg-gray-900/40">
+      <i class="fa-solid fa-file-circle-check text-4xl text-gray-600 mb-3"></i>
+      <p class="text-sm text-gray-300 font-medium">Kéo thả file cần kiểm tra vào đây</p>
+      <p class="text-[11px] text-gray-500 mt-1">hoặc <span class="text-blue-400 underline">bấm để chọn file</span></p>
+      <input id="file-input" type="file" class="hidden">
+    </div>
+
+    <!-- Tra cứu thủ công -->
+    <div class="mt-5 flex gap-2">
+      <input id="manual" placeholder="...hoặc dán mã tài liệu (docId) / mã băm SHA-256"
+        class="flex-1 px-4 py-3 rounded-xl border border-gray-700 bg-[#0b0f19] focus:border-blue-500 focus:outline-none font-mono text-xs">
+      <button onclick="manualLookup()" class="px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition">
+        Tra cứu
+      </button>
+    </div>
+
+    <!-- Hash vừa tính -->
+    <div id="hash-box" class="hidden mt-6 bg-gray-900/60 border border-gray-800 rounded-xl p-4">
+      <p class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Mã băm SHA-256 của file bạn gửi</p>
+      <p id="hash-val" class="font-mono text-xs text-blue-300 break-all"></p>
+    </div>
+
+    <!-- Kết quả -->
+    <div id="result" class="mt-6 space-y-3"></div>
+
+    <div class="text-center mt-10">
+      <a href="/" class="text-xs text-gray-500 hover:text-blue-400 transition">
+        <i class="fa-solid fa-arrow-left mr-1"></i>Về trang đăng nhập
+      </a>
+    </div>
+  </div>
+
+<script>
+const dz = document.getElementById('dz');
+const fi = document.getElementById('file-input');
+const resultBox = document.getElementById('result');
+
+dz.onclick = () => fi.click();
+dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
+dz.ondragleave = () => dz.classList.remove('drag');
+dz.ondrop = e => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); };
+fi.onchange = () => fi.files[0] && handleFile(fi.files[0]);
+
+async function sha256Hex(buf) {
+  const h = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function card(color, icon, title, body) {
+  return `<div class="border-l-4 border-${color}-500 bg-gray-900/60 rounded-r-xl p-4">${title}${body || ''}</div>`;
+}
+
+function docCard(f, tampered) {
+  const st = f.isRevoked
+    ? `<span class="text-red-400 font-bold"><i class="fa-solid fa-ban mr-1"></i>ĐÃ THU HỒI</span>`
+    : `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>CÒN HIỆU LỰC</span>`;
+  const reason = f.isRevoked && f.revocationReason
+    ? `<p class="text-xs text-red-300/80 mt-1"><i class="fa-solid fa-quote-left mr-1"></i>Lý do: ${esc(f.revocationReason)}</p>` : '';
+  return `<div class="bg-[#0b0f19] border border-gray-800 rounded-xl p-4">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0">
+          <p class="font-mono text-xs text-blue-300 break-all">${esc(f.docId)}</p>
+          <p class="text-sm text-slate-200 mt-1"><i class="fa-solid fa-file mr-1 text-gray-500"></i>${esc(f.fileName)}</p>
+          <p class="text-[11px] text-gray-500 font-mono mt-1">Ví tạo: ${esc(f.uploader)}</p>
+        </div>
+        <div class="text-right shrink-0">
+          ${st}${reason}
+          <button onclick="loadLineage('${esc(f.docId)}', this)" class="block ml-auto mt-2 text-[11px] text-blue-400 hover:text-blue-300 underline">
+            <i class="fa-solid fa-code-branch mr-1"></i>Dòng đời phiên bản
+          </button>
+        </div>
+      </div>
+      <div class="lineage hidden mt-3 pt-3 border-t border-gray-800 text-xs text-gray-400"></div>
+    </div>`;
+}
+
+async function handleFile(file) {
+  resultBox.innerHTML = card('blue', '', `<p class="text-sm text-blue-300"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang băm file tại trình duyệt…</p>`);
+  const buf = await file.arrayBuffer();
+  const hash = await sha256Hex(buf);
+  document.getElementById('hash-box').classList.remove('hidden');
+  document.getElementById('hash-val').textContent = hash;
+  lookup({ hash, name: file.name.toLowerCase() });
+}
+
+async function manualLookup() {
+  const q = document.getElementById('manual').value.trim();
+  if (!q) return;
+  document.getElementById('hash-box').classList.add('hidden');
+  if (/^[a-fA-F0-9]{64}$/.test(q)) lookup({ hash: q.toLowerCase() });
+  else lookup({ name: q.toLowerCase() });
+}
+
+async function lookup({ hash, name }) {
+  const qs = new URLSearchParams();
+  if (hash) qs.set('hash', hash);
+  if (name) qs.set('name', name);
+  try {
+    const r = await fetch('/api/documents/lookup?' + qs);
+    const data = await r.json();
+    if (!data.success) { resultBox.innerHTML = card('red', '', `<p class="text-sm text-red-400">${esc(data.message)}</p>`); return; }
+
+    let html = '';
+    if (data.byHash.length) {
+      html += `<div class="border-l-4 border-emerald-500 bg-emerald-950/30 rounded-r-xl p-4">
+        <p class="text-emerald-400 font-bold"><i class="fa-solid fa-shield-halved mr-2"></i>NỘI DUNG KHỚP BẢN GHI BLOCKCHAIN</p>
+        <p class="text-xs text-gray-400 mt-1">Mã băm của file trùng khớp bản ghi trên chuỗi — file nguyên vẹn so với lúc đóng dấu.</p></div>`;
+      html += data.byHash.map(f => docCard(f)).join('');
+    } else {
+      html += `<div class="border-l-4 border-red-500 bg-red-950/30 rounded-r-xl p-4">
+        <p class="text-red-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-2"></i>KHÔNG TÌM THẤY BẢN GHI KHỚP NỘI DUNG</p>
+        <p class="text-xs text-gray-400 mt-1">File có thể đã bị sửa đổi, hoặc chưa từng được đóng dấu lên hệ thống.</p></div>`;
+      if (data.byName.length || data.bySimilar.length) {
+        html += `<p class="text-xs text-amber-400 mt-2"><i class="fa-solid fa-lightbulb mr-1"></i>Tìm thấy bản ghi có tên tương tự — có thể là bản gốc của file này:</p>`;
+        html += [...data.byName, ...data.bySimilar].map(f => docCard(f, true)).join('');
+      }
+    }
+    resultBox.innerHTML = html;
+  } catch {
+    resultBox.innerHTML = card('red', '', `<p class="text-sm text-red-400">Không kết nối được máy chủ.</p>`);
+  }
+}
+
+async function loadLineage(docId, btn) {
+  const box = btn.closest('.bg-\\[\\#0b0f19\\]').querySelector('.lineage');
+  box.classList.remove('hidden');
+  box.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tải…';
+  try {
+    const r = await fetch('/api/documents/' + encodeURIComponent(docId) + '/lineage');
+    const d = await r.json();
+    if (!d.success || !d.chain || !d.chain.length) { box.innerHTML = 'Không có dữ liệu dòng đời.'; return; }
+    box.innerHTML = d.chain.map((n, i) =>
+      `<div class="flex items-center gap-2 py-1">
+        <span class="text-gray-600 w-6">v${i + 1}</span>
+        <span class="font-mono text-blue-300 break-all">${esc(n.docId)}</span>
+        ${n.isRevoked ? '<span class="text-red-400">(đã thu hồi)</span>' : '<span class="text-emerald-400">(hiệu lực)</span>'}
+      </div>`).join('');
+  } catch { box.innerHTML = 'Lỗi tải dòng đời.'; }
+}
+</script>
+</body>
+</html>

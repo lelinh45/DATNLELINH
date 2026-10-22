@@ -1467,6 +1467,9 @@ app.post('/api/apikeys/:id/revoke', requireAuth, requireRole('ADMIN'), async (re
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// Xác thực công khai: khách không cần tài khoản — băm file tại trình duyệt rồi
+// tra các API lookup/status/lineage vốn public (hash & docId đã public trên chain)
+app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'verify.html')));
 // Cổng đối tác: giao diện đăng nhập bằng API key (sk_live_...) — upload/verify/
 // list/download qua /api/v1 mà không cần ví MetaMask hay JWT
 app.get('/partner', (req, res) => res.sendFile(path.join(__dirname, 'partner.html')));
