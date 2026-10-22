@@ -452,6 +452,42 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
         }
 
         // =====================================================================
+        // BỔ SUNG LỚP 3b: Dò ký tự ngụy trang (homoglyph) trong phần khác biệt —
+        // chữ Cyrillic/Greek trông y hệt Latin, ký tự ẩn zero-width, đảo chiều
+        // bidi… Không cờ tiếng Việt (dấu nằm ở Latin Extended U+0100–1EFF).
+        // =====================================================================
+        let anomalies = [];
+        if (textDifferences) {
+            const SUSPICIOUS = [
+                [0x0400, 0x04FF, 'Cyrillic'], [0x0370, 0x03FF, 'Greek'],
+                [0x200B, 0x200F, 'ký tự ẩn zero-width'], [0xFEFF, 0xFEFF, 'BOM ẩn'],
+                [0x202A, 0x202E, 'ký tự đảo chiều (bidi)'], [0x2060, 0x206F, 'ký tự ẩn'],
+                [0xFF00, 0xFF65, 'fullwidth/halfwidth'], [0x0530, 0x058F, 'Armenian'],
+                [0x13A0, 0x13FF, 'Cherokee'], [0x2100, 0x214F, 'letterlike giả chữ']
+            ];
+            const seen = new Set();
+            for (const p of textDifferences) {
+                if (!p.added && !p.removed) continue;
+                for (const ch of p.value) {
+                    const cp = ch.codePointAt(0);
+                    for (const [lo, hi, name] of SUSPICIOUS) {
+                        if (cp >= lo && cp <= hi) {
+                            const key = cp + (p.added ? 'a' : 'r');
+                            if (!seen.has(key)) {
+                                seen.add(key);
+                                anomalies.push({
+                                    char: ch, code: 'U+' + cp.toString(16).toUpperCase().padStart(4, '0'),
+                                    name, inNewFile: !!p.added
+                                });
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
         // BỔ SUNG LỚP 4: Tích hợp AI Forensic (Gemini) phân tích rủi ro
         // =====================================================================
         let aiForensicReport = null;
@@ -494,7 +530,8 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
             success: true,
             isMatch, isRevoked, revocationReason, currentFileHash, originalHash,
             supersededBy,
-            differences: textDifferences, 
+            differences: textDifferences,
+            anomalies,
             imageDiff: imageDiffBase64, 
             aiReport: aiForensicReport, // Bổ sung key này để đẩy lên Frontend
             message: isRevoked ? 'TÀI LIỆU ĐÃ BỊ THU HỒI' : (isMatch ? 'TÀI LIỆU NGUYÊN VẸN' : 'PHÁT HIỆN GIẢ MẠO')

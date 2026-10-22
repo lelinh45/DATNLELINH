@@ -1961,6 +1961,19 @@ async function handleVerify() {
                     </div>`;
             }
 
+            if (backendResult.anomalies && backendResult.anomalies.length > 0) {
+                html += `<div class="mt-3 p-3 bg-amber-900/20 border-l-4 border-amber-500 rounded-r-lg text-left">
+                    <p class="text-amber-400 font-bold mb-1 uppercase text-[11px] tracking-wider">
+                        <i class="fa-solid fa-eye-slash mr-1"></i> Phát hiện ký tự ngụy trang (homoglyph)
+                    </p>
+                    <p class="text-gray-400 text-[11px] mb-2">Các ký tự sau trông giống chữ thường nhưng thuộc bảng mã khác — chiêu trò giả mạo phổ biến:</p>
+                    ${backendResult.anomalies.map(a => `
+                        <span class="inline-block bg-[#0b0f19] border border-amber-800 rounded px-2 py-1 mr-1 mb-1 font-mono text-[11px] text-amber-300">
+                            "${esc(a.char)}" = ${esc(a.code)} (${esc(a.name)}) ${a.inNewFile ? '— chèn vào file kiểm tra' : '— trong bản gốc'}
+                        </span>`).join('')}
+                </div>`;
+            }
+
             if (backendResult.differences && backendResult.differences.length > 0) {
                 html += '<div class="bg-[#0b0f19] text-gray-300 p-4 rounded-lg text-left font-mono max-h-[300px] overflow-y-auto text-xs mt-3 border border-gray-800 leading-relaxed">';
                 backendResult.differences.forEach(p => {
