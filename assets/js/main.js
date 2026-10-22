@@ -464,6 +464,7 @@ const matchTableRow = (row, input) => {
 
 // Chuyển chế độ sổ cái: tài liệu ví ↔ tài liệu đối tác (API key)
 window.switchLedgerTab = (mode) => {
+    if (mode === 'partner' && !window.__isAdminWallet) mode = 'wallet'; // chỉ ADMIN mở được pane đối tác
     const w = document.getElementById('ledger-pane-wallet');
     const p = document.getElementById('ledger-pane-partner');
     const bw = document.getElementById('ltab-wallet');
@@ -1155,6 +1156,9 @@ async function connectWallet() {
         // Kiểm tra quyền on-chain TRƯỚC KHI mở app — nếu reveal trước, ví chờ
         // duyệt sẽ nhìn thấy UI hệ thống nháy qua trong giây lát rồi mới tới phòng chờ
         const myRank = await getMyRoleRank(account);
+        // Chỉ ví ADMIN thấy tab/doc đối tác (API key) — QUẢN LÝ cũng bị ẩn
+        window.__isAdminWallet = myRank === 3;
+        document.getElementById('ltab-partner')?.classList.toggle('hidden', myRank !== 3);
         let me = null;
         if (myRank === 0) {
             try { me = await ApiService.getMyWallet(); } catch (e) {}
@@ -2406,6 +2410,7 @@ async function loadTransactionHistory() {
                 // chỉ hiện metadata, không nút Xem/Tải — không ai (kể cả ADMIN)
                 // mở được nội dung ngoài tổ chức sở hữu key.
                 const org = partnerOrgs[docId];
+                if (org && !window.__isAdminWallet) continue; // doc đối tác: ví thường/QUẢN LÝ không thấy
                 if (org) {
                     partnerOrgCounts[org] = (partnerOrgCounts[org] || 0) + 1;
                     partnerHtml += `
