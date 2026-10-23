@@ -343,6 +343,24 @@ const verifyLimiter = rateLimit({
     }
 });
 
+// Tinh chỉnh diff từ-word: cặp (removed + added) liền nhau thường là cùng một
+// từ bị sửa ký tự (vd "agmail" → "аgmail" với а Cyrillic). diffChars lại trên
+// cặp đó để chỉ tô đúng ký tự khác — báo cáo dễ đọc, thấy ngay chữ nào giả.
+function refineWordDiff(parts) {
+    const out = [];
+    for (let i = 0; i < parts.length; i++) {
+        const p = parts[i];
+        const n = parts[i + 1];
+        if (p.removed && n && n.added) {
+            out.push(...diff.diffChars(p.value, n.value));
+            i++;
+        } else {
+            out.push(p);
+        }
+    }
+    return out;
+}
+
 // =====================================================================
 // API 2: VERIFY (XÁC THỰC & TẢI FILE TỪ IPFS ĐỂ VẼ BẢN ĐỒ NHIỆT)
 // =====================================================================
@@ -417,13 +435,13 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
                 if (fileName.endsWith('.txt') || fileName.endsWith('.csv')) {
                     const originalContent = originalBuffer.toString('utf8');
                     const currentContent = currentBuffer.toString('utf8');
-                    textDifferences = diff.diffWords(originalContent, currentContent);
+                    textDifferences = refineWordDiff(diff.diffWords(originalContent, currentContent));
                 } 
                 else if (fileName.endsWith('.docx')) {
                     try {
                         const originalDocx = await mammoth.extractRawText({ buffer: originalBuffer });
                         const currentDocx = await mammoth.extractRawText({ buffer: currentBuffer });
-                        textDifferences = diff.diffWords(originalDocx.value, currentDocx.value);
+                        textDifferences = refineWordDiff(diff.diffWords(originalDocx.value, currentDocx.value));
                     } catch (docxErr) {
                         console.error("Lỗi đọc file DOCX:", docxErr);
                     }
