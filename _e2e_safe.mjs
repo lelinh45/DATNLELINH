@@ -19,6 +19,11 @@ const login = async (w, dev) => {
     const c = await get('/auth/challenge?address=' + w.address.toLowerCase());
     return post('/auth/login', { address: w.address.toLowerCase(), signature: await w.signMessage(c.challenge), challenge: c.challenge, deviceId: dev, deviceLabel: 'E2E-SAFE' });
 };
+// Step-up: thao tác nhạy cảm (đổi email, thu hồi/duyệt phiên) cần ký nonce riêng
+const step = async (w, H) => {
+    const c = await post('/auth/step-challenge', {}, H);
+    return { stepChallenge: c.challenge, stepSignature: await w.signMessage(c.challenge) };
+};
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => { if (cond) { pass++; console.log('  ✅', name); } else { fail++; console.log('  ❌', name, extra); } };
 const timings = [];
@@ -48,7 +53,8 @@ const HP = { Authorization: 'Bearer ' + lP.token };
 { const r = await get('/apikeys', HP); ok('Pending → /apikeys 403', r.st === 403); }
 { const r = await get('/wallets/me', HP); rec('GET /wallets/me', r.ms); ok('Pending → /wallets/me 200 (hồ sơ mình)', r.st === 200); }
 { const r = await post('/wallets/sync', { address: wPend.address, requestedRole: 'NGƯỜI XEM' }, HP); ok('Pending thiếu tên/liên hệ khi xin quyền → 400', r.st === 400, 'st=' + r.st); }
-{ const r = await post('/wallets/email', { email: 'pend@test.com', phone: '0912345678' }, HP); ok('Pending lưu email+SĐT', r.st === 200, 'st=' + r.st); }
+{ const r = await post('/wallets/email', { email: 'pend@test.com', phone: '0912345678', ...(await step(wPend, HP)) }, HP); ok('Pending lưu email+SĐT (kèm step-up)', r.st === 200, 'st=' + r.st); }
+{ const r = await post('/wallets/email', { email: 'no_sig@test.com' }, HP); ok('Email không step-up → 403 STEP_UP', r.st === 403, 'st=' + r.st); }
 { const r = await post('/wallets/sync', { address: wPend.address, alias: 'E2E Pending', requestedRole: 'NGƯỜI XEM' }, HP); ok('Pending khai đủ thông tin → requestedRole OK', r.st === 200 && r.requestedRole === 'NGƯỜI XEM', JSON.stringify(r).slice(0, 200)); }
 { const r = await post('/wallets/sync', { address: wPend.address, role: 'ADMIN', status: 'ACTIVE' }, HP); ok('Pending tự leo quyền role=ADMIN → 403', r.st === 403, 'st=' + r.st); }
 
