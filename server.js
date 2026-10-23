@@ -490,7 +490,10 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
                 [0x200B, 0x200F, 'ký tự ẩn zero-width'], [0xFEFF, 0xFEFF, 'BOM ẩn'],
                 [0x202A, 0x202E, 'ký tự đảo chiều (bidi)'], [0x2060, 0x206F, 'ký tự ẩn'],
                 [0xFF00, 0xFF65, 'fullwidth/halfwidth'], [0x0530, 0x058F, 'Armenian'],
-                [0x13A0, 0x13FF, 'Cherokee'], [0x2100, 0x214F, 'letterlike giả chữ']
+                [0x13A0, 0x13FF, 'Cherokee'], [0x2100, 0x214F, 'letterlike giả chữ'],
+                [0x1D400, 0x1D7FF, 'ký tự toán giả chữ (math alphanumeric)'],
+                [0x0250, 0x02AF, 'ký tự IPA giống chữ Latin'], [0x1D00, 0x1D7F, 'ký tự ngữ âm mở rộng'],
+                [0x0590, 0x05FF, 'Hebrew'], [0x10A0, 0x10FF, 'Georgian']
             ];
             const seen = new Set();
             for (const p of textDifferences) {
