@@ -75,6 +75,8 @@ const ENTITIES = {
             ['docId', null, 'UK'], ['apiKeyId', 'ref thật', 'FK'], ['orgName'],
             ['fileName'], ['fileHash', 'SHA-256'], ['fileSize'], ['ipfsCID'],
             ['encKey', 'bọc MASTER_KEY'], ['txHash', 'server ký thay'],
+            ['refDocId', 'trỏ docId gốc khi dùng chung'],
+            ['isSharedRef', 'tham chiếu bằng chứng chung'],
             ['isRevoked'], ['revocationReason'],
             ['createdAt, updatedAt', 'timestamps'],
         ],
