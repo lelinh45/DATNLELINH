@@ -175,6 +175,7 @@ const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 // Khai báo trực tiếp ABI để Server độc lập hoàn toàn, không phụ thuộc vào Hardhat
 const abi = [
     "function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason)",
+    "function getDocIdByHash(address _uploader, string _fileHash) view returns (string)",
     "function userRoles(address) view returns (uint8)"
 ];
 
@@ -1239,6 +1240,12 @@ app.post('/api/batches/revoke', requireAuth, requireRole('QUẢN LÝ'), async (r
             pdoc.revokedBy = req.user.address;
             pdoc.revokedAt = new Date();
             await pdoc.save();
+            // Thu hồi bản gốc → mọi bản ghi dùng chung (tham chiếu cùng docId
+            // on-chain) cũng mất hiệu lực — đồng bộ cờ cho các đối tác tham chiếu
+            await PartnerDocument.updateMany(
+                { refDocId: docId },
+                { $set: { isRevoked: true, revocationReason: pdoc.revocationReason, revokedBy: pdoc.revokedBy, revokedAt: pdoc.revokedAt } }
+            );
             return res.json({ success: true });
         }
 
@@ -1422,7 +1429,8 @@ function getChainWriter() {
         if (!process.env.PRIVATE_KEY) throw new Error('Server chưa cấu hình PRIVATE_KEY — không ký được giao dịch');
         const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
         chainWriter = new ethers.Contract(CONTRACT_ADDRESS, [
-            "function addDocuments(string[] _documentIds, string[] _fileHashes, string[] _ipfsURIs)"
+            "function addDocuments(string[] _documentIds, string[] _fileHashes, string[] _ipfsURIs)",
+            "function revokeDocument(string _documentId, string _reason)"
         ], signer);
     }
     return chainWriter;
@@ -1466,6 +1474,40 @@ app.post('/api/v1/documents', requireApiKey, uploadSingle('document'), async (re
         const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
         const safeFileName = (req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file').substring(0, 100);
         const documentId = `${safeFileName}_${Date.now()}`;
+
+        // Sổ trùng on-chain của ví server: mọi đối tác dùng chung msg.sender nên
+        // nội dung đã được đóng dấu (bởi bất kỳ tổ chức nào) sẽ khiến contract
+        // revert. Blockchain chỉ cần 1 bằng chứng cho 1 nội dung → thay vì ký
+        // lại, cấp bản ghi THAM CHIẾU DÙNG CHUNG vào danh sách của đối tác này.
+        if (process.env.PRIVATE_KEY) {
+            try {
+                const serverAddr = new ethers.Wallet(process.env.PRIVATE_KEY).address;
+                const dupDocId = await getChainContract().getDocIdByHash(serverAddr, fileHash);
+                if (dupDocId) {
+                    const od = await getChainContract().getDocument(dupDocId);
+                    if (!od.isRevoked) {
+                        // Lấy CID + khóa bọc từ bản ghi gốc (file trùng byte →
+                        // giải mã được bằng khóa gốc; không tốn IPFS, không tốn gas)
+                        const srcPartner = await PartnerDocument.findOne({ docId: dupDocId }).lean();
+                        const srcBatch = srcPartner ? null : await Batch.findOne({ 'files.docId': dupDocId }).select('files.$').lean();
+                        const src = srcPartner || (srcBatch && srcBatch.files && srcBatch.files[0]) || null;
+                        await PartnerDocument.create({
+                            docId: documentId, apiKeyId: req.apiKey._id, orgName: req.apiKey.name,
+                            fileName: req.file.originalname, fileHash, fileSize: req.file.size,
+                            ipfsCID: od.ipfsURI ? od.ipfsURI.replace('ipfs://', '') : (src && src.ipfsCID) || '',
+                            encKey: (src && src.encKey) || '', txHash: '',
+                            refDocId: dupDocId, isSharedRef: true
+                        });
+                        return res.json({
+                            success: true, shared: true, documentId, refDocId: dupDocId, fileHash,
+                            message: 'Nội dung này đã được đóng dấu trên hệ thống — tài liệu của bạn được gắn vào bản ghi dùng chung (cùng bằng chứng on-chain, không cần đóng dấu lại).'
+                        });
+                    }
+                }
+            } catch (dupErr) {
+                console.warn('[PARTNER] Tra sổ trùng thất bại — để contract quyết định:', dupErr.message);
+            }
+        }
 
         // Mã hóa AES giống luồng web: CryptoJS.AES.encrypt(base64(bytes), passphrase)
         const secretKey = crypto.randomBytes(24).toString('hex');
@@ -1518,7 +1560,12 @@ app.post('/api/v1/documents', requireApiKey, uploadSingle('document'), async (re
 app.post('/api/v1/verify', requireApiKey, uploadSingle('document'), async (req, res) => {
     try {
         if (!req.file || !req.body.documentId) return res.status(400).json({ success: false, message: 'Thiếu file hoặc documentId' });
-        const documentId = req.body.documentId;
+        let documentId = req.body.documentId;
+        // Bản ghi dùng chung: docId của đối tác này trỏ sang docId on-chain gốc
+        try {
+            const pd = await PartnerDocument.findOne({ docId: documentId, apiKeyId: req.apiKey._id }).select('refDocId').lean();
+            if (pd && pd.refDocId) documentId = pd.refDocId;
+        } catch (_) {}
         if (typeof documentId !== 'string' || !/^[\w.\-]{1,300}$/.test(documentId)) {
             return res.status(400).json({ success: false, message: 'documentId không hợp lệ' });
         }
@@ -1548,7 +1595,7 @@ app.post('/api/v1/verify', requireApiKey, uploadSingle('document'), async (req, 
 app.get('/api/v1/documents', requireApiKey, async (req, res) => {
     try {
         const docs = await PartnerDocument.find({ apiKeyId: req.apiKey._id })
-            .select('docId fileName fileHash fileSize ipfsCID txHash isRevoked createdAt')
+            .select('docId fileName fileHash fileSize ipfsCID txHash isRevoked refDocId isSharedRef createdAt')
             .sort({ createdAt: -1 }).lean();
         res.json({ success: true, documents: docs });
     } catch (e) {
@@ -1607,6 +1654,9 @@ app.post('/api/v1/documents/:docId/revoke', requireApiKey, async (req, res) => {
 
         const doc = await PartnerDocument.findOne({ docId, apiKeyId: req.apiKey._id });
         if (!doc) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu của đối tác này' });
+        if (doc.isSharedRef || doc.refDocId) {
+            return res.status(409).json({ success: false, message: 'Tài liệu dùng chung — chỉ tổ chức đóng dấu gốc hoặc ADMIN mới được thu hồi' });
+        }
         if (doc.isRevoked) return res.status(409).json({ success: false, message: 'Tài liệu đã bị thu hồi trước đó' });
 
         let txHash = '';

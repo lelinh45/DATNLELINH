@@ -223,7 +223,7 @@ async function uploadDoc() {
             if (!res.ok || !d.success) throw new Error(d.message || 'Upload thất bại');
             ok++;
             row.remove();
-            toast('success', `${f.name} — đóng dấu thành công`);
+            toast('success', d.shared ? `${f.name} — gắn vào bản ghi dùng chung (nội dung đã đóng dấu trước)` : `${f.name} — đóng dấu thành công`);
             if (i === 0) document.getElementById('vf-docid').value = d.documentId;
         } catch (e) {
             fail++;
@@ -284,8 +284,8 @@ function renderDocs(docs) {
         <tr class="border-b border-gray-800/60 hover:bg-gray-800/30">
             <td class="py-2 pr-3 text-gray-600">${i + 1}</td>
             <td class="py-2 pr-3">
-                <div class="font-bold text-gray-200">${esc(d.fileName || d.docId)}</div>
-                <div class="font-mono text-[10px] text-blue-400 truncate max-w-[180px]" title="${esc(d.docId)}">${esc(d.docId)}</div>
+                <div class="font-bold text-gray-200">${esc(d.fileName || d.docId)}${d.isSharedRef ? ' <span class="bg-cyan-900/40 text-cyan-400 px-1.5 py-0.5 rounded text-[9px] font-bold" title="Nội dung trùng bản đã đóng dấu trước — bản ghi này dùng chung bằng chứng on-chain">DÙNG CHUNG</span>' : ''}</div>
+                <div class="font-mono text-[10px] text-blue-400 truncate max-w-[180px]" title="${esc(d.docId)}${d.refDocId ? ' → on-chain: ' + esc(d.refDocId) : ''}">${esc(d.docId)}</div>
                 <div class="text-[10px] text-gray-600">${fmtSize(d.fileSize)}</div>
             </td>
             <td class="py-2 pr-3 font-mono text-[10px] text-gray-500">
@@ -299,7 +299,7 @@ function renderDocs(docs) {
                 : '<span class="bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold">HIỆU LỰC</span>'}</td>
             <td class="py-2 whitespace-nowrap">
                 <button onclick="downloadDoc('${esc(d.docId)}','${esc(d.fileName||'file')}')" class="text-blue-400 hover:text-blue-300 font-bold mr-2"><i class="fa-solid fa-download mr-1"></i>Tải</button>
-                ${!d.isRevoked ? `<button onclick="revokeDoc('${esc(d.docId)}')" class="text-red-400 hover:text-red-300 font-bold"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+                ${(!d.isRevoked && !d.isSharedRef) ? `<button onclick="revokeDoc('${esc(d.docId)}')" class="text-red-400 hover:text-red-300 font-bold"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
             </td>
         </tr>`).join('');
 }

@@ -12,6 +12,8 @@ const partnerDocSchema = new mongoose.Schema({
     ipfsCID: String,
     encKey: String, // AES key bọc MASTER_KEY — giống cơ chế escrow của luồng web
     txHash: String,
+    refDocId: { type: String, default: '' },      // docId on-chain gốc khi bản ghi là tham chiếu dùng chung
+    isSharedRef: { type: Boolean, default: false }, // true = nội dung trùng bản đã đóng dấu → dùng chung bằng chứng on-chain
     isRevoked: { type: Boolean, default: false },
     revocationReason: String,
     revokedBy: String,   // ví ADMIN (sổ cái) hoặc "partner:<tên tổ chức>" (tự thu hồi qua API)
