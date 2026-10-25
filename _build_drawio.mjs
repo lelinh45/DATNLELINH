@@ -306,6 +306,327 @@ function pageEscrow() {
 }
 
 // ================================================================
+// HELPERS MỞ RỘNG — use-case phân hệ & sequence diagram
+// ================================================================
+
+// use-case phân hệ: actors tự động xếp cột trái/phải, links [[actorIdx|{r:idx}, ucIdx]]
+function ucSub(sysTitle, actorsL, actorsR, ucs, links) {
+    const c = [];
+    const nUC = ucs.length, h = Math.max(nUC * 56 + 60, Math.max(actorsL.length, actorsR.length) * 110 + 60);
+    c.push(V(sysTitle, BOUND, 230, 20, 460, h));
+    const aIds = actorsL.map((a, i) => { const s = V(a, ACTOR, 40, 40 + i * 110, 40, 80); c.push(s); return s.match(/id="(c\d+)"/)[1]; });
+    const rIds = actorsR.map((a, i) => { const s = V(a, ACTOR, 780, 40 + i * 110, 40, 80); c.push(s); return s.match(/id="(c\d+)"/)[1]; });
+    const ucIds = ucs.map((u, i) => { const s = V(u, UC, 320, 60 + i * 56, 280, 34); c.push(s); return s.match(/id="(c\d+)"/)[1]; });
+    for (const [ai, ui] of links) {
+        const src = typeof ai === 'object' && 'r' in ai ? rIds[ai.r] : aIds[ai];
+        c.push(E(src, ucIds[ui], ASSOC));
+    }
+    return c.join('\n');
+}
+
+const LIFE = 'shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;fontSize=11;container=1;collapsible=0;';
+
+// sequence: L = [[tên, x, w]], M = [[fromIdx, toIdx, nhãn, dashed?], ...]
+function seqPage(L, M, notes = []) {
+    const H = 90 + M.length * 44;
+    const c = L.map(([name, x, w]) => V(name, LIFE, x, 30, w || 150, H));
+    const ids = c.map(s => s.match(/id="(c\d+)"/)[1]);
+    c.forEach(s => {});
+    const out = [...c];
+    M.forEach(([a, b, label, dashed], i) => {
+        const y1 = 70 + i * 44;
+        const f = (y1 / H).toFixed(3);
+        if (a === b) {
+            // self-message: vòng chữ nhật ra khỏi lifeline rồi quay lại ở độ cao thấp hơn
+            const cx = L[a][1] + (L[a][2] || 150) / 2;
+            const f2 = ((y1 + 26) / H).toFixed(3);
+            const st = `endArrow=block;endFill=1;exitX=0.5;exitY=${f};entryX=0.5;entryY=${f2};edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;`;
+            out.push(`<mxCell id="${nid()}" value="${esc(label)}" style="${st}" edge="1" parent="1" source="${ids[a]}" target="${ids[b]}"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="${cx + 90}" y="${y1}"/><mxPoint x="${cx + 90}" y="${y1 + 26}"/></Array></mxGeometry></mxCell>`);
+        } else {
+            const st = `endArrow=block;endFill=${dashed ? 0 : 1};${dashed ? 'dashed=1;' : ''}exitX=0.5;exitY=${f};entryX=0.5;entryY=${f};html=1;fontSize=10;`;
+            out.push(`<mxCell id="${nid()}" value="${esc(label)}" style="${st}edgeStyle=none;" edge="1" parent="1" source="${ids[a]}" target="${ids[b]}"><mxGeometry relative="1" as="geometry"/></mxCell>`);
+        }
+    });
+    notes.forEach((n, i) => out.push(V(n, NOTE, 40 + i * 30, H + 60, 300, 60)));
+    return out.join('\n');
+}
+
+// ================================================================
+// UC PHÂN HỆ — 4 trang
+// ================================================================
+function pageUCVerify() {
+    return ucSub('Phân hệ xác thực & tra cứu',
+        ['Người kiểm tra\n(công khai)', 'Người dùng ví\n(rank ≥ 0)'],
+        [],
+        ['Nộp file + documentId\nxác thực', 'Tra cứu tài liệu\ntheo docId / hash', 'Quét mã QR\ntrên giấy chứng nhận', 'Xem diff text +\nheatmap ảnh', 'Xem báo cáo\npháp y AI', 'Tra cứu nội dung\ntương đồng'],
+        [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [1, 3], [1, 4], [1, 5]]);
+}
+function pageUCDocs() {
+    return ucSub('Phân hệ quản lý tài liệu',
+        ['NHẬP LIỆU\n(rank 1)', 'QUẢN LÝ\n(rank 2)'],
+        [],
+        ['Upload lô nhiều file\n(kéo-thả)', 'Chọn chế độ Riêng tư /\nCông khai từng file', 'Xem trước tài liệu\n(giải mã client-side)', 'Tải file gốc\n(viết bản sao)', 'Thu hồi tài liệu\nkèm lý do', 'Tạo phiên bản mới\n(thay thế bản cũ)', 'Quản lý hàng đợi\norphaned batches'],
+        [[0, 0], [0, 1], [0, 2], [0, 3], [0, 6], [1, 0], [1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6]]);
+}
+function pageUCAdmin() {
+    return ucSub('Phân hệ quản trị hệ thống',
+        ['ADMIN\n(rank 3)', 'Ví bất kỳ'],
+        ['Hệ thống\n(SMTP / on-chain)'],
+        ['Duyệt ví trong khay chờ\n(gán role on-chain)', 'Khóa / xóa ví\n(assignRole 0)', 'Từ chối đơn\n(chặn 3 lần → 30 phút)', 'Tạo / thu hồi\nAPI key đối tác', 'Thu hồi tài liệu\nđối tác', 'Theo dõi phiên đăng nhập\n+ thông báo', 'Duyệt thiết bị mới\n(step-up ký lại)', 'Thu hồi phiên\nthiết bị khác'],
+        [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 5], [1, 6], [1, 7]]);
+}
+function pageUCPartner() {
+    return ucSub('Phân hệ tích hợp đối tác (API key)',
+        ['Tổ chức đối tác\n(trường / bệnh viện)'],
+        ['ADMIN\n(cấp key)'],
+        ['Xin API key\n(sk_live_…)', 'Upload tài liệu\nPOST /v1/documents', 'Verify file\nPOST /v1/verify', 'Liệt kê tài liệu\ncủa mình', 'Tải / giải mã file\nGET /v1/documents/:id', 'Thu hồi tài liệu\nPOST /:id/revoke', 'Dùng chung bằng chứng\n(bản ghi tham chiếu)'],
+        [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [{ r: 0 }, 0]]);
+}
+
+// ================================================================
+// SEQUENCE — 6 trang
+// ================================================================
+function pageSeqLogin() {
+    return seqPage(
+        [['Trình duyệt', 40], ['MetaMask', 220], ['Backend /auth', 400], ['MongoDB', 590], ['SMTP', 780]],
+        [
+            [0, 2, 'GET /auth/challenge'],
+            [2, 3, 'tạo AuthChallenge (TTL 5\')'],
+            [2, 0, 'challenge (nonce)', 1],
+            [0, 1, 'ký challenge'],
+            [1, 0, 'signature', 1],
+            [0, 2, 'POST /auth/login {sig, deviceId}'],
+            [2, 2, 'xác minh chữ ký\n(ecrecover → địa chỉ ví)'],
+            [2, 3, 'tra DeviceSession (deviceId, status)'],
+            [2, 4, 'gửi OTP (nếu hết phiên nhưng có email)'],
+            [2, 0, 'JWT (active) / pending + thiết bị chặn', 1],
+        ],
+        ['Thiết bị mới → pending: không cấp JWT, bắn thông báo cho thiết bị cũ duyệt; không còn phiên nào → OTP email (hoặc auto-approve nếu chưa đăng ký email).']);
+}
+function pageSeqUpload() {
+    return seqPage(
+        [['Trình duyệt', 30], ['Backend', 210], ['IPFS / Pinata', 390], ['MetaMask + Sepolia', 570], ['MongoDB', 780]],
+        [
+            [0, 0, 'đọc byte → SHA-256\n→ mã hóa AES-256'],
+            [0, 1, 'POST /api/upload (ciphertext)'],
+            [1, 2, 'kiểm tra quota → pinFileToIPFS'],
+            [2, 1, 'CID', 1],
+            [1, 0, '{cid, docId, qrCode}', 1],
+            [0, 3, 'addDocuments(ids, hashes, uris)'],
+            [3, 0, 'txHash (xác nhận on-chain)', 1],
+            [0, 1, 'POST /api/batches (metadata + encKey)'],
+            [1, 4, 'wrapKey GCM + lưu Batch'],
+            [1, 0, '201 batch đã lưu', 1],
+        ],
+        ['Phía trình duyệt: đọc byte → SHA-256(file gốc) → AES-256 mã hóa trước khi gửi — plaintext không bao giờ rời máy người dùng.']);
+}
+function pageSeqVerify() {
+    return seqPage(
+        [['Người kiểm tra', 40], ['Backend /verify', 230], ['Sepolia (đọc)', 420], ['IPFS gateway', 600], ['Gemini AI', 780]],
+        [
+            [0, 1, 'POST /api/verify (file + documentId)'],
+            [1, 1, 'SHA-256(file nộp)'],
+            [1, 2, 'getDocument(documentId)'],
+            [2, 1, 'fileHash, isRevoked, lý do…', 1],
+            [1, 0, '{match, isRevoked, timestamp}', 1],
+            [0, 1, 'hash lệch → xin phân tích'],
+            [1, 3, 'tải ciphertext bản gốc'],
+            [1, 1, 'giải mã → diff text + heatmap\n+ quét ký tự ngụy trang'],
+            [1, 4, 'gửi ngữ cảnh → báo cáo pháp y'],
+            [4, 1, 'báo cáo AI', 1],
+        ],
+        ['Băm file nộp rồi so với hash on-chain; khi lệch: giải mã bản gốc (nếu có quyền) → diff từng ký tự + quét ký tự ngụy trang (Cyrillic/Greek/zero-width) + pixelmatch cho ảnh.']);
+}
+function pageSeqRevoke() {
+    return seqPage(
+        [['Người dùng', 40], ['MetaMask + Contract', 220], ['Backend', 430], ['MongoDB', 610], ['Notification', 790]],
+        [
+            [0, 1, 'revokeDocument(docId, lý do)'],
+            [1, 1, 'kiểm tra quyền on-chain\n(uploader / role / admin-doc)'],
+            [1, 0, 'txHash — DocumentRevoked', 1],
+            [0, 2, 'POST /api/batches/revoke'],
+            [2, 3, 'đồng bộ isRevoked + lý do (+ refDocId dùng chung)'],
+            [2, 4, 'thông báo cho chủ sở hữu\nkhi người khác thu hồi'],
+            [2, 0, '200 — xác nhận đồng bộ', 1],
+        ],
+        ['Contract kiểm tra quyền on-chain: uploader tự thu hồi, QUẢN LÝ thu hồi của nhập liệu, chỉ ADMIN thu hồi tài liệu ADMIN/đối tác; bản ghi tham chiếu dùng chung cũng chuyển isRevoked.']);
+}
+function pageSeqPartner() {
+    return seqPage(
+        [['Hệ thống đối tác', 30], ['Backend /api/v1', 230], ['Sepolia', 430], ['IPFS / Pinata', 610], ['MongoDB', 790]],
+        [
+            [0, 1, 'POST /v1/documents (x-api-key + file)'],
+            [1, 4, 'sha256(token) → tra ApiKey + rate limit'],
+            [1, 2, 'getDocIdByHash(ví server, fileHash)'],
+            [2, 1, 'trùng → docId gốc (đang hiệu lực)', 1],
+            [1, 4, 'tạo PartnerDocument THAM CHIẾU (refDocId)'],
+            [1, 0, '{shared: true, documentId, refDocId}', 1],
+            [0, 1, 'nội dung mới → upload lần 2'],
+            [1, 3, 'AES + pin ciphertext'],
+            [1, 2, 'addDocuments (ví server ký)'],
+            [1, 4, 'PartnerDocument mới'],
+        ],
+        ['Trùng byte và đang hiệu lực → không tốn gas/IPFS, chỉ thêm bản ghi tham chiếu cho tổ chức; đã thu hồi → cho đóng dấu lại bình thường.']);
+}
+function pageSeqApproveWallet() {
+    return seqPage(
+        [['Ví mới', 40], ['Frontend', 210], ['Backend', 390], ['ADMIN (MetaMask)', 580], ['Contract', 770]],
+        [
+            [0, 1, 'đăng nhập (ký challenge)'],
+            [1, 2, 'GET /wallets/me → role = 0'],
+            [0, 1, 'khai alias, email, requestedRole'],
+            [1, 2, '/wallets/sync → vào khay chờ'],
+            [3, 2, 'GET /wallets/pending (badge 30s)'],
+            [3, 4, 'assignRole(ví, role) — ký 1 lần'],
+            [4, 3, 'RoleAssigned', 1],
+            [0, 1, 'poll 15s → quyền > 0'],
+            [1, 0, 'mở toàn bộ chức năng\n(không cần đăng nhập lại)', 1],
+        ],
+        ['Cấp NGƯỜI XEM cho ví rank 0 chỉ ghi MongoDB (không tốn gas); phán quyết quyền luôn đọc trực tiếp từ contract, không tin DB.']);
+}
+
+// ================================================================
+// ACTIVITY BỔ SUNG — 3 trang
+// ================================================================
+function pageActRevoke() {
+    const c = [];
+    const n = [
+        V('', START, 180, 10, 20, 20),
+        V('Chọn tài liệu → nhập lý do thu hồi\n(bắt buộc — ghi vĩnh viễn on-chain)', ACT, 90, 60, 240, 46),
+        V('MetaMask ký revokeDocument', ACT, 90, 136, 240, 30),
+        V('Contract kiểm tra quyền?', DEC, 140, 196, 140, 70),
+        V('isRevoked=true + sự kiện\nDocumentRevoked (bất biến)', ACT, 90, 296, 240, 46),
+        V('POST /api/batches/revoke\n→ đồng bộ MongoDB', ACT, 90, 372, 240, 46),
+        V('Thông báo cho chủ sở hữu\n(khi người khác thu hồi)', ACT, 90, 448, 240, 46),
+        V('', FINAL, 180, 524, 20, 20),
+        V('Revert — không đủ quyền', ENDTXT, 420, 214, 170, 34),
+    ];
+    const ids = n.map(s => s.match(/id="(c\d+)"/)[1]);
+    c.push(...n);
+    c.push(E(ids[0], ids[1], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[1], ids[2], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[2], ids[3], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[3], ids[4], 'endArrow=block;endFill=1;html=1;', 'Đủ'));
+    c.push(E(ids[3], ids[8], 'endArrow=block;endFill=1;html=1;', 'Không'));
+    c.push(E(ids[4], ids[5], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[5], ids[6], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[6], ids[7], 'endArrow=block;endFill=1;html=1;'));
+    c.push(V('Luật contract: uploader/QUẢN LÝ thu hồi được; tài liệu của ADMIN chỉ ADMIN; tài liệu đối tác chỉ ADMIN hoặc chính đối tác (bản tham chiếu dùng chung → 409).', NOTE, 400, 300, 260, 70));
+    return c.join('\n');
+}
+function pageActEmail() {
+    const c = [];
+    const n = [
+        V('', START, 180, 10, 20, 20),
+        V('Cài đặt → đổi email', ACT, 90, 60, 240, 30),
+        V('POST /auth/step-challenge\n→ ký lại MetaMask (step-up)', ACT, 90, 120, 240, 46),
+        V('Chữ ký đúng chủ ví?', DEC, 140, 196, 140, 70),
+        V('Ví đã có email cũ?', DEC, 140, 296, 140, 70),
+        V('Gửi mã xác nhận 6 số\nvề EMAIL CŨ (TTL 5\', tối đa 5 lần)', ACT, 90, 396, 240, 46),
+        V('Nhập mã →\nPOST /wallets/email/confirm', ACT, 90, 472, 240, 46),
+        V('Đổi email + thông báo\ncho ví (cảnh báo bảo mật)', ACT, 90, 548, 240, 46),
+        V('', FINAL, 180, 624, 20, 20),
+        V('403 — step-up thất bại', ENDTXT, 420, 214, 170, 34),
+        V('Gán email trực tiếp\n(lần đầu chưa có email)', ACT, 420, 310, 190, 44),
+    ];
+    const ids = n.map(s => s.match(/id="(c\d+)"/)[1]);
+    c.push(...n);
+    c.push(E(ids[0], ids[1], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[1], ids[2], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[2], ids[3], 'endArrow=block;endFill=1;html=1;', 'Đúng'));
+    c.push(E(ids[2], ids[9], 'endArrow=block;endFill=1;html=1;', 'Sai'));
+    c.push(E(ids[3], ids[4], 'endArrow=block;endFill=1;html=1;', 'Có'));
+    c.push(E(ids[3], ids[10], 'endArrow=block;endFill=1;html=1;', 'Chưa'));
+    c.push(E(ids[4], ids[5], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[5], ids[6], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[10], ids[6], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[6], ids[7], 'endArrow=block;endFill=1;html=1;'));
+    return c.join('\n');
+}
+function pageActPartner() {
+    const c = [];
+    const n = [
+        V('', START, 180, 10, 20, 20),
+        V('POST /v1/documents\nx-api-key + file', ACT, 90, 60, 240, 40),
+        V('Xác thực key (sha256)\n+ rate limit 60/phút', ACT, 90, 130, 240, 40),
+        V('Key hợp lệ?', DEC, 140, 200, 140, 70),
+        V('Hash file → tra sổ trùng\nví server on-chain', ACT, 90, 300, 240, 46),
+        V('Đã đóng dấu\nvà còn hiệu lực?', DEC, 140, 376, 140, 70),
+        V('PartnerDocument THAM CHIẾU\n(refDocId, cùng CID + khóa)\n— không tốn gas / IPFS', ACT, 90, 476, 240, 56),
+        V('AES + pin IPFS\n+ addDocuments on-chain\n+ PartnerDocument mới', ACT, 420, 476, 220, 56),
+        V('', FINAL, 180, 566, 20, 20),
+        V('401 — key sai / thu hồi', ENDTXT, 420, 218, 170, 34),
+    ];
+    const ids = n.map(s => s.match(/id="(c\d+)"/)[1]);
+    c.push(...n);
+    c.push(E(ids[0], ids[1], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[1], ids[2], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[2], ids[3], 'endArrow=block;endFill=1;html=1;', 'Đúng'));
+    c.push(E(ids[2], ids[9], 'endArrow=block;endFill=1;html=1;', 'Sai'));
+    c.push(E(ids[3], ids[4], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[4], ids[5], 'endArrow=block;endFill=1;html=1;', 'Có'));
+    c.push(E(ids[4], ids[6], 'endArrow=block;endFill=1;html=1;', 'Không / đã thu hồi'));
+    c.push(E(ids[5], ids[7], 'endArrow=block;endFill=1;html=1;'));
+    c.push(E(ids[6], ids[7], 'endArrow=block;endFill=1;html=1;', [[530, 570], [240, 570]]));
+    return c.join('\n');
+}
+
+// ================================================================
+// CLASS DIAGRAM — models + contract
+// ================================================================
+function pageClass() {
+    const ents = [];
+    ents.push(ent('«model» Wallet', ['+address: String (UK)', '+alias, email, phone', '+role, requestedRole, roleGranted', '+status: ACTIVE/REVOKED/DELETED', '+rejected, rejectCount…', '+storageUsed / storageLimit'], 60, 40, 300));
+    ents.push(ent('«model» Batch', ['+batchId (UK), merkleRoot', '+ipfsCID, txHash', '+uploader → Wallet', '+files[] : Document nhúng'], 60, 320, 300));
+    ents.push(ent('«embedded» FileItem', ['+docId, fileName, fileHash', '+ipfsCID, qrCode, encKey(GCM)', '+visibility, chunkHashes[]', '+replacesDocId → FileItem', '+isRevoked, revocationReason'], 440, 300, 300));
+    ents.push(ent('«model» DeviceSession', ['+address → Wallet', '+deviceId, status', '+otpHash(scrypt), otpExpires', '+otpAttempts, otpFailed', '+lastSeen'], 440, 40, 300));
+    ents.push(ent('«model» ApiKey', ['+keyHash = sha256(token)', '+prefix sk_live_…, revoked', '+createdBy → Wallet'], 60, 600, 300));
+    ents.push(ent('«model» PartnerDocument', ['+docId (UK)', '+apiKeyId → ApiKey', '+orgName, fileHash, ipfsCID', '+encKey, txHash (server ký)', '+refDocId → on-chain docId', '+isSharedRef'], 440, 560, 300));
+    ents.push(ent('«contract» DataIntegrity (Solidity)', ['+addDocuments(ids,hashes,uris)', '+getDocument(id) → tuple', '+revokeDocument(id,reason)', '+assignRole(addr,role)', '+userRoles(addr) → uint8', '«event» DocumentAdded / Revoked'], 820, 40, 300));
+    ents.push(ent('«model» AuthChallenge\n«model» Notification', ['+address, challenge, expiresAt(TTL)', '+type, title, message, read'], 820, 340, 300));
+    const [W, B, F, DS, AK, PD, SC, X] = ents.map(e => e.id);
+    const cells = ents.map(e => e.xml).join('\n');
+    const REL = 'endArrow=open;endFill=0;html=1;dashed=0;';
+    const edges = [
+        `<mxCell id="${nid()}" value="1 — n" style="${REL}" edge="1" parent="1" source="${DS}" target="${W}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
+        `<mxCell id="${nid()}" value="uploader" style="${REL}" edge="1" parent="1" source="${B}" target="${W}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
+        `<mxCell id="${nid()}" value="files[] nhúng" style="${REL}dashed=1;" edge="1" parent="1" source="${B}" target="${F}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
+        `<mxCell id="${nid()}" value="createdBy" style="${REL}" edge="1" parent="1" source="${AK}" target="${W}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
+        `<mxCell id="${nid()}" value="apiKeyId" style="${REL}" edge="1" parent="1" source="${PD}" target="${AK}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
+        `<mxCell id="${nid()}" value="docId / refDocId / uploader" style="${REL}dashed=1;" edge="1" parent="1" source="${B}" target="${SC}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
+        `<mxCell id="${nid()}" value="docId on-chain" style="${REL}dashed=1;" edge="1" parent="1" source="${PD}" target="${SC}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
+    ];
+    return cells + '\n' + edges.join('\n');
+}
+
+// ================================================================
+// DEPLOYMENT
+// ================================================================
+function pageDeploy() {
+    const c = [];
+    const node = (t, x, y, w, h) => V(t, 'shape=cube;size=12;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;', x, y, w, h);
+    const n1 = node('Trình duyệt người dùng\n(HTML + Ethers.js + CryptoJS)\nMetaMask extension', 40, 60, 220, 90);
+    const n2 = node('Render Web Service\nNode.js / Express :PORT\nserve index.html + /api/*', 380, 60, 240, 90);
+    const n3 = node('MongoDB Atlas M0\n7 collections', 380, 240, 240, 80);
+    const n4 = node('Pinata / IPFS\nciphertext + manifest', 700, 60, 220, 90);
+    const n5 = node('Ethereum Sepolia\ncontract DataIntegrity\n(qua RPC endpoint)', 700, 240, 220, 90);
+    const n6 = node('SMTP / Nodemailer\nOTP email', 60, 240, 200, 80);
+    const n7 = node('Đối tác\n(REST + x-api-key)', 40, 400, 200, 80);
+    c.push(n1, n2, n3, n4, n5, n6, n7);
+    const idOf = s => s.match(/id="(c\d+)"/)[1];
+    const L = 'endArrow=open;endFill=0;html=1;dashed=1;';
+    c.push(E(idOf(n1), idOf(n2), L, 'HTTPS — same origin'));
+    c.push(E(idOf(n1), idOf(n5), L, 'ký & ghi giao dịch (Ethers.js)'));
+    c.push(E(idOf(n2), idOf(n3), L, 'Mongoose'));
+    c.push(E(idOf(n2), idOf(n4), L, 'pin API + gateway'));
+    c.push(E(idOf(n2), idOf(n5), L, 'đọc + ký thay cho đối tác'));
+    c.push(E(idOf(n2), idOf(n6), L, 'OTP'));
+    c.push(E(idOf(n7), idOf(n2), L, 'x-api-key'));
+    c.push(V('Cấu hình qua biến môi trường Render: MONGO_URI (Atlas), PRIVATE_KEY (ví server ký), PINATA_*, CONTRACT_ADDRESS, RPC_URL, JWT_SECRET, MASTER_KEY, SMTP_*.', NOTE, 300, 420, 380, 60));
+    return c.join('\n');
+}
+
+// ================================================================
 const pages = [
     ['H2.1 — Use-case tổng thể', pageUseCase],
     ['H2.2 — Kiến trúc ba tầng', pageArch],
@@ -315,6 +636,21 @@ const pages = [
     ['H2.6 — Đăng ký ví mới', pageRegister],
     ['H2.7 — ER MongoDB', pageER],
     ['H2.8 — Key escrow', pageEscrow],
+    ['UC — Xác thực & tra cứu', pageUCVerify],
+    ['UC — Quản lý tài liệu', pageUCDocs],
+    ['UC — Quản trị hệ thống', pageUCAdmin],
+    ['UC — Đối tác API', pageUCPartner],
+    ['SEQ — Đăng nhập challenge', pageSeqLogin],
+    ['SEQ — Upload tài liệu', pageSeqUpload],
+    ['SEQ — Verify công khai', pageSeqVerify],
+    ['SEQ — Thu hồi tài liệu', pageSeqRevoke],
+    ['SEQ — Đối tác upload (shared ref)', pageSeqPartner],
+    ['SEQ — Phê duyệt ví mới', pageSeqApproveWallet],
+    ['ACT — Thu hồi tài liệu', pageActRevoke],
+    ['ACT — Đổi email (step-up)', pageActEmail],
+    ['ACT — Đối tác upload', pageActPartner],
+    ['CLASS — Models & Contract', pageClass],
+    ['DEPLOY — Triển khai', pageDeploy],
 ];
 
 const diagrams = pages.map(([name, fn], i) => {
