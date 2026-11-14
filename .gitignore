@@ -35,5 +35,9 @@ server.log
 nul
 _backup_*.json
 
+# Python
+__pycache__/
+*.pyc
+
 # File tam Office (khoa khi dang mo)
 ~$*
