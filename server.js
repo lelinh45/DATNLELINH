@@ -539,7 +539,7 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
                 const prompt = `Bạn là một Điều tra viên An ninh số. Dưới đây là phần văn bản bị thay đổi trái phép trong một tài liệu pháp lý: [${diffSummary}]. Hãy viết một Báo cáo Pháp y (Forensic Report) cực kỳ ngắn gọn (dưới 80 chữ) bằng tiếng Việt. Báo cáo cần chỉ rõ nội dung nào bị thay đổi và cảnh báo rủi ro lừa đảo. Không dùng markdown, không có lời chào hỏi.`;
 
                 const aiResponse = await ai.models.generateContent({
-                    model: 'gemini-1.5-flash',
+                    model: 'gemini-flash-lite-latest',
                     contents: prompt,
                 });
                 
@@ -572,10 +572,11 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
         });
 
     } catch (error) {
-        console.error("🚨 LỖI BÊN TRONG CATCH VERIFY:", error);
         if (error.message.includes("Khong tim thay tai lieu")) {
+            console.log(`[VERIFY] 404 — tài liệu không tồn tại trên chain: ${req.body?.documentId}`);
             return res.status(404).json({ success: false, message: 'Tài liệu không tồn tại trên mạng lưới!' });
         }
+        console.error("🚨 LỖI BÊN TRONG CATCH VERIFY:", error);
         res.status(500).json({ success: false, message: 'Lỗi xác thực', error: error.message });
     }
 });
