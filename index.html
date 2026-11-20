@@ -117,6 +117,10 @@ tailwind.config = { theme: { extend: {
             </div>
             
             <nav class="space-y-1 mb-8">
+              <a href="#" id="nav-dashboard" onclick="switchUI('tab-dashboard', this)" class="menu-item">
+                <i class="fa-solid fa-gauge-high w-5 text-center"></i>
+                <span class="font-medium text-sm">Tổng Quan</span>
+              </a>
               <a href="#" id="nav-upload" onclick="switchUI('tab-upload', this)" class="menu-item active">
                 <i class="fa-solid fa-cube w-5 text-center"></i>
                 <span class="font-medium text-sm">Đóng Dấu & IPFS</span>
@@ -278,7 +282,7 @@ tailwind.config = { theme: { extend: {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-12 lg:auto-rows-[minmax(0,1fr)] gap-6 items-stretch flex-1 min-h-0">
+                <div id="workspace-grid" class="grid grid-cols-1 lg:grid-cols-12 lg:auto-rows-[minmax(0,1fr)] gap-6 items-stretch flex-1 min-h-0">
                     <!-- ============================================== -->
                     <!-- CỘT TRÁI (Khu vực làm việc - Chiếm 7/12 màn hình)-->
                     <!-- ============================================== -->
@@ -864,6 +868,48 @@ tailwind.config = { theme: { extend: {
 
                     </div>
                 </div>
+
+                <!-- TAB DASHBOARD: Tổng quan — sibling của #workspace-grid, full width -->
+                <div id="tab-dashboard" class="hidden flex-1 min-h-0 flex flex-col">
+                    <div class="flex-1 overflow-y-auto">
+                        <div class="space-y-4 pb-6">
+                            <!-- KPI on-chain -->
+                            <div id="dash-kpi-row" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div id="dash-kpi-active" class="stat"><div class="stat-value text-faint">…</div></div>
+                                <div id="dash-kpi-stamped" class="stat"><div class="stat-value text-faint">…</div></div>
+                                <div id="dash-kpi-revoked" class="stat"><div class="stat-value text-faint">…</div></div>
+                                <div id="dash-kpi-wallets" class="stat"><div class="stat-value text-faint">…</div></div>
+                            </div>
+                            <!-- KPI phụ — chỉ ADMIN (dashboard.js hiện khi isAdmin) -->
+                            <div id="dash-admin-row" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                            <!-- Grid chính 2 cột -->
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
+                                <div class="xl:col-span-2 space-y-4">
+                                    <div class="card">
+                                        <h3 class="text-sm font-bold text-ink mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-column text-accent"></i>Đóng dấu theo thời gian</h3>
+                                        <div id="dash-chart"></div>
+                                    </div>
+                                    <div class="card">
+                                        <h3 class="text-sm font-bold text-ink mb-3 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-accent"></i>Hoạt động gần đây</h3>
+                                        <div id="dash-feed"></div>
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
+                                    <div class="card" id="dash-sys"></div>
+                                    <div class="card hidden" id="dash-role"></div>
+                                </div>
+                            </div>
+                            <!-- Chi tiết lưu trữ MongoDB -->
+                            <details id="dash-detail" class="card">
+                                <summary class="text-sm font-bold text-ink cursor-pointer select-none flex items-center gap-2 list-none">
+                                    <i class="fa-solid fa-database text-muted"></i>Chi tiết lưu trữ <span class="text-[11px] font-normal text-faint">(MongoDB)</span>
+                                    <i class="fa-solid fa-chevron-down text-[10px] text-faint ml-auto transition-transform"></i>
+                                </summary>
+                                <div id="dash-detail-body" class="mt-3"></div>
+                            </details>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -951,7 +997,7 @@ tailwind.config = { theme: { extend: {
     <script type="module" src="assets/js/main.js"></script>
     <script>
     function switchUI(tabId, clickedElement) {
-        const allTabs = ['tab-pending', 'tab-upload', 'tab-verify', 'tab-history', 'tab-revoked', 'tab-roles', 'tab-apikeys', 'tab-rpc', 'tab-template', 'tab-settings'];
+        const allTabs = ['tab-pending', 'tab-dashboard', 'tab-upload', 'tab-verify', 'tab-history', 'tab-revoked', 'tab-roles', 'tab-apikeys', 'tab-rpc', 'tab-template', 'tab-settings'];
         allTabs.forEach(id => {
             const el = document.getElementById(id);
             if(el) el.classList.add('hidden');
@@ -959,6 +1005,13 @@ tailwind.config = { theme: { extend: {
 
         const selectedTab = document.getElementById(tabId);
         if(selectedTab) selectedTab.classList.remove('hidden');
+
+        // Dashboard full-width: ẩn workspace-grid + mini-stats khi đang ở tab-dashboard
+        const isDash = tabId === 'tab-dashboard';
+        const grid = document.getElementById('workspace-grid');
+        if (grid) grid.classList.toggle('hidden', isDash);
+        const miniStats = document.getElementById('dashboard-stats');
+        if (miniStats) miniStats.classList.toggle('hidden', isDash);
 
         const menuItems = document.querySelectorAll('.menu-item');
         menuItems.forEach(item => {
@@ -969,6 +1022,8 @@ tailwind.config = { theme: { extend: {
             clickedElement.className = 'menu-item active';
             document.getElementById('page-title').innerText = clickedElement.innerText.trim();
         }
+
+        document.dispatchEvent(new CustomEvent('bdi:tab', { detail: { tabId } }));
     }
 
     // Theme toggle — đồng bộ với verify/partner qua localStorage('bdi_theme')
