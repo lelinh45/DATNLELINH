@@ -4,44 +4,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cổng Đối Tác — Blockchain Data Integrity</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+    // Ăn theo bdi_theme + nút toggle nhỏ — đồng bộ với app chính
+    (function(){try{var t=localStorage.getItem('bdi_theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}})();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+tailwind.config = { theme: { extend: {
+  colors: {
+    canvas:'var(--canvas)', panel:'var(--panel)', sunken:'var(--sunken)',
+    sidebar:'var(--sidebar)', hover:'var(--hover)', line:'var(--line)',
+    'line-strong':'var(--line-strong)', ink:'var(--ink)', soft:'var(--soft)',
+    muted:'var(--muted)', faint:'var(--faint)', accent:'var(--accent)',
+    'accent-ink':'var(--accent-ink)', 'accent-soft':'var(--accent-soft)',
+    'accent-line':'var(--accent-line)', ok:'var(--ok)', 'ok-soft':'var(--ok-soft)',
+    err:'var(--err)', 'err-soft':'var(--err-soft)', warn:'var(--warn)',
+    'warn-soft':'var(--warn-soft)', violet:'var(--violet)', 'violet-soft':'var(--violet-soft)',
+    info:'var(--info)', 'info-soft':'var(--info-soft)'
+  },
+  fontFamily: { sans: ['Inter','system-ui','-apple-system','Segoe UI','Roboto','sans-serif'] }
+}}};
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; }
-        .card { background: #111827; border: 1px solid #1f2937; border-radius: 0.75rem; }
-        .btn-primary { background: #059669; } .btn-primary:hover { background: #10b981; }
-        input[type=text], input[type=password] { background:#0b0f19; }
-        .dropzone { border: 2px dashed #374151; border-radius: 0.75rem; background: #0b0f19;
-                    cursor: pointer; transition: border-color .2s, background .2s; }
-        .dropzone:hover, .dropzone.dragover { border-color: #10b981; background: #052e22; }
-        .dropzone.blue:hover, .dropzone.blue.dragover { border-color: #3b82f6; background: #0c1e3a; }
+        .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+        .btn-primary { background: var(--accent); color: var(--accent-ink); }
+        .btn-primary:hover { filter: brightness(1.08); }
+        input[type=text], input[type=password] { background: var(--sunken); }
     </style>
 </head>
-<body class="bg-[#0b0f19] min-h-screen text-gray-200">
+<body class="bg-canvas min-h-screen text-ink">
+
+<!-- THEME TOGGLE — đồng bộ bdi_theme với app chính -->
+<button id="btn-theme-toggle" type="button" class="btn-ghost btn-sm fixed top-3 right-3 z-50" title="Giao diện sáng / tối">
+    <i class="fa-solid fa-sun"></i>
+</button>
 
 <!-- ============ MÀN HÌNH ĐĂNG NHẬP ============ -->
 <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
     <div class="card p-8 w-full max-w-md">
         <div class="text-center mb-6">
-            <i class="fa-solid fa-handshake text-4xl text-amber-400 mb-3"></i>
-            <h1 class="text-xl font-bold text-white">CỔNG ĐỐI TÁC</h1>
-            <p class="text-sm text-gray-400 mt-1">Hệ thống xác thực & chống giả mạo dữ liệu — Blockchain</p>
+            <i class="fa-solid fa-handshake text-4xl text-warn mb-3"></i>
+            <h1 class="text-xl font-bold text-ink">CỔNG ĐỐI TÁC</h1>
+            <p class="text-sm text-muted mt-1">Hệ thống xác thực & chống giả mạo dữ liệu — Blockchain</p>
         </div>
-        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">API Key của tổ chức</label>
+        <label class="block text-xs font-bold text-muted uppercase mb-2">API Key của tổ chức</label>
         <input id="api-key-input" type="password" placeholder="sk_live_..." autocomplete="off"
-               class="w-full px-4 py-3 rounded-lg border border-gray-700 focus:border-emerald-500 focus:outline-none font-mono text-sm mb-4">
+               class="w-full px-4 py-3 rounded-lg border border-line-strong focus:border-ok focus:outline-none font-mono text-sm mb-4">
         <button onclick="login()" id="btn-login"
                 class="btn-primary w-full py-3 rounded-lg font-bold text-white transition">
             <i class="fa-solid fa-right-to-bracket mr-2"></i>Đăng nhập
         </button>
-        <p class="text-[11px] text-gray-500 mt-4 text-center">
+        <p class="text-[11px] text-faint mt-4 text-center">
             Key do quản trị viên hệ thống cấp. Giới hạn 60 request/phút.<br>
             Key chỉ lưu trong phiên trình duyệt này (sessionStorage).
         </p>
-        <div class="mt-4 pt-4 border-t border-gray-800 text-center">
-            <a href="/" class="text-xs text-gray-400 hover:text-blue-400 font-bold transition">
+        <div class="mt-4 pt-4 border-t border-line text-center">
+            <a href="/" class="text-xs text-muted hover:text-accent font-bold transition">
                 <i class="fa-solid fa-arrow-left mr-1.5"></i>Đăng nhập bằng ví Web3 (người dùng nội bộ)
             </a>
         </div>
@@ -52,12 +76,12 @@
 <div id="dashboard" class="hidden max-w-6xl w-full mx-auto p-4 md:p-6 flex flex-col min-h-screen">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-            <h1 class="text-lg font-bold text-white"><i class="fa-solid fa-handshake text-amber-400 mr-2"></i>CỔNG ĐỐI TÁC</h1>
-            <p class="text-xs text-gray-500">Giao dịch on-chain do server ký hộ — trên blockchain hiển thị ví ADMIN</p>
+            <h1 class="text-lg font-bold text-ink"><i class="fa-solid fa-handshake text-warn mr-2"></i>CỔNG ĐỐI TÁC</h1>
+            <p class="text-xs text-faint">Giao dịch on-chain do server ký hộ — trên blockchain hiển thị ví ADMIN</p>
         </div>
         <div class="flex items-center gap-3">
-            <span id="key-prefix" class="font-mono text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded"></span>
-            <button onclick="logout()" class="text-red-400 hover:text-red-300 text-sm font-bold">
+            <span id="key-prefix" class="font-mono text-xs text-muted bg-sunken px-2 py-1 rounded"></span>
+            <button onclick="logout()" class="text-err hover:text-err text-sm font-bold">
                 <i class="fa-solid fa-right-from-bracket mr-1"></i>Thoát
             </button>
         </div>
@@ -66,16 +90,16 @@
     <div class="grid md:grid-cols-2 gap-4 mb-6">
         <!-- UPLOAD -->
         <div class="card p-4 flex flex-col">
-            <h2 class="font-bold text-emerald-400 text-sm mb-2"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & đóng dấu tài liệu</h2>
+            <h2 class="font-bold text-ok text-sm mb-2"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & đóng dấu tài liệu</h2>
             <div id="up-drop" class="dropzone mb-2 p-4 text-center flex-1 flex flex-col items-center justify-center">
                 <input id="up-file" type="file" class="hidden" multiple>
                 <div id="up-drop-inner">
-                    <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-900/40 flex items-center justify-center">
-                        <i class="fa-solid fa-cloud-arrow-up text-xl text-emerald-400"></i>
+                    <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-ok-soft flex items-center justify-center">
+                        <i class="fa-solid fa-cloud-arrow-up text-xl text-ok"></i>
                     </div>
-                    <p class="font-bold text-gray-200 text-sm">Kéo thả hàng loạt tài liệu vào đây</p>
-                    <p class="text-xs text-gray-500 mt-1">hoặc <span class="text-emerald-400 font-bold underline">chọn nhiều tệp</span> từ thiết bị</p>
-                    <p class="text-[10px] text-gray-600 mt-2 font-mono">Hỗ trợ: PDF, DOCX, PNG, JPG, TXT (Max 50MB/file)</p>
+                    <p class="font-bold text-soft text-sm">Kéo thả hàng loạt tài liệu vào đây</p>
+                    <p class="text-xs text-faint mt-1">hoặc <span class="text-ok font-bold underline">chọn nhiều tệp</span> từ thiết bị</p>
+                    <p class="text-[10px] text-faint mt-2 font-mono">Hỗ trợ: PDF, DOCX, PNG, JPG, TXT (Max 50MB/file)</p>
                 </div>
             </div>
             <button onclick="uploadDoc()" id="btn-upload" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-white w-full transition">
@@ -86,16 +110,16 @@
 
         <!-- VERIFY -->
         <div class="card p-4 flex flex-col">
-            <h2 class="font-bold text-blue-400 text-sm mb-2"><i class="fa-solid fa-shield-halved mr-2"></i>Xác thực tài liệu</h2>
-            <input id="vf-docid" type="text" placeholder="documentId (vd: hopdong.pdf_1729...)" class="shrink-0 w-full px-3 py-2 rounded-lg border border-gray-700 text-xs font-mono mb-2 focus:border-blue-500 focus:outline-none">
+            <h2 class="font-bold text-accent text-sm mb-2"><i class="fa-solid fa-shield-halved mr-2"></i>Xác thực tài liệu</h2>
+            <input id="vf-docid" type="text" placeholder="documentId (vd: hopdong.pdf_1729...)" class="shrink-0 w-full px-3 py-2 rounded-lg border border-line-strong text-xs font-mono mb-2 focus:border-accent focus:outline-none">
             <div id="vf-drop" class="dropzone blue mb-2 p-3 text-center flex-1 flex flex-col items-center justify-center">
                 <input id="vf-file" type="file" class="hidden">
                 <div id="vf-drop-inner">
-                    <i class="fa-solid fa-file-circle-check text-xl text-blue-400 mb-1"></i>
-                    <p class="text-xs text-gray-400">Kéo thả file cần kiểm tra hoặc <span class="text-blue-400 font-bold underline">chọn tệp</span></p>
+                    <i class="fa-solid fa-file-circle-check text-xl text-accent mb-1"></i>
+                    <p class="text-xs text-muted">Kéo thả file cần kiểm tra hoặc <span class="text-accent font-bold underline">chọn tệp</span></p>
                 </div>
             </div>
-            <button onclick="verifyDoc()" id="btn-verify" class="w-full py-2 rounded-lg text-sm font-bold text-white bg-blue-700 hover:bg-blue-600 transition">
+            <button onclick="verifyDoc()" id="btn-verify" class="w-full py-2 rounded-lg text-sm font-bold text-white bg-accent hover:brightness-110 transition">
                 <i class="fa-solid fa-magnifying-glass mr-1"></i>So hash với blockchain
             </button>
             <div id="vf-result" class="mt-3 text-xs"></div>
@@ -105,12 +129,12 @@
     <!-- DANH SÁCH — chiếm hết chiều cao màn hình còn lại trên mọi máy -->
     <div class="card p-5 flex-1 min-h-0 flex flex-col">
         <div class="flex items-center justify-between mb-3 shrink-0">
-            <h2 class="font-bold text-purple-400"><i class="fa-solid fa-folder-open mr-2"></i>Tài liệu của tổ chức</h2>
-            <button onclick="loadDocs()" class="text-xs text-gray-400 hover:text-white font-bold"><i class="fa-solid fa-rotate mr-1"></i>Làm mới</button>
+            <h2 class="font-bold text-violet"><i class="fa-solid fa-folder-open mr-2"></i>Tài liệu của tổ chức</h2>
+            <button onclick="loadDocs()" class="text-xs text-muted hover:text-ink font-bold"><i class="fa-solid fa-rotate mr-1"></i>Làm mới</button>
         </div>
         <div class="overflow-x-auto overflow-y-auto flex-1 min-h-40">
             <table class="w-full text-xs">
-                <thead class="sticky top-0 bg-[#111827] z-10"><tr class="text-gray-500 border-b border-gray-800 text-left">
+                <thead class="sticky top-0 bg-sunken z-10"><tr class="text-faint border-b border-line text-left">
                     <th class="py-2 pr-3">#</th><th class="py-2 pr-3">Tài liệu</th><th class="py-2 pr-3">Hash / CID</th>
                     <th class="py-2 pr-3">Thời điểm</th><th class="py-2 pr-3">Trạng thái</th><th class="py-2">Tải về</th>
                 </tr></thead>
@@ -128,7 +152,7 @@ function esc(s) {
     return String(s ?? '').replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
 }
 function toast(icon, title) {
-    Swal.fire({ toast: true, position: 'top-end', icon, title, showConfirmButton: false, timer: 2500, background: '#111827', color: '#fff' });
+    Swal.fire({ toast: true, position: 'top-end', icon, title, showConfirmButton: false, timer: 2500, background: 'var(--panel)', color: 'var(--ink)' });
 }
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), 'x-api-key': apiKey() };
@@ -188,12 +212,12 @@ function bindDropzone(zoneId, inputId, innerId, iconCls) {
         const fs = Array.from(input.files);
         if (!fs.length) return;
         inner.innerHTML = fs.map(f => `
-            <div class="flex items-center gap-2 py-1 text-left border-b border-gray-800/50 last:border-0">
-                <i class="fa-solid ${iconCls} text-emerald-400 shrink-0"></i>
-                <span class="font-bold text-emerald-400 text-xs break-all flex-1">${esc(f.name)}</span>
-                <span class="text-[10px] text-gray-500 font-mono shrink-0">${fmtSize(f.size)}</span>
+            <div class="flex items-center gap-2 py-1 text-left border-b border-line last:border-0">
+                <i class="fa-solid ${iconCls} text-ok shrink-0"></i>
+                <span class="font-bold text-ok text-xs break-all flex-1">${esc(f.name)}</span>
+                <span class="text-[10px] text-faint font-mono shrink-0">${fmtSize(f.size)}</span>
             </div>`).join('')
-            + `<p class="text-[10px] text-gray-500 mt-2">${fs.length} file đã chọn — bấm để chọn lại</p>`;
+            + `<p class="text-[10px] text-faint mt-2">${fs.length} file đã chọn — bấm để chọn lại</p>`;
     }
     return { reset() { input.value = ''; inner.innerHTML = emptyHTML; } };
 }
@@ -213,7 +237,7 @@ async function uploadDoc() {
     for (let i = 0; i < files.length; i++) {
         const f = files[i];
         btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Đang xử lý ${i + 1}/${files.length}…`;
-        box.insertAdjacentHTML('beforeend', `<div id="up-row-${i}" class="text-gray-400 mb-2"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i>${esc(f.name)} — đang mã hóa & ghi on-chain (~30-60s)...</div>`);
+        box.insertAdjacentHTML('beforeend', `<div id="up-row-${i}" class="text-muted mb-2"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i>${esc(f.name)} — đang mã hóa & ghi on-chain (~30-60s)...</div>`);
         const row = document.getElementById(`up-row-${i}`);
         try {
             const fd = new FormData();
@@ -227,7 +251,7 @@ async function uploadDoc() {
             if (i === 0) document.getElementById('vf-docid').value = d.documentId;
         } catch (e) {
             fail++;
-            row.outerHTML = `<div class="text-red-400 mb-2"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(f.name)} — ${esc(e.message)}</div>`;
+            row.outerHTML = `<div class="text-err mb-2"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(f.name)} — ${esc(e.message)}</div>`;
         }
     }
     if (fail) toast('warning', `${ok} thành công, ${fail} lỗi — chi tiết ở khung kết quả`);
@@ -253,14 +277,14 @@ async function verifyDoc() {
         const box = document.getElementById('vf-result');
         const when = d.timestamp ? new Date(d.timestamp).toLocaleString('vi-VN') : '';
         if (d.isRevoked) {
-            box.innerHTML = `<div class="bg-amber-900/20 border border-amber-800 rounded-lg p-3 text-amber-300 font-bold"><i class="fa-solid fa-ban mr-1"></i>TÀI LIỆU ĐÃ BỊ THU HỒI — đóng dấu ${esc(when)}</div>`;
+            box.innerHTML = `<div class="bg-warn-soft border border-warn rounded-lg p-3 text-warn font-bold"><i class="fa-solid fa-ban mr-1"></i>TÀI LIỆU ĐÃ BỊ THU HỒI — đóng dấu ${esc(when)}</div>`;
         } else if (d.match) {
-            box.innerHTML = `<div class="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3 text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>NGUYÊN VẸN — khớp bản ghi on-chain (${esc(when)})</div>`;
+            box.innerHTML = `<div class="bg-ok-soft border border-ok rounded-lg p-3 text-ok font-bold"><i class="fa-solid fa-circle-check mr-1"></i>NGUYÊN VẸN — khớp bản ghi on-chain (${esc(when)})</div>`;
         } else {
-            box.innerHTML = `<div class="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>PHÁT HIỆN GIẢ MẠO — hash không khớp bản ghi</div>`;
+            box.innerHTML = `<div class="bg-err-soft border border-err rounded-lg p-3 text-err font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>PHÁT HIỆN GIẢ MẠO — hash không khớp bản ghi</div>`;
         }
     } catch (e) {
-        document.getElementById('vf-result').innerHTML = `<div class="text-red-400"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(e.message)}</div>`;
+        document.getElementById('vf-result').innerHTML = `<div class="text-err"><i class="fa-solid fa-circle-xmark mr-1"></i>${esc(e.message)}</div>`;
     } finally {
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i>So hash với blockchain';
     }
@@ -277,29 +301,29 @@ async function loadDocs() {
 function renderDocs(docs) {
     const tb = document.getElementById('docs-body');
     if (!docs.length) {
-        tb.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-gray-600">Chưa có tài liệu nào — upload file đầu tiên ở trên</td></tr>';
+        tb.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-faint">Chưa có tài liệu nào — upload file đầu tiên ở trên</td></tr>';
         return;
     }
     tb.innerHTML = docs.map((d, i) => `
-        <tr class="border-b border-gray-800/60 hover:bg-gray-800/30">
-            <td class="py-2 pr-3 text-gray-600">${i + 1}</td>
+        <tr class="border-b border-line hover:bg-hover">
+            <td class="py-2 pr-3 text-faint">${i + 1}</td>
             <td class="py-2 pr-3">
-                <div class="font-bold text-gray-200">${esc(d.fileName || d.docId)}${d.isSharedRef ? ' <span class="bg-cyan-900/40 text-cyan-400 px-1.5 py-0.5 rounded text-[9px] font-bold" title="Nội dung trùng bản đã đóng dấu trước — bản ghi này dùng chung bằng chứng on-chain">DÙNG CHUNG</span>' : ''}</div>
-                <div class="font-mono text-[10px] text-blue-400 truncate max-w-[180px]" title="${esc(d.docId)}${d.refDocId ? ' → on-chain: ' + esc(d.refDocId) : ''}">${esc(d.docId)}</div>
-                <div class="text-[10px] text-gray-600">${fmtSize(d.fileSize)}</div>
+                <div class="font-bold text-soft">${esc(d.fileName || d.docId)}${d.isSharedRef ? ' <span class="bg-info-soft text-info px-1.5 py-0.5 rounded text-[9px] font-bold" title="Nội dung trùng bản đã đóng dấu trước — bản ghi này dùng chung bằng chứng on-chain">DÙNG CHUNG</span>' : ''}</div>
+                <div class="font-mono text-[10px] text-accent truncate max-w-[180px]" title="${esc(d.docId)}${d.refDocId ? ' → on-chain: ' + esc(d.refDocId) : ''}">${esc(d.docId)}</div>
+                <div class="text-[10px] text-faint">${fmtSize(d.fileSize)}</div>
             </td>
-            <td class="py-2 pr-3 font-mono text-[10px] text-gray-500">
+            <td class="py-2 pr-3 font-mono text-[10px] text-faint">
                 <div class="truncate max-w-[140px]" title="${esc(d.fileHash)}">${esc((d.fileHash||'').slice(0,18))}…</div>
-                <a href="https://ipfs.io/ipfs/${esc(d.ipfsCID)}" target="_blank" rel="noopener noreferrer" class="text-emerald-500">IPFS</a>
-                ${d.txHash ? `· <a href="https://sepolia.etherscan.io/tx/${esc(d.txHash)}" target="_blank" rel="noopener noreferrer" class="text-purple-400">Etherscan</a>` : ''}
+                <a href="https://ipfs.io/ipfs/${esc(d.ipfsCID)}" target="_blank" rel="noopener noreferrer" class="text-ok">IPFS</a>
+                ${d.txHash ? `· <a href="https://sepolia.etherscan.io/tx/${esc(d.txHash)}" target="_blank" rel="noopener noreferrer" class="text-violet">Etherscan</a>` : ''}
             </td>
-            <td class="py-2 pr-3 text-gray-400 whitespace-nowrap">${d.createdAt ? new Date(d.createdAt).toLocaleString('vi-VN') : '—'}</td>
+            <td class="py-2 pr-3 text-muted whitespace-nowrap">${d.createdAt ? new Date(d.createdAt).toLocaleString('vi-VN') : '—'}</td>
             <td class="py-2 pr-3">${d.isRevoked
-                ? '<span class="bg-red-900/40 text-red-400 px-2 py-0.5 rounded text-[10px] font-bold">THU HỒI</span>'
-                : '<span class="bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold">HIỆU LỰC</span>'}</td>
+                ? '<span class="bg-err-soft text-err px-2 py-0.5 rounded text-[10px] font-bold">THU HỒI</span>'
+                : '<span class="bg-ok-soft text-ok px-2 py-0.5 rounded text-[10px] font-bold">HIỆU LỰC</span>'}</td>
             <td class="py-2 whitespace-nowrap">
-                <button onclick="downloadDoc('${esc(d.docId)}','${esc(d.fileName||'file')}')" class="text-blue-400 hover:text-blue-300 font-bold mr-2"><i class="fa-solid fa-download mr-1"></i>Tải</button>
-                ${(!d.isRevoked && !d.isSharedRef) ? `<button onclick="revokeDoc('${esc(d.docId)}')" class="text-red-400 hover:text-red-300 font-bold"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+                <button onclick="downloadDoc('${esc(d.docId)}','${esc(d.fileName||'file')}')" class="text-accent hover:text-accent font-bold mr-2"><i class="fa-solid fa-download mr-1"></i>Tải</button>
+                ${(!d.isRevoked && !d.isSharedRef) ? `<button onclick="revokeDoc('${esc(d.docId)}')" class="text-err hover:text-err font-bold"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
             </td>
         </tr>`).join('');
 }
@@ -343,6 +367,23 @@ async function downloadDoc(docId, fileName) {
     } catch (e) {}
 })();
 document.getElementById('api-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+// Theme toggle — ghi cùng key bdi_theme với app chính
+(function () {
+    const btn = document.getElementById('btn-theme-toggle');
+    if (!btn) return;
+    const applyIcon = () => {
+        const dark = document.documentElement.dataset.theme === 'dark';
+        btn.innerHTML = `<i class="fa-solid ${dark ? 'fa-sun' : 'fa-moon'}"></i>`;
+    };
+    btn.addEventListener('click', () => {
+        const cur = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = cur;
+        try { localStorage.setItem('bdi_theme', cur); } catch (e) {}
+        applyIcon();
+    });
+    applyIcon();
+})();
 </script>
 </body>
 </html>
