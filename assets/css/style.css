@@ -214,6 +214,20 @@ body {
     border-color: var(--info); background: var(--info-soft);
 }
 
+/* ---------- Step indicator (upload pipeline) ---------- */
+
+.bdi-steps { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bdi-step {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; color: var(--faint);
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel);
+    transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.bdi-step.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.bdi-step.done { color: var(--ok); background: var(--ok-soft); border-color: var(--ok); }
+.bdi-step-sep { width: 12px; height: 1px; background: var(--line-strong); flex-shrink: 0; }
+
 /* ---------- Terminal / console ---------- */
 
 .terminal {

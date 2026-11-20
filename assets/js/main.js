@@ -346,10 +346,30 @@ function initPendingWalletsUI() {
 const originalUpdateProgress = UI.updateProgress;
 let progressIdleTimer = null;
 const PROGRESS_TERMINAL = ['SUCCESS', 'VERIFIED', 'FAILED', 'ERROR', 'REVOKED', 'NOT FOUND'];
+
+// Step indicator upload — chỉ map status → bước hiển thị, không đổi flow gọi
+const UPLOAD_STEP_BY_STATUS = {
+    SCANNING: 1, HASHING: 1, QUERYING: 1, ANALYZING: 1, PROCESSING: 1,
+    ENCRYPTING: 2, UPLOADING: 3, 'MERKLE TREE': 4, SIGNING: 4
+};
+function updateUploadSteps(status) {
+    const wrap = document.getElementById('upload-steps');
+    if (!wrap) return;
+    const steps = wrap.querySelectorAll('.bdi-step');
+    if (!steps.length) return;
+    const active = status === 'SUCCESS' ? 5 : (UPLOAD_STEP_BY_STATUS[status] || 0);
+    steps.forEach((el, i) => {
+        const n = i + 1;
+        el.classList.toggle('on', n === active);
+        el.classList.toggle('done', status === 'SUCCESS' || n < active);
+    });
+}
+
 UI.updateProgress = function(percent, message, status) {
     if (originalUpdateProgress) {
         originalUpdateProgress.call(UI, percent, message, status);
     }
+    updateUploadSteps(status);
 
     // Trạng thái kết thúc (100% hoặc lỗi/dừng) → tự trả về "đang rảnh" sau 4s,
     // trừ khi một tiến trình mới đã bắt đầu trước đó (timer bị hủy ở mọi lần gọi).
@@ -590,10 +610,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Kéo-thả file vào dropzone: gán dataTransfer.files vào input rồi chạy lại
     // luồng updateFileName sẵn có (giữ nguyên validate giới hạn số tệp)
-    const attachDropZone = (zone, input, accent) => {
+    const attachDropZone = (zone, input, accent, dragBg = 'bg-accent-soft') => {
         if (!zone || !input) return;
-        const on = () => { zone.classList.add(accent, 'bg-accent-soft'); };
-        const off = () => { zone.classList.remove(accent, 'bg-accent-soft'); };
+        const on = () => { zone.classList.add(accent, dragBg); };
+        const off = () => { zone.classList.remove(accent, dragBg); };
         zone.addEventListener('dragover', (e) => { e.preventDefault(); on(); });
         zone.addEventListener('dragleave', (e) => { if (!zone.contains(e.relatedTarget)) off(); });
         zone.addEventListener('drop', (e) => {
@@ -630,7 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
         verifyDropZone.addEventListener('click', (e) => { if (e.target !== verifyFileInput && !e.target.closest('button')) verifyFileInput.click(); });
         verifyFileInput.addEventListener('click', (e) => e.stopPropagation());
         verifyFileInput.addEventListener('change', () => UI.updateFileName('verifyFile'));
-        attachDropZone(verifyDropZone, verifyFileInput, 'border-ok');
+        attachDropZone(verifyDropZone, verifyFileInput, 'border-ok', 'bg-ok-soft');
     }
 
     // Thả file trượt khỏi dropzone → chặn trình duyệt mở file thay trang app
