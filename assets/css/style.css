@@ -28,6 +28,7 @@
     --warn: #9a6700;
     --warn-soft: #fff8c5;
     --violet: #8250df;
+    --violet-soft: #f4ecff;
     --info: #0969da;
     --info-soft: #ddf4ff;
 }
@@ -56,6 +57,7 @@
     --warn: #d29922;
     --warn-soft: #bb80091f;
     --violet: #bc8cff;
+    --violet-soft: #bc8cff1f;
     --info: #4493f8;
     --info-soft: #388bfd1f;
 }
