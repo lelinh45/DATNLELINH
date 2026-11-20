@@ -1,6 +1,7 @@
 import { UI } from './uiHandler.js';
 import { Web3Service } from './web3Service.js';
 import { ApiService } from './apiService.js';
+import { initDashboard } from './dashboard.js';
 import { esc } from './sanitize.js';
 
 const web3 = new Web3Service();
@@ -808,6 +809,38 @@ document.addEventListener('DOMContentLoaded', () => {
 // =====================================================================
 // ĐỒNG BỘ SỐ LIỆU DASHBOARD (HÀM TẬP TRUNG)
 // =====================================================================
+// Merge số liệu on-chain + MongoDB — dùng chung cho mini-stats và dashboard KPI
+// (dashboard.js inject qua ctx.computeMetrics để 2 nơi luôn khớp nhau)
+async function computeMergedMetrics() {
+    // 1. Lấy dữ liệu On-chain từ Blockchain
+    const metrics = await web3.getLiveMetrics();
+
+    // 2. issuerCount: rank ≥1 trên chain (upload) + NGƯỜI XEM được cấp trong DB —
+    // label "VÍ ĐƯỢC ỦY QUYỀN" giờ đếm đủ cả 3 vai trò, khớp danh sách popup
+    try {
+        const ws = await ApiService.getAllWallets();
+        const viewers = ws.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && w.role === 'NGƯỜI XEM').length;
+        metrics.issuerCount = (metrics.issuerCount || 0) + viewers;
+    } catch (e) {}
+
+    // 3. Cộng dồn file MongoDB chưa thu hồi — chỉ file chưa có trong sự kiện
+    // on-chain (file vừa upload đã có DocumentAdded rồi, đếm lại sẽ bị gấp đôi)
+    const localBatches = await ApiService.getBatchesFromDatabase();
+    const onChainIds = new Set();
+    try {
+        const addedEvents = await web3.queryHistory();
+        for (const ev of addedEvents) onChainIds.add(ev.args[0]);
+    } catch (e) {}
+    let extraCount = 0;
+    for (const b of localBatches) {
+        for (const f of (b.files || [])) {
+            if (!f.isRevoked && !onChainIds.has(f.docId)) extraCount++;
+        }
+    }
+    metrics.docCount = (metrics.docCount || 0) + extraCount;
+    return metrics;
+}
+
 async function syncDashboardData() {
     if (pendingGateActive) return; // ví ở phòng chờ → không cần metrics, tránh spam 403
     // Chưa login → chỉ hiển thị số liệu on-chain, không gọi API (tránh 401 dồn dập + tốn rate-limit)
@@ -819,33 +852,7 @@ async function syncDashboardData() {
         return;
     }
     try {
-        // 1. Lấy dữ liệu On-chain từ Blockchain
-        const metrics = await web3.getLiveMetrics();
-
-        // 2. issuerCount: rank ≥1 trên chain (upload) + NGƯỜI XEM được cấp trong DB —
-        // label "VÍ ĐƯỢC ỦY QUYỀN" giờ đếm đủ cả 3 vai trò, khớp danh sách popup
-        try {
-            const ws = await ApiService.getAllWallets();
-            const viewers = ws.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && w.role === 'NGƯỜI XEM').length;
-            metrics.issuerCount = (metrics.issuerCount || 0) + viewers;
-        } catch (e) {}
-
-        // 3. Cộng dồn file MongoDB chưa thu hồi — chỉ file chưa có trong sự kiện
-        // on-chain (file vừa upload đã có DocumentAdded rồi, đếm lại sẽ bị gấp đôi)
-        const localBatches = await ApiService.getBatchesFromDatabase();
-        const onChainIds = new Set();
-        try {
-            const addedEvents = await web3.queryHistory();
-            for (const ev of addedEvents) onChainIds.add(ev.args[0]);
-        } catch (e) {}
-        let extraCount = 0;
-        for (const b of localBatches) {
-            for (const f of (b.files || [])) {
-                if (!f.isRevoked && !onChainIds.has(f.docId)) extraCount++;
-            }
-        }
-        metrics.docCount = (metrics.docCount || 0) + extraCount;
-
+        const metrics = await computeMergedMetrics();
         // 4. In ra giao diện
         UI.updateStats(metrics);
         const ipfsCostEl = document.getElementById('stat-ipfs-cost');
@@ -855,6 +862,19 @@ async function syncDashboardData() {
     } catch (error) {
         // Bỏ qua nếu lỗi mạng để không làm sập giao diện
     }
+}
+
+// Dashboard module — init đúng 1 lần cho mỗi ví đăng nhập
+let _dashAccount = null;
+function ensureDashboardInit(account, rank) {
+    if (!account || _dashAccount === account) return;
+    _dashAccount = account;
+    initDashboard({
+        web3, api: ApiService,
+        computeMetrics: computeMergedMetrics,
+        isAdmin: window.__isAdminWallet === true,
+        account, rank: rank ?? 0,
+    });
 }
 // Vòng lặp gọi hàm đồng bộ mỗi 10 giây
 async function refreshMetricsLoop() {
@@ -961,7 +981,7 @@ function waitForDeviceApproval(account) {
 // - DB gán NGƯỜI XEM → vào được nhưng chỉ đọc
 // Poll mở khóa ngay khi Admin duyệt — cả khi cấp viewer lẫn rank cao hơn
 // =====================================================================
-const VIEWER_VISIBLE_NAV = ['nav-verify', 'nav-history', 'nav-revoked', 'nav-settings'];
+const VIEWER_VISIBLE_NAV = ['nav-dashboard', 'nav-verify', 'nav-history', 'nav-revoked', 'nav-settings'];
 let guestUnlockTimer = null;
 // Ví đang ở phòng chờ/từ chối (rank 0) → tắt mọi vòng lặp nền gọi API nhân sự
 // (metrics, bảng ví, API keys, khay admin) để không spam 403 và không đơ trang
@@ -1099,7 +1119,8 @@ function applyViewerMode(account) {
     if (stats) stats.style.display = '';
 
     document.getElementById('viewer-banner')?.classList.remove('hidden');
-    switchUI('tab-history', document.getElementById('nav-history'));
+    ensureDashboardInit(account, 0);
+    switchUI('tab-dashboard', document.getElementById('nav-dashboard'));
 }
 
 function exitGuestMode() {
@@ -1132,7 +1153,12 @@ function startGuestUnlockPoll(account) {
             const rank = await getMyRoleRank(account);
             if (rank !== null && rank > 0) {
                 exitGuestMode();
+                // Cấp quyền giữa chừng có thể lên ADMIN — cập nhật cờ + tab đối tác
+                window.__isAdminWallet = rank === 3;
+                document.getElementById('ltab-partner')?.classList.toggle('hidden', rank !== 3);
                 Swal.fire({ title: 'Đã được cấp quyền!', text: 'Admin vừa cấp quyền cho ví của bạn. Hệ thống đã mở đầy đủ chức năng.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
+                switchUI('tab-dashboard', document.getElementById('nav-dashboard'));
+                ensureDashboardInit(account, rank);
                 if (typeof window.loadWalletRoles === 'function') window.loadWalletRoles();
                 return;
             }
@@ -1227,6 +1253,8 @@ async function connectWallet() {
             startGuestUnlockPoll(account);
         } else {
             exitGuestMode();
+            switchUI('tab-dashboard', document.getElementById('nav-dashboard'));
+            ensureDashboardInit(account, myRank);
         }
 
         // Ví chờ duyệt không cần quét sự kiện on-chain hay bảng ví — tiết kiệm RPC
