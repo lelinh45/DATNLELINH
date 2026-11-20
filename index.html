@@ -101,6 +101,8 @@ tailwind.config = { theme: { extend: {
 
     <!-- KHU VỰC APP CHÍNH -->
     <div id="app-container" class="hidden w-full h-full">
+        <!-- OVERLAY đóng drawer nav trên mobile -->
+        <div id="nav-overlay" class="hidden fixed inset-0 bg-black/50 z-[55] lg:hidden"></div>
         <!-- Sidebar -->
         <aside class="w-64 min-h-screen bg-sidebar text-soft flex flex-col border-r border-line font-sans shrink-0">
           <div class="flex items-center gap-3 px-6 py-8">
@@ -187,7 +189,12 @@ tailwind.config = { theme: { extend: {
         <main class="flex-1 flex flex-col h-full overflow-hidden relative">
             
             <header class="h-16 flex items-center justify-between px-6 bg-panel border-b border-line shrink-0">
-                <h2 id="page-title" class="text-lg font-bold text-ink">Mã Hóa & Lưu Trữ Phi Tập Trung</h2>
+                <div class="flex items-center gap-2 min-w-0">
+                    <button id="btn-nav-toggle" type="button" class="btn-ghost btn-sm lg:hidden shrink-0" title="Mở menu">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <h2 id="page-title" class="text-lg font-bold text-ink truncate">Mã Hóa & Lưu Trữ Phi Tập Trung</h2>
+                </div>
                 <div id="wallet-section" class="flex items-center gap-3">
                     <!-- THEME TOGGLE -->
                     <button id="btn-theme-toggle" type="button" class="btn-ghost btn-sm" title="Giao diện sáng / tối">

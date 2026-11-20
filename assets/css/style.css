@@ -228,6 +228,40 @@ body {
 .bdi-step.done { color: var(--ok); background: var(--ok-soft); border-color: var(--ok); }
 .bdi-step-sep { width: 12px; height: 1px; background: var(--line-strong); flex-shrink: 0; }
 
+/* ---------- Pagination ---------- */
+
+.bdi-pager {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 8px 4px 2px; font-size: 12px; color: var(--muted);
+}
+.bdi-pager button {
+    padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 12px;
+    border: 1px solid var(--line-strong); background: var(--panel); color: var(--soft);
+    transition: background .15s ease, color .15s ease;
+}
+.bdi-pager button:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.bdi-pager button:disabled { opacity: .45; cursor: not-allowed; }
+.bdi-pager .pg-info { min-width: 90px; text-align: center; }
+
+/* ---------- Mobile drawer (sidebar) ---------- */
+
+@media (max-width: 1023px) {
+    #app-container > aside {
+        position: fixed; top: 0; bottom: 0; left: 0; z-index: 60;
+        transform: translateX(-105%); transition: transform .2s ease;
+        box-shadow: none;
+    }
+    #app-container > aside.nav-open {
+        transform: translateX(0);
+        box-shadow: 0 0 40px rgb(0 0 0 / .35);
+    }
+}
+
+@media (max-width: 767px) {
+    .modal { max-width: calc(100vw - 24px) !important; }
+    .stat .stat-value { font-size: 18px; }
+}
+
 /* ---------- Terminal / console ---------- */
 
 .terminal {

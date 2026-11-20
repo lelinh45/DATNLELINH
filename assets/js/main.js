@@ -41,6 +41,11 @@ document.addEventListener('click', (e) => {
         case 'kick-session':    if (d.v) window.kickDeviceSession(d.v); break;
         case 'approve-session': if (d.v) window.approveDeviceSession(d.v); break;
         case 'revoke-key':      if (d.v) window.revokeApiKey(d.v); break;
+        case 'pg-prev': case 'pg-next': {
+            const tb = document.getElementById(d.t);
+            if (tb) paginateTbody(tb, (pgPageById.get(tb.id) || 1) + (d.act === 'pg-next' ? 1 : -1));
+            break;
+        }
     }
 });
 document.addEventListener('change', (e) => {
@@ -510,6 +515,58 @@ const matchTableRow = (row, input) => {
     return searchData.includes(input);
 };
 
+// ---- Phân trang client-side: 15 dòng/trang ----
+// Dùng class .pg-hidden riêng, KHÔNG đụng style.display (đang do search filter điều khiển).
+// Chỉ đếm dòng đang hiển thị (style.display !== 'none') để cộng hưởng đúng với filter.
+const PG_PER_PAGE = 15;
+const pgPageById = new Map();
+
+function paginateTbody(tbody, page) {
+    if (!tbody) return;
+    const tbodyId = tbody.id;
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    // "Hiển thị" = qua được filter: search dùng style.display, filter role ví dùng class .hidden
+    const isFilterVisible = r => r.style.display !== 'none' && !r.classList.contains('hidden');
+    const visRows = allRows.filter(isFilterVisible);
+    const pages = Math.max(1, Math.ceil(visRows.length / PG_PER_PAGE));
+    const cur = Math.min(Math.max(1, page ?? pgPageById.get(tbodyId) ?? 1), pages);
+    pgPageById.set(tbodyId, cur);
+    let vi = 0;
+    allRows.forEach(r => {
+        if (!isFilterVisible(r)) { r.classList.remove('pg-hidden'); return; }
+        r.classList.toggle('pg-hidden', Math.floor(vi++ / PG_PER_PAGE) !== cur - 1);
+    });
+    renderPager(tbody, visRows.length, pages, cur);
+}
+
+function renderPager(tbody, visCount, pages, cur) {
+    const table = tbody.closest('table');
+    if (!table) return;
+    let pager = table.parentElement ? table.parentElement.querySelector(':scope > .bdi-pager') : null;
+    if (visCount <= PG_PER_PAGE || pages <= 1) {
+        if (pager) pager.remove();
+        return;
+    }
+    if (!pager) {
+        pager = document.createElement('div');
+        pager.className = 'bdi-pager';
+        table.insertAdjacentElement('afterend', pager);
+    }
+    pager.innerHTML =
+        `<button type="button" data-act="pg-prev" data-t="${esc(tbody.id)}" ${cur <= 1 ? 'disabled' : ''}>‹ Trước</button>` +
+        `<span class="pg-info">Trang ${cur}/${pages} · ${visCount} dòng</span>` +
+        `<button type="button" data-act="pg-next" data-t="${esc(tbody.id)}" ${cur >= pages ? 'disabled' : ''}>Sau ›</button>`;
+}
+
+// Áp phân trang cho mọi bảng chính — giữ nguyên trang hiện tại (trừ khi truyền page).
+window.__paginateAll = (resetToOne = false) => {
+    ['history-table-body', 'partner-docs-body', 'revoked-table-body', 'wallet-roles-table-body', 'api-keys-table-body']
+        .forEach(id => {
+            const tb = document.getElementById(id);
+            if (tb) paginateTbody(tb, resetToOne ? 1 : undefined);
+        });
+};
+
 // Chuyển chế độ sổ cái: tài liệu ví ↔ tài liệu đối tác (API key)
 window.switchLedgerTab = (mode) => {
     if (mode === 'partner' && !window.__isAdminWallet) mode = 'wallet'; // chỉ ADMIN mở được pane đối tác
@@ -561,12 +618,16 @@ window.filterHistoryTable = () => {
         const orgOk = activePartnerOrg === 'all' || row.dataset.org === activePartnerOrg;
         row.style.display = orgOk && matchTableRow(row, input) ? '' : 'none';
     });
+    paginateTbody(document.getElementById('history-table-body'), 1);
+    paginateTbody(document.getElementById('partner-docs-body'), 1);
 };
 
 window.filterRevokedTable = () => {
     const input = document.getElementById('search-revoked-input')?.value.toLowerCase().trim() || '';
     const rows = document.querySelectorAll('#revoked-table-body tr');
     rows.forEach(row => { row.style.display = matchTableRow(row, input) ? '' : 'none'; });
+    const tb = document.getElementById('revoked-table-body');
+    if (tb) paginateTbody(tb, 1);
 };
 
 function getShortError(err, customRevertMsg) {
@@ -582,7 +643,19 @@ function getShortError(err, customRevertMsg) {
 // KHỞI TẠO HỆ THỐNG & GẮN SỰ KIỆN KHI TRANG TẢI XONG
 // =====================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    
+
+    // Drawer điều hướng mobile (<1024px): hamburger + overlay
+    const appAside = document.querySelector('#app-container > aside');
+    const navOverlay = document.getElementById('nav-overlay');
+    const setNavOpen = (open) => {
+        appAside?.classList.toggle('nav-open', open);
+        navOverlay?.classList.toggle('hidden', !open);
+    };
+    document.getElementById('btn-nav-toggle')?.addEventListener('click', () =>
+        setNavOpen(!appAside?.classList.contains('nav-open')));
+    navOverlay?.addEventListener('click', () => setNavOpen(false));
+    appAside?.querySelectorAll('.menu-item').forEach(a => a.addEventListener('click', () => setNavOpen(false)));
+
     // Kích hoạt đồng hồ thời gian thực
     const clockEl = document.getElementById('real-time-clock');
     if (clockEl) {
@@ -2817,6 +2890,7 @@ async function loadAPIKeys() {
             </td>
         </tr>
     `).join('');
+    paginateTbody(tbody);
 }
 
 async function generateNewApiKey() {
@@ -3671,6 +3745,7 @@ window.filterWalletTable = function(role) {
         btn.className = 'wallet-filter px-3 py-1 rounded-lg text-[11px] font-bold border transition ' +
             (btn.dataset.filter === role ? s.on : s.off);
     });
+    paginateTbody(document.getElementById('wallet-roles-table-body'), 1);
     window.checkSelection();
 };
 
