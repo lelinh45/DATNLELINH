@@ -109,7 +109,7 @@ function docCard(f, tampered) {
     ? `<span class="text-err font-bold"><i class="fa-solid fa-ban mr-1"></i>ĐÃ THU HỒI</span>`
     : `<span class="text-ok font-bold"><i class="fa-solid fa-circle-check mr-1"></i>CÒN HIỆU LỰC</span>`;
   const reason = f.isRevoked && f.revocationReason
-    ? `<p class="text-xs text-err/80 mt-1"><i class="fa-solid fa-quote-left mr-1"></i>Lý do: ${esc(f.revocationReason)}</p>` : '';
+    ? `<p class="text-xs text-err mt-1"><i class="fa-solid fa-quote-left mr-1"></i>Lý do: ${esc(f.revocationReason)}</p>` : '';
   return `<div class="doc-card bg-sunken border border-line rounded-md p-4">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0">
