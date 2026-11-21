@@ -1,4 +1,4 @@
-import { esc } from './sanitize.js';
+import { esc } from './sanitize.js?v=20260214';
 
 export const UI = {
     switchMenu(menuName) {

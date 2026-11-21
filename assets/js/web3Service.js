@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js';
+import { CONFIG } from './config.js?v=20260214';
 
 export class Web3Service {
     constructor() {

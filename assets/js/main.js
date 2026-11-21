@@ -1,8 +1,8 @@
-import { UI } from './uiHandler.js';
-import { Web3Service } from './web3Service.js';
-import { ApiService } from './apiService.js';
-import { initDashboard } from './dashboard.js';
-import { esc } from './sanitize.js';
+import { UI } from './uiHandler.js?v=20260214';
+import { Web3Service } from './web3Service.js?v=20260214';
+import { ApiService } from './apiService.js?v=20260214';
+import { initDashboard } from './dashboard.js?v=20260214';
+import { esc } from './sanitize.js?v=20260214';
 
 const web3 = new Web3Service();
 let isProcessing = false;
@@ -969,6 +969,14 @@ function ensureDashboardInit(account, rank) {
         account, rank: rank ?? 0,
     });
 }
+
+// Tự khởi tạo dashboard khi vào tab mà chưa init — phòng luồng login sót
+// hoặc module cache cũ. Không chạy cho ví phòng chờ (pendingGateActive).
+document.addEventListener('bdi:tab', (e) => {
+    if (e.detail?.tabId === 'tab-dashboard' && web3.currentAccount && !pendingGateActive) {
+        ensureDashboardInit(web3.currentAccount, window.__bdiRank ?? 0);
+    }
+});
 // Vòng lặp gọi hàm đồng bộ mỗi 10 giây
 async function refreshMetricsLoop() {
     await syncDashboardData();
@@ -1248,6 +1256,7 @@ function startGuestUnlockPoll(account) {
                 exitGuestMode();
                 // Cấp quyền giữa chừng có thể lên ADMIN — cập nhật cờ + tab đối tác
                 window.__isAdminWallet = rank === 3;
+                window.__bdiRank = rank;
                 document.getElementById('ltab-partner')?.classList.toggle('hidden', rank !== 3);
                 Swal.fire({ title: 'Đã được cấp quyền!', text: 'Admin vừa cấp quyền cho ví của bạn. Hệ thống đã mở đầy đủ chức năng.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
                 switchUI('tab-dashboard', document.getElementById('nav-dashboard'));
@@ -1312,6 +1321,7 @@ async function connectWallet() {
         const myRank = await getMyRoleRank(account);
         // Chỉ ví ADMIN thấy tab/doc đối tác (API key) — QUẢN LÝ cũng bị ẩn
         window.__isAdminWallet = myRank === 3;
+        window.__bdiRank = myRank ?? 0;
         document.getElementById('ltab-partner')?.classList.toggle('hidden', myRank !== 3);
         let me = null;
         if (myRank === 0) {
