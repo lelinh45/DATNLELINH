@@ -151,6 +151,9 @@ body {
 .dash .stat .stat-value { font-size: 20px; }
 .dash h3 { margin-bottom: 10px; }
 
+/* Feed hoạt động: giới hạn chiều cao, cuộn trong card thay vì kéo dài thành bảng */
+#dash-feed ul { max-height: 280px; overflow-y: auto; }
+
 /* Empty state */
 .empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;

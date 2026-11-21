@@ -139,6 +139,13 @@ for (let i = 0; i < 40; i++) {
     if (st.dashHidden === false && st.kpi && !st.kpi.includes('…') && !st.kpi.startsWith('—')) break;
 }
 
+// Chờ biểu đồ render xong (svg hoặc empty state)
+for (let i = 0; i < 20; i++) {
+    const done = await page.evaluate(() => !!document.querySelector('#dash-chart svg, #dash-chart .empty, #dash-chart .stat'));
+    if (done) break;
+    await new Promise(r => setTimeout(r, 2000));
+}
+
 const final = await page.evaluate(() => ({
     dashText: document.getElementById('tab-dashboard')?.innerText?.replace(/\s+/g, ' ').slice(0, 900),
     pending: !document.getElementById('tab-pending')?.classList.contains('hidden'),
@@ -149,7 +156,7 @@ console.log('pendingTabVisible:', final.pending);
 console.log('=== LAST ERRORS ===');
 logs.filter(l => l.includes('[error]') || l.includes('PAGEERROR')).slice(-15).forEach(l => console.log(l.slice(0, 250)));
 const diag = await page.evaluate(() => {
-    const vis = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return { rect: [r.x|0, r.y|0, r.width|0, r.height|0], display: cs.display, vis: cs.visibility, cls: el.className.slice(0, 80) }; };
+    const vis = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return { rect: [r.x|0, r.y|0, r.width|0, r.height|0], display: cs.display, vis: cs.visibility, cls: (el.getAttribute('class') || '').slice(0, 80) }; };
     const td = document.getElementById('tab-dashboard');
     let chain = []; let n = td;
     while (n && chain.length < 6) { chain.push(`${n.id || n.tagName}:${getComputedStyle(n).display}`); n = n.parentElement; }
@@ -164,6 +171,15 @@ const diag = await page.evaluate(() => {
         bodyBg: getComputedStyle(document.body).backgroundColor,
         kpiRect: vis(document.getElementById('dash-kpi-active')),
         dashDebugTxt: document.getElementById('dash-debug')?.innerText,
+        // Đo chiều cao các card để kiểm tra layout cân đối
+        chartCard: vis(document.getElementById('dash-chart')?.closest('.card')),
+        feedCard: vis(document.getElementById('dash-feed')?.closest('.card')),
+        sysCard: vis(document.getElementById('dash-sys')),
+        roleCard: vis(document.getElementById('dash-role')),
+        detailCard: vis(document.getElementById('dash-detail')),
+        mainGrid: vis(document.querySelector('#tab-dashboard [class*="grid-cols-3"]')),
+        feedRows: document.querySelectorAll('#dash-feed li').length,
+        chartSvg: vis(document.querySelector('#dash-chart svg')),
     };
 });
 console.log('=== DIAG ==='); console.log(JSON.stringify(diag, null, 1));
