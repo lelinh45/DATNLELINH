@@ -83,6 +83,10 @@ body {
 
 .pg-hidden { display: none !important; }
 
+/* Tab ẩn: các panel dùng đồng thời class `hidden` + `flex`/`grid` —
+   !important đảm bảo display:none luôn thắng bất kể thứ tự utility Tailwind */
+.hidden { display: none !important; }
+
 /* ---------- Buttons ---------- */
 
 .btn {
