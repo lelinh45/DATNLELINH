@@ -180,6 +180,8 @@ const diag = await page.evaluate(() => {
         mainGrid: vis(document.querySelector('#tab-dashboard [class*="grid-cols-3"]')),
         feedRows: document.querySelectorAll('#dash-feed li').length,
         chartSvg: vis(document.querySelector('#dash-chart svg')),
+        chartSvgTxt: document.querySelector('#dash-chart svg')?.innerHTML?.replace(/\s+/g, ' ').slice(0, 400),
+        chartTexts: document.querySelectorAll('#dash-chart svg text').length,
     };
 });
 console.log('=== DIAG ==='); console.log(JSON.stringify(diag, null, 1));

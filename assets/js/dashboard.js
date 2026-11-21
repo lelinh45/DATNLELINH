@@ -307,35 +307,51 @@ async function renderChart() {
         box.innerHTML = `<div class="empty"><i class="fa-solid fa-chart-column empty-icon"></i><div class="empty-text">Chưa có dữ liệu trong 30 ngày</div></div>`;
         return;
     }
-    // SVG bar chart — viewBox 600x150, cột accent bo đỉnh, <title> tooltip
-    const W = 600, H = 150, padB = 18, padT = 8;
+    // SVG bar chart — viewBox 600x150, cột accent bo đỉnh, <title> tooltip.
+    // Mỗi cột ghi số tài liệu lên đỉnh + lưới ngang trục Y theo số nguyên
+    // để đọc trực tiếp "ngày nào có bao nhiêu" mà không cần hover.
+    const W = 600, H = 150, padB = 18, padT = 12, padL = 16;
     const plotH = H - padB - padT;
-    const slot = W / CHART_DAYS;
+    const plotW = W - padL - 4;
+    const slot = plotW / CHART_DAYS;
     const bw = Math.max(2, slot * 0.62);
+    const yOf = (v) => padT + plotH - (v / max) * plotH;
+    // Mốc trục Y: max nhỏ → mọi số nguyên; max lớn → ~5 mốc đều nhau
+    let yticks;
+    if (max <= 10) yticks = Array.from({ length: max + 1 }, (_, i) => i);
+    else yticks = [...new Set([0, Math.ceil(max / 4), Math.ceil(max / 2), Math.ceil((3 * max) / 4), max])].sort((a, b) => a - b);
+    let grid = '';
+    for (const v of yticks) {
+        const y = yOf(v);
+        grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - 4}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"${v === 0 ? ' stroke-dasharray="none"' : ' stroke-dasharray="3 3" opacity="0.6"'}/>`;
+        if (v > 0) grid += `<text x="${padL - 4}" y="${(y + 3).toFixed(1)}" font-size="8" fill="var(--faint)" text-anchor="end">${v}</text>`;
+    }
     let bars = '';
     for (let i = 0; i < CHART_DAYS; i++) {
         const c = dayCount[i];
         if (!c) continue;
         const h = Math.max(2, (c / max) * plotH);
-        const x = i * slot + (slot - bw) / 2;
+        const x = padL + i * slot + (slot - bw) / 2;
         const y = padT + plotH - h;
         const d = new Date(today.getTime() - (CHART_DAYS - 1 - i) * 86400000);
         const lbl = `${d.getDate()}/${d.getMonth() + 1}`;
-        bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="var(--accent)"><title>${c} tài liệu — ${lbl}</title></rect>`;
+        bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="var(--accent)"><title>${c} tài liệu — ${lbl}</title></rect>` +
+            `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 3).toFixed(1)}" font-size="8" font-weight="700" fill="var(--ink)" text-anchor="middle">${c}</text>`;
     }
     // Nhãn trục X: mỗi ~5 ngày
     let labels = '';
     for (let i = 0; i < CHART_DAYS; i += 5) {
         const d = new Date(today.getTime() - (CHART_DAYS - 1 - i) * 86400000);
-        labels += `<text x="${(i * slot + slot / 2).toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--faint)" text-anchor="middle">${d.getDate()}/${d.getMonth() + 1}</text>`;
+        labels += `<text x="${(padL + i * slot + slot / 2).toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--faint)" text-anchor="middle">${d.getDate()}/${d.getMonth() + 1}</text>`;
     }
-    labels += `<text x="${(W - slot / 2).toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--faint)" text-anchor="middle">${today.getDate()}/${today.getMonth() + 1}</text>`;
+    labels += `<text x="${(padL + plotW - slot / 2).toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--faint)" text-anchor="middle">${today.getDate()}/${today.getMonth() + 1}</text>`;
     box.innerHTML = `
         <div class="flex items-baseline justify-between mb-1">
             <span class="text-[11px] text-faint">${total} tài liệu / ${CHART_DAYS} ngày · cao nhất ${max}/ngày</span>
         </div>
         <svg viewBox="0 0 ${W} ${H}" class="w-full" style="height:120px" role="img" aria-label="Biểu đồ đóng dấu 30 ngày">
-            <line x1="0" y1="${padT + plotH}" x2="${W}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
+            ${grid}
+            <line x1="${padL}" y1="${padT + plotH}" x2="${W - 4}" y2="${padT + plotH}" stroke="var(--line-strong)" stroke-width="1"/>
             ${bars}${labels}
         </svg>`;
 }
