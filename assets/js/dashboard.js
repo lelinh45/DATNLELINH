@@ -196,14 +196,19 @@ function renderAdminRow() {
         return;
     }
     const pending = _admin.pending;
-    const sessions = _admin.sessions;
     const keys = _admin.keys;
     const activeKeys = Array.isArray(keys) ? keys.filter(k => !k.revoked) : null;
     const lastUsed = activeKeys && activeKeys.length ? activeKeys.map(k => k.lastUsedAt || 0).filter(Boolean).sort((a, b) => b - a)[0] : null;
+    // Ví hoạt động: địa chỉ distinct xuất hiện trong event đóng dấu/thu hồi on-chain
+    const actors = new Set();
+    if (!_errors.chain) {
+        for (const ev of _added) { const a = ev.args?.[3]; if (a) actors.add(String(a).toLowerCase()); }
+        for (const ev of _revoked) { const a = ev.args?.[1]; if (a) actors.add(String(a).toLowerCase()); }
+    }
     const cell = (v, l, s) => `<div class="stat"><div class="stat-value">${esc(v)}</div><div class="stat-label">${esc(l)}</div><div class="stat-sub">${esc(s)}</div></div>`;
     row.innerHTML =
         cell(pending === null ? '—' : pending.length, 'Ví chờ duyệt', 'Database') +
-        cell(sessions === null ? '—' : sessions.length, 'Phiên đăng nhập', 'Database') +
+        cell(_errors.chain ? '—' : actors.size, 'Ví hoạt động', 'On-chain') +
         cell(activeKeys === null ? '—' : `${activeKeys.length}${lastUsed ? ' · dùng gần nhất ' + new Date(lastUsed).toLocaleDateString('vi-VN') : ''}`, 'API key active', 'Database');
 }
 
