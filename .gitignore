@@ -41,3 +41,8 @@ __pycache__/
 
 # File tam Office (khoa khi dang mo)
 ~$*
+
+# File tam build bao cao Word (khong thuoc repo)
+/_report_work/
+/_build_*.py
+/_generate_all.py
