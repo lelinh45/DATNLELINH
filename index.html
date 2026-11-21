@@ -855,8 +855,6 @@ tailwind.config = { theme: { extend: {
                 <div id="tab-dashboard" class="hidden flex-1 min-h-0 flex flex-col">
                     <div class="flex-1 overflow-y-auto">
                         <div class="dash max-w-5xl mx-auto w-full space-y-3 pb-6">
-                            <!-- Dòng chẩn đoán tạm thời: dashboard.js ghi trạng thái vào đây -->
-                            <div id="dash-debug" class="text-[11px] font-mono rounded-md px-2 py-1 bg-[var(--bg-soft)] border border-[var(--border)]">[dash] html loaded</div>
                             <!-- KPI on-chain -->
                             <div id="dash-kpi-row" class="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <div id="dash-kpi-active" class="stat"><div class="stat-value text-faint">…</div></div>
@@ -1008,14 +1006,6 @@ tailwind.config = { theme: { extend: {
         }
 
         document.dispatchEvent(new CustomEvent('bdi:tab', { detail: { tabId } }));
-
-        // Chẩn đoán: vào tab Tổng quan mà dashboard.js chưa init → báo rõ trên màn hình
-        if (tabId === 'tab-dashboard') {
-            setTimeout(() => {
-                const dbgEl = document.getElementById('dash-debug');
-                if (dbgEl && !window.__dashDebug) dbgEl.innerText = '[dash] chưa khởi tạo — hãy đăng nhập lại ví (F5 rồi connect)';
-            }, 2500);
-        }
     }
 
     // Theme toggle — đồng bộ với verify/partner qua localStorage('bdi_theme')

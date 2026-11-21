@@ -30,12 +30,7 @@ let _blockTs = {};         // blockNumber -> unix ts (session)
 let _docTs = null;         // docId -> unix ts (persist localStorage)
 
 const $ = (id) => document.getElementById(id);
-// Chẩn đoán hiển thị ngay trong tab — debug lỗi "trang trắng" không cần console
-function dbg(msg) {
-    window.__dashDebug = msg;
-    const el = $('dash-debug');
-    if (el) el.innerText = `[dash] ${msg}`;
-}
+function dbg(msg) { window.__dashDebug = msg; }
 const shortAddr = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '—');
 const shortId = (s) => (s && s.length > 14 ? `${s.slice(0, 8)}…${s.slice(-4)}` : (s || '—'));
 
