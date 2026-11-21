@@ -30,6 +30,12 @@ let _blockTs = {};         // blockNumber -> unix ts (session)
 let _docTs = null;         // docId -> unix ts (persist localStorage)
 
 const $ = (id) => document.getElementById(id);
+// Chẩn đoán hiển thị ngay trong tab — debug lỗi "trang trắng" không cần console
+function dbg(msg) {
+    window.__dashDebug = msg;
+    const el = $('dash-debug');
+    if (el) el.innerText = `[dash] ${msg}`;
+}
 const shortAddr = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '—');
 const shortId = (s) => (s && s.length > 14 ? `${s.slice(0, 8)}…${s.slice(-4)}` : (s || '—'));
 
@@ -141,11 +147,14 @@ function withTimeout(promise, ms) {
 }
 
 async function loadSource(src, timeoutMs) {
+    dbg(`load ${src}…`);
     try {
         const job = src === 'chain' ? loadChain() : src === 'db' ? loadDb() : loadAdmin();
         await (timeoutMs ? withTimeout(job, timeoutMs) : job);
-    } catch {
+        dbg(`${src} OK`);
+    } catch (e) {
         _errors[src] = true;
+        dbg(`${src} LỖI: ${e?.message || e}`);
     }
     renderAll();
 }
@@ -440,6 +449,7 @@ function renderAll() {
 // ---------------- PUBLIC API ----------------
 
 export function initDashboard(ctx) {
+    dbg('initDashboard called');
     const accountChanged = _ctx && _ctx.account !== ctx.account;
     _ctx = ctx;
     if (accountChanged) {
@@ -465,7 +475,8 @@ export function initDashboard(ctx) {
 }
 
 export function refreshDashboard(force = false) {
-    if (!_ctx) return Promise.resolve();
+    if (!_ctx) { dbg('refresh: _ctx null — chưa init'); return Promise.resolve(); }
+    dbg(`refresh (force=${force}, throttled=${!force && Date.now() - _lastRefresh < THROTTLE_MS})`);
     const now = Date.now();
     if (!force && now - _lastRefresh < THROTTLE_MS) return Promise.resolve();
     if (_inflight) return _inflight;
