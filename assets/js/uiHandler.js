@@ -23,12 +23,12 @@ export const UI = {
 
             if (menu === menuName) {
                 content.classList.remove('hidden');
-                btn.classList.remove('text-gray-400', 'text-red-400', 'hover:bg-gray-800');
-                btn.classList.add('bg-blue-600/10', 'text-blue-400');
+                btn.classList.remove('text-muted', 'text-err', 'hover:bg-hover');
+                btn.classList.add('bg-accent-soft', 'text-accent');
             } else {
                 content.classList.add('hidden');
-                btn.classList.remove('bg-blue-600/10', 'text-blue-400');
-                btn.classList.add('text-gray-400', 'hover:bg-gray-800');
+                btn.classList.remove('bg-accent-soft', 'text-accent');
+                btn.classList.add('text-muted', 'hover:bg-hover');
             }
         });
     },
@@ -46,11 +46,11 @@ export const UI = {
         if (badge) {
             badge.innerText = status;
             if (percent === 100) {
-                badge.className = "bg-emerald-900/30 text-emerald-400 border border-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold";
+                badge.className = "bg-ok-soft text-ok border border-ok text-[10px] px-2 py-0.5 rounded font-bold";
             } else if (percent === 0) {
-                badge.className = "bg-gray-800 text-gray-300 border border-gray-700 text-[10px] px-2 py-0.5 rounded font-bold";
+                badge.className = "bg-sunken text-soft border border-line-strong text-[10px] px-2 py-0.5 rounded font-bold";
             } else {
-                badge.className = "bg-blue-900/30 text-blue-400 border border-blue-800 text-[10px] px-2 py-0.5 rounded font-bold animate-pulse";
+                badge.className = "bg-accent-soft text-accent border border-accent-line text-[10px] px-2 py-0.5 rounded font-bold";
             }
         }
     },
@@ -58,11 +58,11 @@ export const UI = {
     logConsole(msg, type = 'info', hash = '') {
         const box = document.getElementById('consoleBox');
         if (!box) return;
-        const color = type === 'error' ? 'text-red-400' : type === 'success' ? 'text-emerald-400' : type === 'warning' ? 'text-yellow-400' : 'text-blue-400';
-        const hashDisplay = hash ? `<br><span class="text-gray-600 ml-4">> <span class="text-blue-500/70 font-mono">${esc(hash)}</span></span>` : '';
+        const color = type === 'error' ? 'text-err' : type === 'success' ? 'text-ok' : type === 'warning' ? 'text-warn' : 'text-accent';
+        const hashDisplay = hash ? `<br><span class="text-faint ml-4">> <span class="text-accent font-mono">${esc(hash)}</span></span>` : '';
         const entry = document.createElement('div');
         entry.className = 'mb-1';
-        entry.innerHTML = `<span class="text-gray-600">[${new Date().toLocaleTimeString()}]</span> <span class="${color}">${esc(msg)}</span>${hashDisplay}`;
+        entry.innerHTML = `<span class="text-faint">[${new Date().toLocaleTimeString()}]</span> <span class="${color}">${esc(msg)}</span>${hashDisplay}`;
         box.appendChild(entry);
         box.scrollTop = box.scrollHeight;
     },
@@ -81,7 +81,7 @@ export const UI = {
                 const remaining = MAX_BATCH - this.selectedUploadFiles.length;
                 const newFiles = Array.from(input.files).slice(0, Math.max(0, remaining));
                 if (newFiles.length < input.files.length) {
-                    Swal.fire({ title: 'Giới hạn 100 tệp mỗi lô', text: `Chỉ thêm được ${newFiles.length}/${input.files.length} tệp. Smart Contract chỉ ký tối đa 100 tài liệu một lần.`, icon: 'warning', background: '#111827', color: '#fff' });
+                    Swal.fire({ title: 'Giới hạn 100 tệp mỗi lô', text: `Chỉ thêm được ${newFiles.length}/${input.files.length} tệp. Smart Contract chỉ ký tối đa 100 tài liệu một lần.`, icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
                 }
                 // Gộp file mới vào mảng cũ (không làm mất file đã chọn trước đó)
                 this.selectedUploadFiles = [...this.selectedUploadFiles, ...newFiles];
@@ -138,15 +138,15 @@ export const UI = {
                 fileListContainer.innerHTML = this.selectedUploadFiles.map((file, index) => {
                     const sizeText = file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + ' MB' : (file.size / 1024).toFixed(2) + ' KB';
                     return `
-                        <div class="flex items-center justify-between bg-gray-800/40 p-2.5 rounded-lg border border-gray-700 hover:border-gray-500 transition group">
+                        <div class="flex items-center justify-between bg-sunken p-2.5 rounded-lg border border-line-strong hover:border-faint transition group">
                             <div class="flex items-center gap-3 overflow-hidden">
-                                <i class="fa-solid fa-file-lines text-blue-400 text-lg"></i>
+                                <i class="fa-solid fa-file-lines text-accent text-lg"></i>
                                 <div class="flex flex-col text-left truncate">
-                                    <span class="text-xs font-bold text-gray-200 truncate" title="${esc(file.name)}">${esc(file.name)}</span>
-                                    <span class="text-[10px] text-gray-500 font-mono">${esc(sizeText)}</span>
+                                    <span class="text-xs font-bold text-soft truncate" title="${esc(file.name)}">${esc(file.name)}</span>
+                                    <span class="text-[10px] text-faint font-mono">${esc(sizeText)}</span>
                                 </div>
                             </div>
-                            <button type="button" data-act="rm-file" data-v="${index}" class="text-gray-500 hover:text-red-400 px-2 py-1 transition rounded hover:bg-red-900/30" title="Loại bỏ file này">
+                            <button type="button" data-act="rm-file" data-v="${index}" class="text-faint hover:text-err px-2 py-1 transition rounded hover:bg-err-soft" title="Loại bỏ file này">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
@@ -165,7 +165,7 @@ export const UI = {
     copyToClipboard(text) {
         navigator.clipboard.writeText(text).then(() => {
             Swal.mixin({
-                toast: true, position: 'top-end', showConfirmButton: false, timer: 1500, background: '#111827', color: '#fff'
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 1500, background: 'var(--panel)', color: 'var(--ink)'
             }).fire({ icon: 'success', title: 'Đã sao chép vào bộ nhớ tạm!' });
         });
     },

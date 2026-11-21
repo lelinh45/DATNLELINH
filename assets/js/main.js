@@ -1,6 +1,7 @@
 import { UI } from './uiHandler.js';
 import { Web3Service } from './web3Service.js';
 import { ApiService } from './apiService.js';
+import { initDashboard } from './dashboard.js';
 import { esc } from './sanitize.js';
 
 const web3 = new Web3Service();
@@ -23,7 +24,7 @@ document.addEventListener('click', (e) => {
         case 'vis':             if (d.v) window.toggleDocVisibility(d.v, d.vis); break;
         case 'decrypt':         window.downloadAndDecrypt(d.v, d.name || 'document', d.id); break;
         case 'preview':         window.previewDocument(d.v, d.name || 'document', d.id); break;
-        case 'locked':          Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Tài liệu riêng tư — chỉ người tải lên xem được', background: '#111827', color: '#fff', timer: 2500, showConfirmButton: false }); break;
+        case 'locked':          Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Tài liệu riêng tư — chỉ người tải lên xem được', background: 'var(--panel)', color: 'var(--ink)', timer: 2500, showConfirmButton: false }); break;
         case 'pdf':             if (lastCertData) UI.downloadPdfCertificate(lastCertData); break;
         case 'wallet-preview':  if (d.v) window.openPreviewDrawer(d.v); break;
         case 'storage':         if (d.v) window.openStorageModal(d.v); break;
@@ -40,6 +41,11 @@ document.addEventListener('click', (e) => {
         case 'kick-session':    if (d.v) window.kickDeviceSession(d.v); break;
         case 'approve-session': if (d.v) window.approveDeviceSession(d.v); break;
         case 'revoke-key':      if (d.v) window.revokeApiKey(d.v); break;
+        case 'pg-prev': case 'pg-next': {
+            const tb = document.getElementById(d.t);
+            if (tb) paginateTbody(tb, (pgPageById.get(tb.id) || 1) + (d.act === 'pg-next' ? 1 : -1));
+            break;
+        }
     }
 });
 document.addEventListener('change', (e) => {
@@ -50,13 +56,13 @@ document.addEventListener('change', (e) => {
 // THÔNG BÁO & PHIÊN ĐĂNG NHẬP THEO THIẾT BỊ
 // =====================================================================
 const NOTIF_ICON = {
-    new_device: { icon: 'fa-triangle-exclamation', cls: 'text-yellow-400' },
-    new_wallet: { icon: 'fa-user-plus', cls: 'text-purple-400' },
-    device_pending: { icon: 'fa-clock', cls: 'text-orange-400' },
-    device_approved: { icon: 'fa-circle-check', cls: 'text-emerald-400' },
-    doc_revoked: { icon: 'fa-ban', cls: 'text-red-400' },
-    session_revoked: { icon: 'fa-shield-halved', cls: 'text-blue-400' },
-    system: { icon: 'fa-circle-info', cls: 'text-gray-400' }
+    new_device: { icon: 'fa-triangle-exclamation', cls: 'text-warn' },
+    new_wallet: { icon: 'fa-user-plus', cls: 'text-violet' },
+    device_pending: { icon: 'fa-clock', cls: 'text-warn' },
+    device_approved: { icon: 'fa-circle-check', cls: 'text-ok' },
+    doc_revoked: { icon: 'fa-ban', cls: 'text-err' },
+    session_revoked: { icon: 'fa-shield-halved', cls: 'text-accent' },
+    system: { icon: 'fa-circle-info', cls: 'text-muted' }
 };
 
 async function refreshNotifBadge() {
@@ -80,7 +86,7 @@ async function renderNotifPanel() {
     const listEl = document.getElementById('notif-list');
     const sessEl = document.getElementById('session-list');
     if (!listEl || !sessEl) return;
-    listEl.innerHTML = '<div class="px-4 py-6 text-center text-gray-600 text-xs">Đang tải...</div>';
+    listEl.innerHTML = '<div class="px-4 py-6 text-center text-faint text-xs">Đang tải...</div>';
 
     const [{ notifications }, { sessions }] = await Promise.all([
         ApiService.getNotifications(), ApiService.getSessions()
@@ -88,37 +94,37 @@ async function renderNotifPanel() {
 
     listEl.scrollTop = 0; // luôn neo về thông báo mới nhất (đã sort createdAt desc)
     listEl.innerHTML = notifications.length === 0
-        ? '<div class="px-4 py-6 text-center text-gray-600 text-xs">Chưa có thông báo nào.</div>'
+        ? '<div class="px-4 py-6 text-center text-faint text-xs">Chưa có thông báo nào.</div>'
         : notifications.map(n => {
             const ic = NOTIF_ICON[n.type] || NOTIF_ICON.system;
-            return `<div class="px-4 py-3 ${n.read ? 'opacity-60' : 'bg-blue-900/10'}">
+            return `<div class="px-4 py-3 ${n.read ? 'opacity-60' : 'bg-accent-soft'}">
                 <div class="flex items-start gap-2.5">
                     <i class="fa-solid ${ic.icon} ${ic.cls} mt-0.5 text-xs"></i>
                     <div class="flex-1 min-w-0">
-                        <div class="text-xs font-bold text-gray-200">${esc(n.title)}</div>
-                        <div class="text-[11px] text-gray-400 mt-0.5 break-words">${esc(n.message)}</div>
-                        <div class="text-[10px] text-gray-600 mt-1">${esc(window.formatTimeForce(n.createdAt))}</div>
+                        <div class="text-xs font-bold text-soft">${esc(n.title)}</div>
+                        <div class="text-[11px] text-muted mt-0.5 break-words">${esc(n.message)}</div>
+                        <div class="text-[10px] text-faint mt-1">${esc(window.formatTimeForce(n.createdAt))}</div>
                     </div>
-                    ${n.read ? '' : '<span class="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0"></span>'}
+                    ${n.read ? '' : '<span class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></span>'}
                 </div>
             </div>`;
         }).join('');
 
     const myDev = ApiService.getDeviceId();
     sessEl.innerHTML = sessions.length === 0
-        ? '<div class="text-[11px] text-gray-600">Không có phiên nào.</div>'
+        ? '<div class="text-[11px] text-faint">Không có phiên nào.</div>'
         : sessions.map(s => {
             const isPending = s.status === 'pending';
             const actions = s.current ? '' : isPending
                 ? `<div class="flex gap-1.5 shrink-0">
-                       <button data-act="approve-session" data-v="${esc(s.deviceId)}" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-900/20 border border-emerald-900/50 px-2 py-1 rounded transition">Duyệt</button>
-                       <button data-act="kick-session" data-v="${esc(s.deviceId)}" class="text-[10px] font-bold text-red-400 hover:text-red-300 bg-red-900/20 border border-red-900/50 px-2 py-1 rounded transition">Từ chối</button>
+                       <button data-act="approve-session" data-v="${esc(s.deviceId)}" class="text-[10px] font-bold text-ok hover:text-ok bg-ok-soft border border-ok px-2 py-1 rounded transition">Duyệt</button>
+                       <button data-act="kick-session" data-v="${esc(s.deviceId)}" class="text-[10px] font-bold text-err hover:text-err bg-err-soft border border-err px-2 py-1 rounded transition">Từ chối</button>
                    </div>`
-                : `<button data-act="kick-session" data-v="${esc(s.deviceId)}" class="text-[10px] font-bold text-red-400 hover:text-red-300 bg-red-900/20 border border-red-900/50 px-2 py-1 rounded transition shrink-0">Thu hồi</button>`;
-            return `<div class="flex items-center justify-between bg-gray-900/50 border ${isPending ? 'border-orange-900/50' : 'border-gray-800'} rounded-lg px-3 py-2">
+                : `<button data-act="kick-session" data-v="${esc(s.deviceId)}" class="text-[10px] font-bold text-err hover:text-err bg-err-soft border border-err px-2 py-1 rounded transition shrink-0">Thu hồi</button>`;
+            return `<div class="flex items-center justify-between bg-panel border ${isPending ? 'border-warn' : 'border-line'} rounded-lg px-3 py-2">
                 <div class="min-w-0">
-                    <div class="text-[11px] font-bold text-gray-300 truncate">${esc(s.deviceLabel)}${s.current ? ' <span class="text-emerald-400 text-[9px]">(thiết bị này)</span>' : ''}</div>
-                    <div class="text-[10px] ${isPending ? 'text-orange-400' : 'text-gray-600'}">${isPending ? 'Chờ phê duyệt' : 'Hoạt động'}: ${esc(window.formatTimeForce(s.lastSeen))}${s.ip ? ` · IP ${esc(s.ip)}` : ''}</div>
+                    <div class="text-[11px] font-bold text-soft truncate">${esc(s.deviceLabel)}${s.current ? ' <span class="text-ok text-[9px]">(thiết bị này)</span>' : ''}</div>
+                    <div class="text-[10px] ${isPending ? 'text-warn' : 'text-faint'}">${isPending ? 'Chờ phê duyệt' : 'Hoạt động'}: ${esc(window.formatTimeForce(s.lastSeen))}${s.ip ? ` · IP ${esc(s.ip)}` : ''}</div>
                 </div>
                 ${actions}
             </div>`;
@@ -142,7 +148,7 @@ async function saveContactWithConfirm(email, phone) {
             html: `Mã 6 số đã gửi về <b>${esc(res.maskedEmail || 'email hiện tại')}</b>.<br>Nhập mã để hoàn tất đổi email.`,
             input: 'text', inputAttributes: { maxlength: '6', inputmode: 'numeric', autocomplete: 'one-time-code' },
             icon: 'info', showCancelButton: true, confirmButtonText: 'Xác nhận', cancelButtonText: 'Để sau',
-            background: '#111827', color: '#fff'
+            background: 'var(--panel)', color: 'var(--ink)'
         });
         if (ask.isConfirmed && ask.value) {
             await ApiService.confirmEmailChange(ask.value.trim());
@@ -156,15 +162,15 @@ window.kickDeviceSession = async (deviceId) => {
     const ok = await Swal.fire({
         title: 'Thu hồi phiên?', text: 'Thiết bị này sẽ bị đăng xuất ngay. Bạn cần ký MetaMask để xác nhận.',
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Thu hồi', cancelButtonText: 'Hủy',
-        background: '#111827', color: '#fff', confirmButtonColor: '#dc2626'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--err)'
     });
     if (!ok.isConfirmed) return;
     try {
         await ApiService.revokeSession(deviceId, await stepUp());
-        Swal.fire({ title: 'Đã thu hồi', text: 'Phiên trên thiết bị đó đã bị vô hiệu hóa.', icon: 'success', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+        Swal.fire({ title: 'Đã thu hồi', text: 'Phiên trên thiết bị đó đã bị vô hiệu hóa.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
         renderNotifPanel();
     } catch (e) {
-        Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     }
 };
 
@@ -173,15 +179,15 @@ window.approveDeviceSession = async (deviceId) => {
     const ok = await Swal.fire({
         title: 'Phê duyệt thiết bị?', text: 'Thiết bị này sẽ được cấp quyền đăng nhập vào ví của bạn. Bạn cần ký MetaMask để xác nhận.',
         icon: 'question', showCancelButton: true, confirmButtonText: 'Phê duyệt', cancelButtonText: 'Hủy',
-        background: '#111827', color: '#fff', confirmButtonColor: '#059669'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--ok)'
     });
     if (!ok.isConfirmed) return;
     try {
         await ApiService.approveSession(deviceId, await stepUp());
-        Swal.fire({ title: 'Đã phê duyệt', text: 'Thiết bị đó giờ có thể đăng nhập.', icon: 'success', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+        Swal.fire({ title: 'Đã phê duyệt', text: 'Thiết bị đó giờ có thể đăng nhập.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
         renderNotifPanel();
     } catch (e) {
-        Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     }
 };
 
@@ -234,15 +240,15 @@ async function refreshPendingBadge() {
 async function renderPendingPanel() {
     const listEl = document.getElementById('pending-list');
     if (!listEl) return;
-    listEl.innerHTML = '<div class="px-4 py-6 text-center text-gray-600 text-xs">Đang tải...</div>';
+    listEl.innerHTML = '<div class="px-4 py-6 text-center text-faint text-xs">Đang tải...</div>';
     const wallets = await ApiService.getPendingWallets();
     if (wallets === null) {
-        listEl.innerHTML = '<div class="px-4 py-6 text-center text-gray-600 text-xs">Chỉ ADMIN mới xem được.</div>';
+        listEl.innerHTML = '<div class="px-4 py-6 text-center text-faint text-xs">Chỉ ADMIN mới xem được.</div>';
         return;
     }
     listEl.scrollTop = 0; // neo về ví chờ mới nhất
     listEl.innerHTML = wallets.length === 0
-        ? '<div class="px-4 py-6 text-center text-gray-600 text-xs">Không có ví nào đang chờ.</div>'
+        ? '<div class="px-4 py-6 text-center text-faint text-xs">Không có ví nào đang chờ.</div>'
         : wallets.map(w => {
             const contact = [w.email, w.phone].filter(Boolean).join(' · ') || 'Chưa điền liên hệ';
             const time = w.lastActive ? new Date(w.lastActive).toLocaleString('vi-VN') : '—';
@@ -250,20 +256,20 @@ async function renderPendingPanel() {
             <div class="px-4 py-3">
                 <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0 flex-1">
-                        <div class="text-sm font-bold text-white truncate">${esc(w.alias || '— chưa đặt tên —')}</div>
+                        <div class="text-sm font-bold text-ink truncate">${esc(w.alias || '— chưa đặt tên —')}</div>
                         <div class="flex items-center gap-1.5 mt-0.5">
-                            <span class="font-mono text-[11px] text-blue-400 truncate">${esc(w.address)}</span>
-                            <button data-act="copy" data-v="${esc(w.address)}" class="text-gray-500 hover:text-white text-[11px] shrink-0" title="Copy địa chỉ ví"><i class="fa-regular fa-copy"></i></button>
+                            <span class="font-mono text-[11px] text-accent truncate">${esc(w.address)}</span>
+                            <button data-act="copy" data-v="${esc(w.address)}" class="text-faint hover:text-ink text-[11px] shrink-0" title="Copy địa chỉ ví"><i class="fa-regular fa-copy"></i></button>
                         </div>
-                        <div class="text-[10px] text-gray-500 mt-1 truncate">${esc(contact)}</div>
+                        <div class="text-[10px] text-faint mt-1 truncate">${esc(contact)}</div>
                         <div class="text-[10px] mt-0.5">
-                            <span class="text-amber-400 font-bold">Muốn quyền: ${esc(w.requestedRole || 'chưa chọn')}</span>
-                            <span class="text-gray-600"> · ${time}</span>
+                            <span class="text-warn font-bold">Muốn quyền: ${esc(w.requestedRole || 'chưa chọn')}</span>
+                            <span class="text-faint"> · ${time}</span>
                         </div>
                     </div>
                     <div class="flex flex-col gap-1.5 shrink-0">
-                        <button data-act="approve-pending" data-v="${esc(w.address)}" data-alias="${esc(w.alias || '')}" data-role="${esc(w.requestedRole || '')}" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition">Duyệt</button>
-                        <button data-act="reject-pending" data-v="${esc(w.address)}" data-alias="${esc(w.alias || '')}" class="bg-red-900/40 hover:bg-red-800/60 text-red-300 border border-red-800/60 text-[11px] font-bold px-3 py-1.5 rounded-lg transition">Từ chối</button>
+                        <button data-act="approve-pending" data-v="${esc(w.address)}" data-alias="${esc(w.alias || '')}" data-role="${esc(w.requestedRole || '')}" class="bg-ok hover:brightness-110 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition">Duyệt</button>
+                        <button data-act="reject-pending" data-v="${esc(w.address)}" data-alias="${esc(w.alias || '')}" class="bg-err-soft hover:brightness-110 text-err border border-err text-[11px] font-bold px-3 py-1.5 rounded-lg transition">Từ chối</button>
                     </div>
                 </div>
             </div>`;
@@ -286,11 +292,11 @@ window.fillAssignRole = function(address, alias, requestedRole) {
     setTimeout(() => {
         addrEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         const box = document.getElementById('admin-role-collapse');
-        box?.classList.add('ring-2', 'ring-emerald-400/70', 'rounded-xl');
-        setTimeout(() => box?.classList.remove('ring-2', 'ring-emerald-400/70', 'rounded-xl'), 2500);
+        box?.classList.add('ring-2', 'ring-ok', 'rounded-md');
+        setTimeout(() => box?.classList.remove('ring-2', 'ring-ok', 'rounded-md'), 2500);
         addrEl?.focus();
     }, 120);
-    Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `Đã điền thông tin ví ${esc(alias || address.slice(0,10)+'…')} — chọn quyền rồi bấm Thực thi`, background: '#111827', color: '#fff', timer: 3000, showConfirmButton: false });
+    Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `Đã điền thông tin ví ${esc(alias || address.slice(0,10)+'…')} — chọn quyền rồi bấm Thực thi`, background: 'var(--panel)', color: 'var(--ink)', timer: 3000, showConfirmButton: false });
 };
 
 // Từ chối ví chờ: khóa ví trong DB (status REVOKED) — biến mất khỏi khay chờ,
@@ -300,16 +306,16 @@ window.rejectPendingWallet = async function(address, alias) {
         title: 'Từ chối ví này?',
         html: `Ví <b>${esc(alias || '')}</b><br><span class="font-mono text-xs">${esc(address)}</span><br>sẽ bị khóa và phải liên hệ Admin để được xem xét lại.`,
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Từ chối', cancelButtonText: 'Hủy',
-        confirmButtonColor: '#dc2626', background: '#111827', color: '#fff'
+        confirmButtonColor: 'var(--err)', background: 'var(--panel)', color: 'var(--ink)'
     });
     if (!cf.isConfirmed) return;
     try {
         await ApiService.rejectWallet(address);
         await renderPendingPanel();
         refreshPendingBadge();
-        Swal.fire({ title: 'Đã từ chối', icon: 'success', timer: 1500, showConfirmButton: false, background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Đã từ chối', icon: 'success', timer: 1500, showConfirmButton: false, background: 'var(--panel)', color: 'var(--ink)' });
     } catch (e) {
-        Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     }
 };
 
@@ -345,10 +351,30 @@ function initPendingWalletsUI() {
 const originalUpdateProgress = UI.updateProgress;
 let progressIdleTimer = null;
 const PROGRESS_TERMINAL = ['SUCCESS', 'VERIFIED', 'FAILED', 'ERROR', 'REVOKED', 'NOT FOUND'];
+
+// Step indicator upload — chỉ map status → bước hiển thị, không đổi flow gọi
+const UPLOAD_STEP_BY_STATUS = {
+    SCANNING: 1, HASHING: 1, QUERYING: 1, ANALYZING: 1, PROCESSING: 1,
+    ENCRYPTING: 2, UPLOADING: 3, 'MERKLE TREE': 4, SIGNING: 4
+};
+function updateUploadSteps(status) {
+    const wrap = document.getElementById('upload-steps');
+    if (!wrap) return;
+    const steps = wrap.querySelectorAll('.bdi-step');
+    if (!steps.length) return;
+    const active = status === 'SUCCESS' ? 5 : (UPLOAD_STEP_BY_STATUS[status] || 0);
+    steps.forEach((el, i) => {
+        const n = i + 1;
+        el.classList.toggle('on', n === active);
+        el.classList.toggle('done', status === 'SUCCESS' || n < active);
+    });
+}
+
 UI.updateProgress = function(percent, message, status) {
     if (originalUpdateProgress) {
         originalUpdateProgress.call(UI, percent, message, status);
     }
+    updateUploadSteps(status);
 
     // Trạng thái kết thúc (100% hoặc lỗi/dừng) → tự trả về "đang rảnh" sau 4s,
     // trừ khi một tiến trình mới đã bắt đầu trước đó (timer bị hủy ở mọi lần gọi).
@@ -364,15 +390,15 @@ UI.updateProgress = function(percent, message, status) {
     if (consoleBox && message) {
         if (percent === 0 && message === "Hệ thống đang rảnh") return;
         const time = new Date().toLocaleTimeString('vi-VN');
-        let colorClass = 'text-gray-400';
-        if (status === 'SUCCESS' || status === 'VERIFIED') colorClass = 'text-emerald-400 font-bold';
-        else if (status === 'FAILED' || status === 'ERROR' || status === 'REVOKED') colorClass = 'text-red-400 font-bold';
-        else if (status === 'SCANNING' || status === 'ANALYZING') colorClass = 'text-yellow-400';
-        else colorClass = 'text-blue-300';
+        let colorClass = 'text-muted';
+        if (status === 'SUCCESS' || status === 'VERIFIED') colorClass = 'text-ok font-bold';
+        else if (status === 'FAILED' || status === 'ERROR' || status === 'REVOKED') colorClass = 'text-err font-bold';
+        else if (status === 'SCANNING' || status === 'ANALYZING') colorClass = 'text-warn';
+        else colorClass = 'text-accent';
 
         const logEntry = document.createElement('div');
         logEntry.className = `mb-1.5 ${colorClass} font-mono text-[11px] leading-relaxed`;
-        logEntry.innerHTML = `<span class="text-gray-600">[${time}]</span> >${esc(message)}`;
+        logEntry.innerHTML = `<span class="text-faint">[${time}]</span> >${esc(message)}`;
 
         consoleBox.appendChild(logEntry);
         consoleBox.scrollTop = consoleBox.scrollHeight; 
@@ -419,13 +445,13 @@ window.setWalletAlias = async function(address, currentAlias) {
         showCancelButton: true,
         confirmButtonText: 'Lưu Tên',
         cancelButtonText: 'Hủy',
-        background: '#111827', color: '#fff', confirmButtonColor: '#3b82f6'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--accent)'
     });
     if (newAlias !== undefined) {
         await ApiService.syncWalletData(address, { alias: newAlias.trim() });
         window.loadWalletRoles(); // Load lại bảng Ví
         if (typeof loadTransactionHistory === 'function') loadTransactionHistory(); // Load lại Sổ cái
-        Swal.fire({ title: 'Thành công', text: 'Đã cập nhật danh bạ ví.', icon: 'success', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+        Swal.fire({ title: 'Thành công', text: 'Đã cập nhật danh bạ ví.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
     }
 };
 
@@ -438,13 +464,13 @@ window.getWalletName = function(address) {
 
     let wallets = JSON.parse(localStorage.getItem('bdi_authorized_wallets')) || [];
     let w = wallets.find(x => x.address && x.address.toLowerCase() === target);
-    let displayName = (w && w.alias) ? `<span class="font-bold text-white">${esc(w.alias)}</span> <span class="text-[9px] text-gray-500">(${esc(shortAddr)})</span>` : esc(shortAddr);
+    let displayName = (w && w.alias) ? `<span class="font-bold text-ink">${esc(w.alias)}</span> <span class="text-[9px] text-faint">(${esc(shortAddr)})</span>` : esc(shortAddr);
 
     if (target === adminAddr) {
-        return `<span class="text-yellow-500 font-bold bg-yellow-900/20 px-1.5 py-0.5 rounded border border-yellow-900/50 mr-1 text-[9px] uppercase">Admin</span><span class="text-gray-400 font-mono">${displayName}</span>`;
+        return `<span class="text-warn font-bold bg-warn-soft px-1.5 py-0.5 rounded border border-warn mr-1 text-[9px] uppercase">Admin</span><span class="text-muted font-mono">${displayName}</span>`;
     }
     
-    return `<span class="text-blue-400 font-mono bg-blue-900/10 px-1.5 py-0.5 rounded border border-blue-900/30">${displayName}</span>`;
+    return `<span class="text-accent font-mono bg-accent-soft px-1.5 py-0.5 rounded border border-accent-line">${displayName}</span>`;
 };
 
 // Badge "ĐỐI TÁC · orgName" cho tài liệu upload qua API key đối tác —
@@ -452,7 +478,7 @@ window.getWalletName = function(address) {
 window.partnerBadge = (partnerOrgs, docId) => {
     const org = partnerOrgs && partnerOrgs[docId];
     if (!org) return '';
-    return `<div class="mt-1"><span class="text-amber-400 font-bold bg-amber-900/20 px-1.5 py-0.5 rounded border border-amber-800/50 text-[9px] uppercase" title="Tài liệu upload qua API đối tác — server ký giao dịch hộ bằng ví ADMIN"><i class="fa-solid fa-handshake mr-1"></i>Đối tác · ${esc(org)}</span></div>`;
+    return `<div class="mt-1"><span class="text-warn font-bold bg-warn-soft px-1.5 py-0.5 rounded border border-warn text-[9px] uppercase" title="Tài liệu upload qua API đối tác — server ký giao dịch hộ bằng ví ADMIN"><i class="fa-solid fa-handshake mr-1"></i>Đối tác · ${esc(org)}</span></div>`;
 };
 
 window.copyDocId = (text) => UI.copyToClipboard(text);
@@ -475,7 +501,7 @@ window.copyAPIKey = function (fullKey) {
             Swal.fire({ 
                 toast: true, position: 'top-end', icon: 'success', 
                 title: 'Đã sao chép API Key!', showConfirmButton: false, 
-                timer: 2000, background: '#0b0f19', color: '#fff' 
+                timer: 2000, background: 'var(--panel)', color: 'var(--ink)' 
             });
         }
     }).catch(err => console.error('Lỗi khi copy: ', err));
@@ -487,6 +513,58 @@ const matchTableRow = (row, input) => {
     if (input.startsWith('0x')) return (row.getAttribute('data-uploader') || '') === input;
     const searchData = row.getAttribute('data-search') || row.innerText.toLowerCase();
     return searchData.includes(input);
+};
+
+// ---- Phân trang client-side: 15 dòng/trang ----
+// Dùng class .pg-hidden riêng, KHÔNG đụng style.display (đang do search filter điều khiển).
+// Chỉ đếm dòng đang hiển thị (style.display !== 'none') để cộng hưởng đúng với filter.
+const PG_PER_PAGE = 15;
+const pgPageById = new Map();
+
+function paginateTbody(tbody, page) {
+    if (!tbody) return;
+    const tbodyId = tbody.id;
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    // "Hiển thị" = qua được filter: search dùng style.display, filter role ví dùng class .hidden
+    const isFilterVisible = r => r.style.display !== 'none' && !r.classList.contains('hidden');
+    const visRows = allRows.filter(isFilterVisible);
+    const pages = Math.max(1, Math.ceil(visRows.length / PG_PER_PAGE));
+    const cur = Math.min(Math.max(1, page ?? pgPageById.get(tbodyId) ?? 1), pages);
+    pgPageById.set(tbodyId, cur);
+    let vi = 0;
+    allRows.forEach(r => {
+        if (!isFilterVisible(r)) { r.classList.remove('pg-hidden'); return; }
+        r.classList.toggle('pg-hidden', Math.floor(vi++ / PG_PER_PAGE) !== cur - 1);
+    });
+    renderPager(tbody, visRows.length, pages, cur);
+}
+
+function renderPager(tbody, visCount, pages, cur) {
+    const table = tbody.closest('table');
+    if (!table) return;
+    let pager = table.parentElement ? table.parentElement.querySelector(':scope > .bdi-pager') : null;
+    if (visCount <= PG_PER_PAGE || pages <= 1) {
+        if (pager) pager.remove();
+        return;
+    }
+    if (!pager) {
+        pager = document.createElement('div');
+        pager.className = 'bdi-pager';
+        table.insertAdjacentElement('afterend', pager);
+    }
+    pager.innerHTML =
+        `<button type="button" data-act="pg-prev" data-t="${esc(tbody.id)}" ${cur <= 1 ? 'disabled' : ''}>‹ Trước</button>` +
+        `<span class="pg-info">Trang ${cur}/${pages} · ${visCount} dòng</span>` +
+        `<button type="button" data-act="pg-next" data-t="${esc(tbody.id)}" ${cur >= pages ? 'disabled' : ''}>Sau ›</button>`;
+}
+
+// Áp phân trang cho mọi bảng chính — giữ nguyên trang hiện tại (trừ khi truyền page).
+window.__paginateAll = (resetToOne = false) => {
+    ['history-table-body', 'partner-docs-body', 'revoked-table-body', 'wallet-roles-table-body', 'api-keys-table-body']
+        .forEach(id => {
+            const tb = document.getElementById(id);
+            if (tb) paginateTbody(tb, resetToOne ? 1 : undefined);
+        });
 };
 
 // Chuyển chế độ sổ cái: tài liệu ví ↔ tài liệu đối tác (API key)
@@ -502,10 +580,10 @@ window.switchLedgerTab = (mode) => {
     p.classList.toggle('hidden', isWallet);
     p.classList.toggle('flex', !isWallet);
     const base = 'ledger-tab flex-1 text-xs font-bold px-4 py-2 rounded-lg border transition';
-    bw.className = base + (isWallet ? ' bg-blue-600/20 text-blue-300 border-blue-500/60' : ' bg-gray-800/50 text-gray-400 border-gray-700 hover:text-blue-300');
+    bw.className = base + (isWallet ? ' bg-accent-soft text-accent border-accent-line' : ' bg-sunken text-muted border-line-strong hover:text-accent');
     // Giữ 'hidden' khi ví không phải ADMIN — className ghi đè toàn bộ nên phải nối lại
     bp.className = (window.__isAdminWallet ? base : 'hidden ' + base)
-        + (!isWallet ? ' bg-amber-600/20 text-amber-300 border-amber-500/60' : ' bg-gray-800/50 text-gray-400 border-gray-700 hover:text-amber-300');
+        + (!isWallet ? ' bg-warn-soft text-warn border-warn' : ' bg-sunken text-muted border-line-strong hover:text-warn');
 };
 
 // Lọc tài liệu đối tác theo API key/tổ chức — chip "đang hoạt động"
@@ -517,14 +595,14 @@ function renderPartnerOrgChips() {
     if (!box) return;
     const orgs = Object.keys(partnerOrgCounts);
     if (!orgs.length) {
-        box.innerHTML = '<span class="text-xs text-gray-600">Chưa có tài liệu đối tác nào được đóng dấu.</span>';
+        box.innerHTML = '<span class="text-xs text-faint">Chưa có tài liệu đối tác nào được đóng dấu.</span>';
         return;
     }
     if (!orgs.includes(activePartnerOrg)) activePartnerOrg = 'all';
     const total = orgs.reduce((s, o) => s + partnerOrgCounts[o], 0);
     const cls = (on) => 'text-xs font-bold px-3 py-1.5 rounded-full border transition ' +
-        (on ? 'bg-amber-600/20 text-amber-300 border-amber-500/60' : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-amber-300');
-    box.innerHTML = '<span class="text-[10px] text-gray-500 font-bold uppercase mr-1">API Key đang hoạt động:</span>'
+        (on ? 'bg-warn-soft text-warn border-warn' : 'bg-sunken text-muted border-line-strong hover:text-warn');
+    box.innerHTML = '<span class="text-[10px] text-faint font-bold uppercase mr-1">API Key đang hoạt động:</span>'
         + `<button type="button" data-org="all" class="${cls(activePartnerOrg === 'all')}">Tất cả (${total})</button>`
         + orgs.map(o => `<button type="button" data-org="${esc(o)}" class="${cls(activePartnerOrg === o)}"><i class="fa-solid fa-key mr-1"></i>${esc(o)} (${partnerOrgCounts[o]})</button>`).join('');
     box.querySelectorAll('button[data-org]').forEach(b => b.addEventListener('click', () => selectPartnerOrg(b.dataset.org)));
@@ -540,12 +618,16 @@ window.filterHistoryTable = () => {
         const orgOk = activePartnerOrg === 'all' || row.dataset.org === activePartnerOrg;
         row.style.display = orgOk && matchTableRow(row, input) ? '' : 'none';
     });
+    paginateTbody(document.getElementById('history-table-body'), 1);
+    paginateTbody(document.getElementById('partner-docs-body'), 1);
 };
 
 window.filterRevokedTable = () => {
     const input = document.getElementById('search-revoked-input')?.value.toLowerCase().trim() || '';
     const rows = document.querySelectorAll('#revoked-table-body tr');
     rows.forEach(row => { row.style.display = matchTableRow(row, input) ? '' : 'none'; });
+    const tb = document.getElementById('revoked-table-body');
+    if (tb) paginateTbody(tb, 1);
 };
 
 function getShortError(err, customRevertMsg) {
@@ -561,7 +643,19 @@ function getShortError(err, customRevertMsg) {
 // KHỞI TẠO HỆ THỐNG & GẮN SỰ KIỆN KHI TRANG TẢI XONG
 // =====================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    
+
+    // Drawer điều hướng mobile (<1024px): hamburger + overlay
+    const appAside = document.querySelector('#app-container > aside');
+    const navOverlay = document.getElementById('nav-overlay');
+    const setNavOpen = (open) => {
+        appAside?.classList.toggle('nav-open', open);
+        navOverlay?.classList.toggle('hidden', !open);
+    };
+    document.getElementById('btn-nav-toggle')?.addEventListener('click', () =>
+        setNavOpen(!appAside?.classList.contains('nav-open')));
+    navOverlay?.addEventListener('click', () => setNavOpen(false));
+    appAside?.querySelectorAll('.menu-item').forEach(a => a.addEventListener('click', () => setNavOpen(false)));
+
     // Kích hoạt đồng hồ thời gian thực
     const clockEl = document.getElementById('real-time-clock');
     if (clockEl) {
@@ -589,10 +683,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Kéo-thả file vào dropzone: gán dataTransfer.files vào input rồi chạy lại
     // luồng updateFileName sẵn có (giữ nguyên validate giới hạn số tệp)
-    const attachDropZone = (zone, input, accent) => {
+    const attachDropZone = (zone, input, accent, dragBg = 'bg-accent-soft') => {
         if (!zone || !input) return;
-        const on = () => { zone.classList.add(accent, 'bg-[#1f2937]'); };
-        const off = () => { zone.classList.remove(accent, 'bg-[#1f2937]'); };
+        const on = () => { zone.classList.add(accent, dragBg); };
+        const off = () => { zone.classList.remove(accent, dragBg); };
         zone.addEventListener('dragover', (e) => { e.preventDefault(); on(); });
         zone.addEventListener('dragleave', (e) => { if (!zone.contains(e.relatedTarget)) off(); });
         zone.addEventListener('drop', (e) => {
@@ -620,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         uploadFileInput.addEventListener('click', (e) => e.stopPropagation());
         uploadFileInput.addEventListener('change', () => UI.updateFileName('uploadFile'));
-        attachDropZone(uploadDropZone, uploadFileInput, 'border-blue-500');
+        attachDropZone(uploadDropZone, uploadFileInput, 'border-accent');
     }
 
     const verifyDropZone = document.getElementById('verifyDropZone');
@@ -629,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
         verifyDropZone.addEventListener('click', (e) => { if (e.target !== verifyFileInput && !e.target.closest('button')) verifyFileInput.click(); });
         verifyFileInput.addEventListener('click', (e) => e.stopPropagation());
         verifyFileInput.addEventListener('change', () => UI.updateFileName('verifyFile'));
-        attachDropZone(verifyDropZone, verifyFileInput, 'border-emerald-500');
+        attachDropZone(verifyDropZone, verifyFileInput, 'border-ok', 'bg-ok-soft');
     }
 
     // Thả file trượt khỏi dropzone → chặn trình duyệt mở file thay trang app
@@ -644,10 +738,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const setContactSavedUI = (saved) => {
         if (!contactBtn) return;
         contactBtn.textContent = saved ? 'Thay đổi' : 'Lưu';
-        contactBtn.classList.toggle('bg-emerald-600', !saved);
-        contactBtn.classList.toggle('hover:bg-emerald-500', !saved);
-        contactBtn.classList.toggle('bg-slate-600', saved);
-        contactBtn.classList.toggle('hover:bg-slate-500', saved);
+        contactBtn.classList.toggle('bg-ok', !saved);
+        contactBtn.classList.toggle('hover:brightness-110', !saved);
+        contactBtn.classList.toggle('bg-muted', saved);
+        contactBtn.classList.toggle('text-ink', saved);
+        contactBtn.classList.toggle('text-white', !saved);
+        contactBtn.classList.toggle('hover:bg-faint', saved);
         if (aliasInput) aliasInput.disabled = saved;
         if (emailInput) emailInput.disabled = saved;
         if (phoneInput) phoneInput.disabled = saved;
@@ -659,11 +755,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = (emailInput?.value || '').trim();
         const phone = (phoneInput?.value || '').trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            Swal.fire({ title: 'Email không hợp lệ', icon: 'warning', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            Swal.fire({ title: 'Email không hợp lệ', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
             return;
         }
         if (phone && !/^\+?[\d\s-]{8,15}$/.test(phone)) {
-            Swal.fire({ title: 'Số điện thoại không hợp lệ', icon: 'warning', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            Swal.fire({ title: 'Số điện thoại không hợp lệ', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
             return;
         }
         try {
@@ -682,10 +778,10 @@ document.addEventListener('DOMContentLoaded', () => {
             Swal.fire({
                 title: contactRes?.pending ? 'Chờ xác nhận email' : 'Đã lưu thông tin',
                 text: contactRes?.pending ? 'SĐT đã lưu — email sẽ đổi sau khi bạn nhập mã gửi về email hiện tại.' : 'Admin sẽ nhận diện ví của bạn qua tên và thông tin liên hệ này.',
-                icon: 'success', background: '#111827', color: '#fff', timer: 2200, showConfirmButton: false
+                icon: 'success', background: 'var(--panel)', color: 'var(--ink)', timer: 2200, showConfirmButton: false
             });
         } catch (e) {
-            Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
+            Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
         }
     });
     // Phòng chờ: ví chờ duyệt khai thông tin nhận diện + copy địa chỉ ví
@@ -711,15 +807,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const reqRole = document.getElementById('gate-req-role')?.value || '';
         // Bắt buộc đủ cả 4 trường — bỏ trống bất kỳ ô nào thì không gửi được
         if (!alias || !email || !phone || !reqRole) {
-            Swal.fire({ title: 'Chưa đủ thông tin', text: 'Vui lòng điền đầy đủ Tên, Email, Số điện thoại và chọn Quyền mong muốn trước khi gửi.', icon: 'warning', background: '#111827', color: '#fff', timer: 2000, showConfirmButton: false });
+            Swal.fire({ title: 'Chưa đủ thông tin', text: 'Vui lòng điền đầy đủ Tên, Email, Số điện thoại và chọn Quyền mong muốn trước khi gửi.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)', timer: 2000, showConfirmButton: false });
             return;
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            Swal.fire({ title: 'Email không hợp lệ', icon: 'warning', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            Swal.fire({ title: 'Email không hợp lệ', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
             return;
         }
         if (!/^\+?[\d\s-]{8,15}$/.test(phone)) {
-            Swal.fire({ title: 'Số điện thoại không hợp lệ', icon: 'warning', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            Swal.fire({ title: 'Số điện thoại không hợp lệ', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
             return;
         }
         try {
@@ -739,9 +835,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             document.getElementById('gate-prefill-hint')?.classList.add('hidden');
             document.getElementById('gate-saved-hint')?.classList.remove('hidden');
-            Swal.fire({ title: 'Đã lưu thông tin', text: 'Admin sẽ thấy thông tin này trong khay chờ duyệt.', icon: 'success', background: '#111827', color: '#fff', timer: 1800, showConfirmButton: false });
+            Swal.fire({ title: 'Đã lưu thông tin', text: 'Admin sẽ thấy thông tin này trong khay chờ duyệt.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)', timer: 1800, showConfirmButton: false });
         } catch (e) {
-            Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: '#111827', color: '#fff' });
+            Swal.fire({ title: 'Thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
         }
     });
     document.getElementById('btn-execute-upload')?.addEventListener('click', handleUpload);
@@ -771,10 +867,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 let msg, cls;
                 if (rc === 99) {
                     msg = 'Đây là ví Admin gốc của hệ thống — không thể thay đổi quyền.';
-                    cls = 'text-red-400';
+                    cls = 'text-err';
                 } else if (rc === null || rc === undefined) {
                     msg = 'Không đọc được quyền on-chain (RPC lỗi).';
-                    cls = 'text-gray-500';
+                    cls = 'text-faint';
                 } else {
                     const rank = Number(rc);
                     const roleTxt = { 1: 'Nhập Liệu', 2: 'Quản Lý', 3: 'ADMIN' }[rank];
@@ -782,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     msg = rank === 0
                         ? (dbViewer ? `Đang là Người Xem (chỉ đọc) — ${name}${want}` : `Chưa được cấp quyền — ${name}${want}`)
                         : `Đang là ${roleTxt} — ${name}${want}`;
-                    cls = rank === 0 && !dbViewer ? 'text-amber-400' : 'text-emerald-400';
+                    cls = rank === 0 && !dbViewer ? 'text-warn' : 'text-ok';
                 }
                 if (roleHint) {
                     roleHint.textContent = 'ⓘ ' + msg;
@@ -806,6 +902,38 @@ document.addEventListener('DOMContentLoaded', () => {
 // =====================================================================
 // ĐỒNG BỘ SỐ LIỆU DASHBOARD (HÀM TẬP TRUNG)
 // =====================================================================
+// Merge số liệu on-chain + MongoDB — dùng chung cho mini-stats và dashboard KPI
+// (dashboard.js inject qua ctx.computeMetrics để 2 nơi luôn khớp nhau)
+async function computeMergedMetrics() {
+    // 1. Lấy dữ liệu On-chain từ Blockchain
+    const metrics = await web3.getLiveMetrics();
+
+    // 2. issuerCount: rank ≥1 trên chain (upload) + NGƯỜI XEM được cấp trong DB —
+    // label "VÍ ĐƯỢC ỦY QUYỀN" giờ đếm đủ cả 3 vai trò, khớp danh sách popup
+    try {
+        const ws = await ApiService.getAllWallets();
+        const viewers = ws.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && w.role === 'NGƯỜI XEM').length;
+        metrics.issuerCount = (metrics.issuerCount || 0) + viewers;
+    } catch (e) {}
+
+    // 3. Cộng dồn file MongoDB chưa thu hồi — chỉ file chưa có trong sự kiện
+    // on-chain (file vừa upload đã có DocumentAdded rồi, đếm lại sẽ bị gấp đôi)
+    const localBatches = await ApiService.getBatchesFromDatabase();
+    const onChainIds = new Set();
+    try {
+        const addedEvents = await web3.queryHistory();
+        for (const ev of addedEvents) onChainIds.add(ev.args[0]);
+    } catch (e) {}
+    let extraCount = 0;
+    for (const b of localBatches) {
+        for (const f of (b.files || [])) {
+            if (!f.isRevoked && !onChainIds.has(f.docId)) extraCount++;
+        }
+    }
+    metrics.docCount = (metrics.docCount || 0) + extraCount;
+    return metrics;
+}
+
 async function syncDashboardData() {
     if (pendingGateActive) return; // ví ở phòng chờ → không cần metrics, tránh spam 403
     // Chưa login → chỉ hiển thị số liệu on-chain, không gọi API (tránh 401 dồn dập + tốn rate-limit)
@@ -817,33 +945,7 @@ async function syncDashboardData() {
         return;
     }
     try {
-        // 1. Lấy dữ liệu On-chain từ Blockchain
-        const metrics = await web3.getLiveMetrics();
-
-        // 2. issuerCount: rank ≥1 trên chain (upload) + NGƯỜI XEM được cấp trong DB —
-        // label "VÍ ĐƯỢC ỦY QUYỀN" giờ đếm đủ cả 3 vai trò, khớp danh sách popup
-        try {
-            const ws = await ApiService.getAllWallets();
-            const viewers = ws.filter(w => w.status === 'ACTIVE' && w.roleGranted === true && w.role === 'NGƯỜI XEM').length;
-            metrics.issuerCount = (metrics.issuerCount || 0) + viewers;
-        } catch (e) {}
-
-        // 3. Cộng dồn file MongoDB chưa thu hồi — chỉ file chưa có trong sự kiện
-        // on-chain (file vừa upload đã có DocumentAdded rồi, đếm lại sẽ bị gấp đôi)
-        const localBatches = await ApiService.getBatchesFromDatabase();
-        const onChainIds = new Set();
-        try {
-            const addedEvents = await web3.queryHistory();
-            for (const ev of addedEvents) onChainIds.add(ev.args[0]);
-        } catch (e) {}
-        let extraCount = 0;
-        for (const b of localBatches) {
-            for (const f of (b.files || [])) {
-                if (!f.isRevoked && !onChainIds.has(f.docId)) extraCount++;
-            }
-        }
-        metrics.docCount = (metrics.docCount || 0) + extraCount;
-
+        const metrics = await computeMergedMetrics();
         // 4. In ra giao diện
         UI.updateStats(metrics);
         const ipfsCostEl = document.getElementById('stat-ipfs-cost');
@@ -853,6 +955,19 @@ async function syncDashboardData() {
     } catch (error) {
         // Bỏ qua nếu lỗi mạng để không làm sập giao diện
     }
+}
+
+// Dashboard module — init đúng 1 lần cho mỗi ví đăng nhập
+let _dashAccount = null;
+function ensureDashboardInit(account, rank) {
+    if (!account || _dashAccount === account) return;
+    _dashAccount = account;
+    initDashboard({
+        web3, api: ApiService,
+        computeMetrics: computeMergedMetrics,
+        isAdmin: window.__isAdminWallet === true,
+        account, rank: rank ?? 0,
+    });
 }
 // Vòng lặp gọi hàm đồng bộ mỗi 10 giây
 async function refreshMetricsLoop() {
@@ -891,38 +1006,38 @@ function waitForDeviceApproval(account) {
             if (st.status === 'active') finish(true);
             else if (st.status === 'revoked' || st.status === 'unknown') {
                 finish(false);
-                Swal.fire({ title: 'Đã bị từ chối', text: 'Phiên đăng nhập này đã bị từ chối/thu hồi.', icon: 'error', background: '#111827', color: '#fff' });
+                Swal.fire({ title: 'Đã bị từ chối', text: 'Phiên đăng nhập này đã bị từ chối/thu hồi.', icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
             }
         }, 5000);
 
         Swal.fire({
             title: 'Thiết bị mới — chờ phê duyệt',
             html: `
-                <div class="text-left text-sm text-gray-300 space-y-3">
+                <div class="text-left text-sm text-soft space-y-3">
                     <p>Để bảo mật, thiết bị này phải được xác nhận bằng <b>một trong 2 cách</b>:</p>
-                    <div class="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
-                        <div class="font-bold text-emerald-400 text-xs mb-1">CÁCH 1 — Từ thiết bị đã đăng nhập</div>
-                        <p class="text-xs text-gray-400">Mở hệ thống trên máy đã đăng nhập → bấm chuông 🔔 → mục "Thiết bị đang đăng nhập" → <b>Duyệt</b>. Trang này sẽ tự vào ngay khi được duyệt.</p>
+                    <div class="bg-sunken border border-line-strong rounded-lg p-3">
+                        <div class="font-bold text-ok text-xs mb-1">CÁCH 1 — Từ thiết bị đã đăng nhập</div>
+                        <p class="text-xs text-muted">Mở hệ thống trên máy đã đăng nhập → bấm chuông 🔔 → mục "Thiết bị đang đăng nhập" → <b>Duyệt</b>. Trang này sẽ tự vào ngay khi được duyệt.</p>
                     </div>
-                    <div class="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
-                        <div class="font-bold text-blue-400 text-xs mb-1">CÁCH 2 — Mã OTP về email chủ ví</div>
-                        <p class="text-xs text-gray-400 mb-2">Gửi mã 6 số về email đã đăng ký — <b>dùng được mọi lúc</b>, không cần thiết bị cũ. Chọn cách nào tiện.</p>
-                        <button id="btn-send-otp" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded transition">Gửi mã OTP về email</button>
+                    <div class="bg-sunken border border-line-strong rounded-lg p-3">
+                        <div class="font-bold text-accent text-xs mb-1">CÁCH 2 — Mã OTP về email chủ ví</div>
+                        <p class="text-xs text-muted mb-2">Gửi mã 6 số về email đã đăng ký — <b>dùng được mọi lúc</b>, không cần thiết bị cũ. Chọn cách nào tiện.</p>
+                        <button id="btn-send-otp" class="w-full bg-accent hover:brightness-110 text-white text-xs font-bold py-2 rounded transition">Gửi mã OTP về email</button>
                         <div id="otp-input-box" class="hidden mt-2 flex gap-2">
-                            <input id="otp-code" maxlength="6" placeholder="••••••" class="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-center text-white tracking-[0.4em] font-mono text-sm outline-none focus:border-blue-500">
-                            <button id="btn-verify-otp" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 rounded transition">Xác nhận</button>
+                            <input id="otp-code" maxlength="6" placeholder="••••••" class="flex-1 bg-panel border border-line-strong rounded px-3 py-2 text-center text-ink tracking-[0.4em] font-mono text-sm outline-none focus:border-accent">
+                            <button id="btn-verify-otp" class="bg-ok hover:brightness-110 text-white text-xs font-bold px-4 rounded transition">Xác nhận</button>
                         </div>
                         <div id="otp-msg" class="text-[11px] mt-2 hidden"></div>
                     </div>
                     <p id="pending-active-hint" class="hidden"></p>
-                    <p class="text-[11px] text-gray-500 text-center"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang chờ phê duyệt...</p>
+                    <p class="text-[11px] text-faint text-center"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang chờ phê duyệt...</p>
                 </div>`,
-            background: '#111827', color: '#fff', width: 480,
+            background: 'var(--panel)', color: 'var(--ink)', width: 480,
             showConfirmButton: false, showCancelButton: true, cancelButtonText: 'Hủy',
             allowOutsideClick: false, allowEscapeKey: false,
             didOpen: () => {
                 const msg = document.getElementById('otp-msg');
-                const showMsg = (t, ok) => { msg.textContent = t; msg.className = `text-[11px] mt-2 ${ok ? 'text-emerald-400' : 'text-red-400'}`; msg.classList.remove('hidden'); };
+                const showMsg = (t, ok) => { msg.textContent = t; msg.className = `text-[11px] mt-2 ${ok ? 'text-ok' : 'text-err'}`; msg.classList.remove('hidden'); };
                 document.getElementById('btn-send-otp').addEventListener('click', async (e) => {
                     const btn = e.currentTarget;
                     btn.disabled = true; btn.textContent = 'Đang gửi...';
@@ -959,7 +1074,7 @@ function waitForDeviceApproval(account) {
 // - DB gán NGƯỜI XEM → vào được nhưng chỉ đọc
 // Poll mở khóa ngay khi Admin duyệt — cả khi cấp viewer lẫn rank cao hơn
 // =====================================================================
-const VIEWER_VISIBLE_NAV = ['nav-verify', 'nav-history', 'nav-revoked', 'nav-settings'];
+const VIEWER_VISIBLE_NAV = ['nav-dashboard', 'nav-verify', 'nav-history', 'nav-revoked', 'nav-settings'];
 let guestUnlockTimer = null;
 // Ví đang ở phòng chờ/từ chối (rank 0) → tắt mọi vòng lặp nền gọi API nhân sự
 // (metrics, bảng ví, API keys, khay admin) để không spam 403 và không đơ trang
@@ -1097,7 +1212,8 @@ function applyViewerMode(account) {
     if (stats) stats.style.display = '';
 
     document.getElementById('viewer-banner')?.classList.remove('hidden');
-    switchUI('tab-history', document.getElementById('nav-history'));
+    ensureDashboardInit(account, 0);
+    switchUI('tab-dashboard', document.getElementById('nav-dashboard'));
 }
 
 function exitGuestMode() {
@@ -1130,7 +1246,12 @@ function startGuestUnlockPoll(account) {
             const rank = await getMyRoleRank(account);
             if (rank !== null && rank > 0) {
                 exitGuestMode();
-                Swal.fire({ title: 'Đã được cấp quyền!', text: 'Admin vừa cấp quyền cho ví của bạn. Hệ thống đã mở đầy đủ chức năng.', icon: 'success', background: '#111827', color: '#fff' });
+                // Cấp quyền giữa chừng có thể lên ADMIN — cập nhật cờ + tab đối tác
+                window.__isAdminWallet = rank === 3;
+                document.getElementById('ltab-partner')?.classList.toggle('hidden', rank !== 3);
+                Swal.fire({ title: 'Đã được cấp quyền!', text: 'Admin vừa cấp quyền cho ví của bạn. Hệ thống đã mở đầy đủ chức năng.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
+                switchUI('tab-dashboard', document.getElementById('nav-dashboard'));
+                ensureDashboardInit(account, rank);
                 if (typeof window.loadWalletRoles === 'function') window.loadWalletRoles();
                 return;
             }
@@ -1148,7 +1269,7 @@ function startGuestUnlockPoll(account) {
                     applyLockedGate(me);
                 } else if (me && me.role === 'NGƯỜI XEM') {
                     applyViewerMode(account);
-                    Swal.fire({ title: 'Đã được cấp quyền!', text: 'Bạn được cấp quyền Người Xem — có thể xem và xác thực tài liệu (chỉ đọc).', icon: 'success', background: '#111827', color: '#fff' });
+                    Swal.fire({ title: 'Đã được cấp quyền!', text: 'Bạn được cấp quyền Người Xem — có thể xem và xác thực tài liệu (chỉ đọc).', icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
                 } else if (!document.getElementById('gate-rejected')?.classList.contains('hidden')) {
                     // Ví từng bị từ chối vừa khai lại thông tin → quay về màn hình chờ
                     document.getElementById('gate-rejected')?.classList.add('hidden');
@@ -1225,6 +1346,8 @@ async function connectWallet() {
             startGuestUnlockPoll(account);
         } else {
             exitGuestMode();
+            switchUI('tab-dashboard', document.getElementById('nav-dashboard'));
+            ensureDashboardInit(account, myRank);
         }
 
         // Ví chờ duyệt không cần quét sự kiện on-chain hay bảng ví — tiết kiệm RPC
@@ -1252,10 +1375,12 @@ async function connectWallet() {
             if (aliasIn && me?.alias) aliasIn.value = me.alias;
             if (savedBtn) {
                 savedBtn.textContent = hasContact ? 'Thay đổi' : 'Lưu';
-                savedBtn.classList.toggle('bg-emerald-600', !hasContact);
-                savedBtn.classList.toggle('hover:bg-emerald-500', !hasContact);
-                savedBtn.classList.toggle('bg-slate-600', !!hasContact);
-                savedBtn.classList.toggle('hover:bg-slate-500', !!hasContact);
+                savedBtn.classList.toggle('bg-ok', !hasContact);
+                savedBtn.classList.toggle('hover:brightness-110', !hasContact);
+                savedBtn.classList.toggle('bg-muted', !!hasContact);
+                savedBtn.classList.toggle('text-ink', !!hasContact);
+                savedBtn.classList.toggle('text-white', !hasContact);
+                savedBtn.classList.toggle('hover:bg-faint', !!hasContact);
                 if (aliasIn) aliasIn.disabled = !!hasContact;
                 if (emailIn) emailIn.disabled = !!hasContact;
                 if (phoneIn) phoneIn.disabled = !!hasContact;
@@ -1263,7 +1388,7 @@ async function connectWallet() {
             }
         } catch (e) {}
     } catch (error) {
-        Swal.fire({ title: 'Lỗi Kết Nối', text: getShortError(error, 'Mất kết nối tới ví MetaMask.'), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Lỗi Kết Nối', text: getShortError(error, 'Mất kết nối tới ví MetaMask.'), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     } finally { isProcessing = false; }
 }
 // =====================================================================
@@ -1284,10 +1409,10 @@ async function handleUpload() {
     
     const filesToUpload = UI.selectedUploadFiles;
     if (!filesToUpload || filesToUpload.length === 0) {
-        return Swal.fire({ title: 'Thiếu dữ liệu', text: 'Vui lòng chọn ít nhất 1 tài liệu!', icon: 'warning', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Thiếu dữ liệu', text: 'Vui lòng chọn ít nhất 1 tài liệu!', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
     }
     if (filesToUpload.length > 100) {
-        return Swal.fire({ title: 'Quá giới hạn', text: 'Smart Contract chỉ ghi tối đa 100 tài liệu mỗi lần ký. Vui lòng bớt file ra.', icon: 'warning', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Quá giới hạn', text: 'Smart Contract chỉ ghi tối đa 100 tài liệu mỗi lần ký. Vui lòng bớt file ra.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
     }
 
     isProcessing = true;
@@ -1352,7 +1477,7 @@ async function handleUpload() {
         }
 
         if (skippedDupes.length > 0) {
-            Swal.fire({ title: 'File trùng nội dung', text: `Bỏ qua ${skippedDupes.length} tệp trùng nội dung trong cùng lô: ${skippedDupes.slice(0, 3).map(esc).join(', ')}${skippedDupes.length > 3 ? '…' : ''}`, icon: 'info', background: '#111827', color: '#fff' });
+            Swal.fire({ title: 'File trùng nội dung', text: `Bỏ qua ${skippedDupes.length} tệp trùng nội dung trong cùng lô: ${skippedDupes.slice(0, 3).map(esc).join(', ')}${skippedDupes.length > 3 ? '…' : ''}`, icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
         }
 
         // Giao diện sau xử lý
@@ -1367,7 +1492,7 @@ async function handleUpload() {
 
     } catch (err) {
         UI.updateProgress(0, "Lỗi kiểm tra.", "ERROR");
-        Swal.fire({ title: 'Lỗi', text: 'Có lỗi trong quá trình quét đối chiếu!', icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Lỗi', text: 'Có lỗi trong quá trình quét đối chiếu!', icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
         isProcessing = false; 
     }
 }
@@ -1388,15 +1513,15 @@ function showConflictModal() {
         secRevoked.classList.remove('hidden');
         secRevoked.classList.add('flex');
         tbodyRevoked.innerHTML = window.uploadQueue.revokedFiles.map((f, index) => `
-            <tr class="border-b border-red-900/20 hover:bg-red-900/30 transition">
-                <td class="px-3 py-3 text-center align-middle"><input type="checkbox" class="conflict-cb-revoked rounded bg-gray-900 border-gray-700 text-red-500 cursor-pointer" value="${index}" checked></td>
+            <tr class="border-b border-err hover:bg-err-soft transition">
+                <td class="px-3 py-3 text-center align-middle"><input type="checkbox" class="conflict-cb-revoked rounded bg-panel border-line-strong text-err cursor-pointer" value="${index}" checked></td>
                 <td class="px-3 py-3">
                     <div class="flex justify-between items-start mb-0.5">
-                        <span class="font-bold text-red-400 text-xs truncate max-w-[200px]" title="${esc(f.name)}">${esc(f.name)}</span>
-                        <span class="text-[10px] text-gray-500 font-mono">${esc(f.size)}</span>
+                        <span class="font-bold text-err text-xs truncate max-w-[200px]" title="${esc(f.name)}">${esc(f.name)}</span>
+                        <span class="text-[10px] text-faint font-mono">${esc(f.size)}</span>
                     </div>
-                    <div class="text-[9px] text-gray-500 font-mono truncate max-w-[250px]">ID cũ: ${esc(f.oldId)}</div>
-                    <div class="text-[9px] text-gray-400 mt-0.5">Đóng dấu bởi ví <span class="font-mono">${esc(shortA(f.oldUploader))}</span> · ${esc(window.formatTimeForce(f.oldTime))}</div>
+                    <div class="text-[9px] text-faint font-mono truncate max-w-[250px]">ID cũ: ${esc(f.oldId)}</div>
+                    <div class="text-[9px] text-muted mt-0.5">Đóng dấu bởi ví <span class="font-mono">${esc(shortA(f.oldUploader))}</span> · ${esc(window.formatTimeForce(f.oldTime))}</div>
                 </td>
             </tr>
         `).join('');
@@ -1410,14 +1535,14 @@ function showConflictModal() {
         secActive.classList.remove('hidden');
         secActive.classList.add('flex');
         tbodyActive.innerHTML = window.uploadQueue.activeFiles.map((f, index) => `
-            <tr class="border-b border-yellow-900/30 hover:bg-yellow-900/30 transition">
+            <tr class="border-b border-warn hover:bg-warn-soft transition">
                 <td class="px-3 py-3">
                     <div class="flex justify-between items-start mb-0.5">
-                        <span class="font-bold text-yellow-400 text-xs truncate max-w-[200px]" title="${esc(f.name)}">${esc(f.name)}</span>
-                        <span class="text-[10px] text-gray-500 font-mono">${esc(f.size)}</span>
+                        <span class="font-bold text-warn text-xs truncate max-w-[200px]" title="${esc(f.name)}">${esc(f.name)}</span>
+                        <span class="text-[10px] text-faint font-mono">${esc(f.size)}</span>
                     </div>
-                    <div class="text-[9px] text-gray-500 font-mono truncate max-w-[250px]">ID gốc: ${esc(f.oldId)}</div>
-                    <div class="text-[9px] text-gray-400 mt-0.5">Đang được đóng dấu bởi ví <span class="font-mono">${esc(shortA(f.oldUploader))}</span> · ${esc(window.formatTimeForce(f.oldTime))}</div>
+                    <div class="text-[9px] text-faint font-mono truncate max-w-[250px]">ID gốc: ${esc(f.oldId)}</div>
+                    <div class="text-[9px] text-muted mt-0.5">Đang được đóng dấu bởi ví <span class="font-mono">${esc(shortA(f.oldUploader))}</span> · ${esc(window.formatTimeForce(f.oldTime))}</div>
                 </td>
             </tr>
         `).join('');
@@ -1477,7 +1602,7 @@ function finishConflictResolution() {
     window.uploadQueue.approvedFiles = [...window.uploadQueue.newFiles, ...window.uploadQueue.approvedFiles];
 
     if (window.uploadQueue.approvedFiles.length === 0) {
-        Swal.fire({ title: 'Đã hủy', text: 'Không có tài liệu nào được duyệt để tải lên.', icon: 'info', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Đã hủy', text: 'Không có tài liệu nào được duyệt để tải lên.', icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
         isProcessing = false;
         UI.updateProgress(0, "Đã hủy xử lý.", "STANDBY");
     } else {
@@ -1531,8 +1656,8 @@ async function promptPasswordAndUpload() {
             const list = dupEntries.map(({ f, d, docId }) => {
                 const nameHtml = `<span style="display:block;max-width:22rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600" title="${esc(f.fileObj.name)}">• ${esc(f.fileObj.name)}</span>`;
                 return d
-                    ? `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">— ví ${esc(shortA(String(d[3])))} đóng dấu ${esc(window.formatTimeForce(Number(d[2]) * 1000))}</span></div>`
-                    : `<div style="margin-bottom:8px">${nameHtml}<span class="text-gray-500" style="font-size:12px">(đã đóng dấu: ${esc(docId.slice(0, 30))}…)</span></div>`;
+                    ? `<div style="margin-bottom:8px">${nameHtml}<span class="text-faint" style="font-size:12px">— ví ${esc(shortA(String(d[3])))} đóng dấu ${esc(window.formatTimeForce(Number(d[2]) * 1000))}</span></div>`
+                    : `<div style="margin-bottom:8px">${nameHtml}<span class="text-faint" style="font-size:12px">(đã đóng dấu: ${esc(docId.slice(0, 30))}…)</span></div>`;
             }).join('');
             const remaining = finalFiles.length - dupEntries.length;
             const dupHtml = `<div style="max-width:22rem;margin:0 auto;text-align:left">${dupEntries.length} tệp vừa được chính ví này đóng dấu sau khi bạn chọn (có thể từ thiết bị khác) — blockchain không cho một ví ghi trùng nên các tệp này sẽ bị <b>bỏ qua</b>:<br><br><div style="max-height:10rem;overflow-y:auto;padding-right:6px">${list}</div>${remaining > 0 ? `<br>Tiếp tục với ${remaining} tệp còn lại?` : '<br>Không còn tệp nào để tải lên.'}</div>`;
@@ -1541,7 +1666,7 @@ async function promptPasswordAndUpload() {
                 html: dupHtml,
                 icon: 'warning', showCancelButton: remaining > 0, width: '28rem',
                 confirmButtonText: remaining > 0 ? 'Bỏ qua & tiếp tục' : 'Đã hiểu', cancelButtonText: 'Hủy',
-                background: '#111827', color: '#fff'
+                background: 'var(--panel)', color: 'var(--ink)'
             });
             if (remaining === 0 || !res.isConfirmed) {
                 isProcessing = false;
@@ -1569,36 +1694,36 @@ async function promptPasswordAndUpload() {
 
     // Danh sách file được duyệt — mỗi file chọn chế độ riêng, tùy chọn khóa riêng
     const rowsHtml = finalFiles.map((f, i) => `
-        <div class="bdi-file-row" data-i="${Number(i)}" style="display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid #1f2937;border-radius:8px;margin-bottom:6px;background:#0b0f19;text-align:left">
+        <div class="bdi-file-row" data-i="${Number(i)}" style="display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid var(--line-strong);border-radius:8px;margin-bottom:6px;background:var(--sunken);text-align:left">
             <div style="display:flex;align-items:center;gap:8px;min-width:0">
-                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#e5e7eb" title="${esc(f.name)}">${esc(f.name)}</span>
-                <select class="bdi-vis" style="padding:4px 6px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:11px;cursor:pointer;flex-shrink:0">
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--ink)" title="${esc(f.name)}">${esc(f.name)}</span>
+                <select class="bdi-vis" style="padding:4px 6px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);font-size:11px;cursor:pointer;flex-shrink:0">
                     <option value="private" selected>🔒 Riêng tư</option>
                     <option value="public">🌐 Công khai</option>
                 </select>
             </div>
-            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#9ca3af;cursor:pointer;width:fit-content">
-                <input type="checkbox" class="bdi-ownkey" style="accent-color:#2563eb;cursor:pointer"> Đặt khóa riêng (không dùng khóa chung)
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;width:fit-content">
+                <input type="checkbox" class="bdi-ownkey" style="accent-color:var(--accent);cursor:pointer"> Đặt khóa riêng (không dùng khóa chung)
             </label>
-            <input type="password" class="bdi-key" placeholder="Nhập khóa riêng cho tệp này..." autocomplete="new-password" style="display:none;width:100%;box-sizing:border-box;padding:6px 10px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:12px;outline:none">
-            ${myActiveDocs.length ? `<select class="bdi-replace" title="Nếu đây là phiên bản mới của một tài liệu đã đóng dấu, chọn tài liệu cũ bị thay thế" style="padding:4px 6px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:11px;cursor:pointer">
+            <input type="password" class="bdi-key" placeholder="Nhập khóa riêng cho tệp này..." autocomplete="new-password" style="display:none;width:100%;box-sizing:border-box;padding:6px 10px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);font-size:12px;outline:none">
+            ${myActiveDocs.length ? `<select class="bdi-replace" title="Nếu đây là phiên bản mới của một tài liệu đã đóng dấu, chọn tài liệu cũ bị thay thế" style="padding:4px 6px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);font-size:11px;cursor:pointer">
                 <option value="">— Không phải bản mới của tài liệu cũ —</option>
                 ${myActiveDocs.map(d => `<option value="${esc(d.docId)}">Thay thế: ${esc(d.fileName || d.docId)}</option>`).join('')}
             </select>` : ''}
         </div>`).join('');
 
     const aesHtml = `<style>
-            #swal-vis{width:88%;margin:4px 0 0;padding:9px 12px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:14px;outline:none;cursor:pointer}
-            #swal-vis option,.bdi-vis option{color:#111827;background:#ffffff}
+            #swal-vis{width:88%;margin:4px 0 0;padding:9px 12px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);font-size:14px;outline:none;cursor:pointer}
+            #swal-vis option,.bdi-vis option{color:var(--ink);background:var(--panel)}
         </style>
-        <div class="text-left text-sm text-gray-300 mb-1">Khóa mã hóa chung cho ${finalFiles.length} tệp đã được xét duyệt:</div>
+        <div class="text-left text-sm text-soft mb-1">Khóa mã hóa chung cho ${finalFiles.length} tệp đã được xét duyệt:</div>
         <input id="swal-key" type="password" placeholder="Nhập khóa bí mật chung..." class="swal2-input" style="width:88%;margin-top:8px">
-        <div class="text-left text-sm text-gray-300 mt-3 mb-1">Chế độ chia sẻ mặc định:</div>
+        <div class="text-left text-sm text-soft mt-3 mb-1">Chế độ chia sẻ mặc định:</div>
         <select id="swal-vis">
             <option value="private" selected>🔒 Riêng tư — chỉ mình tôi xem được</option>
             <option value="public">🌐 Công khai — mọi người dùng đều xem được</option>
         </select>
-        <div class="text-left text-sm text-gray-300 mt-3 mb-1">Tùy chỉnh từng tệp:</div>
+        <div class="text-left text-sm text-soft mt-3 mb-1">Tùy chỉnh từng tệp:</div>
         <div style="max-height:11rem;overflow-y:auto;padding-right:4px">${rowsHtml}</div>`;
 
     const { value: formValues } = await Swal.fire({
@@ -1606,8 +1731,8 @@ async function promptPasswordAndUpload() {
         html: aesHtml,
         width: '32rem',
         focusConfirm: false,
-        background: '#111827', color: '#fff',
-        confirmButtonColor: '#2563eb', showCancelButton: true, cancelButtonText: 'Hủy',
+        background: 'var(--panel)', color: 'var(--ink)',
+        confirmButtonColor: 'var(--accent)', showCancelButton: true, cancelButtonText: 'Hủy',
         didOpen: () => {
             document.querySelectorAll('.bdi-ownkey').forEach(cb => {
                 cb.addEventListener('change', () => {
@@ -1772,7 +1897,7 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
             const orphaned = JSON.parse(localStorage.getItem('orphanedBatches') || '[]');
             orphaned.push(batchData);
             localStorage.setItem('orphanedBatches', JSON.stringify(orphaned));
-            Swal.fire({ title: 'Lưu ý', text: 'Giao dịch blockchain thành công nhưng lưu vào cơ sở dữ liệu bị lỗi. Hệ thống sẽ thử lưu lại sau.', icon: 'warning', background: '#111827', color: '#fff' });
+            Swal.fire({ title: 'Lưu ý', text: 'Giao dịch blockchain thành công nhưng lưu vào cơ sở dữ liệu bị lỗi. Hệ thống sẽ thử lưu lại sau.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
         }
         
         UI.selectedUploadFiles = []; UI.renderUploadFileList();
@@ -1781,24 +1906,24 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         UI.updateProgress(100, "Hoàn tất bảo mật & lưu trữ hàng loạt!", "SUCCESS");
         
         // Hiển thị báo cáo thành công
-        let batchResultHtml = `<p class="text-xs text-emerald-400 mb-3 font-bold">✓ Merkle Root đã được tính và lưu trong manifest. Ký 1 giao dịch cho ${uploadedDocs.length} tệp!</p><div class="max-h-[200px] overflow-y-auto space-y-2 pr-1 custom-scrollbar mb-4">`;
+        let batchResultHtml = `<p class="text-xs text-ok mb-3 font-bold">✓ Merkle Root đã được tính và lưu trong manifest. Ký 1 giao dịch cho ${uploadedDocs.length} tệp!</p><div class="max-h-[200px] overflow-y-auto space-y-2 pr-1 custom-scrollbar mb-4">`;
         uploadedDocs.forEach((doc) => {
             batchResultHtml += `
-                <div class="bg-[#0b0f19] border border-gray-800 p-2.5 rounded-lg flex justify-between items-center group">
+                <div class="bg-sunken border border-line p-2.5 rounded-lg flex justify-between items-center group">
                     <div class="text-left overflow-hidden">
-                        <div class="text-[11px] text-gray-500 font-medium truncate w-56 mb-0.5">${esc(doc.fileName)} (${esc(doc.fileSize)})</div>
-                        <div class="text-blue-400 font-mono text-xs truncate w-56">${esc(doc.docId)}</div>
+                        <div class="text-[11px] text-faint font-medium truncate w-56 mb-0.5">${esc(doc.fileName)} (${esc(doc.fileSize)})</div>
+                        <div class="text-accent font-mono text-xs truncate w-56">${esc(doc.docId)}</div>
                     </div>
-                    <button data-act="copy" data-v="${esc(doc.docId)}" class="text-gray-500 hover:text-white transition bg-gray-800/50 p-2 rounded"><i class="fa-regular fa-copy"></i></button>
+                    <button data-act="copy" data-v="${esc(doc.docId)}" class="text-faint hover:text-ink transition bg-sunken p-2 rounded"><i class="fa-regular fa-copy"></i></button>
                 </div>`;
         });
         batchResultHtml += `</div>`;
 
-        Swal.fire({ title: `Khắc Chuỗi Thành Công!`, html: batchResultHtml, background: '#111827', color: '#fff', confirmButtonColor: '#374151' });
+        Swal.fire({ title: `Khắc Chuỗi Thành Công!`, html: batchResultHtml, background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--faint)' });
 
     } catch (error) {
         UI.updateProgress(0, "Tiến trình bị hủy.", "FAILED");
-        Swal.fire({ title: 'Giao dịch thất bại', text: getShortError(error), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Giao dịch thất bại', text: getShortError(error), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     } finally {
         isProcessing = false;
         setTimeout(() => UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY"), 3000);
@@ -1816,7 +1941,7 @@ async function handleVerify() {
     const file = fileInput && fileInput.files[0];
 
     if (!file) {
-        return Swal.fire({ title: 'Thiếu thông tin', text: 'Vui lòng chọn tệp cần kiểm tra!', icon: 'warning', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Thiếu thông tin', text: 'Vui lòng chọn tệp cần kiểm tra!', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
     }
 
     isProcessing = true;
@@ -1864,9 +1989,9 @@ async function handleVerify() {
                     UI.updateProgress(0, "Không tìm thấy dữ liệu.", "NOT FOUND");
                     isProcessing = false;
                     return Swal.fire({
-                        title: 'KHÔNG TÌM THẤY', icon: 'warning', background: '#111827', color: '#fff',
-                        html: `<p class="text-sm text-gray-300">Tệp <b>${esc(file.name)}</b> không khớp nội dung lẫn tên của bất kỳ tài liệu nào đã đóng dấu trên hệ thống.<br><span class="text-gray-500 text-xs">Nếu tài liệu đã đổi tên, hãy nhập mã truy xuất (docId) để đối chiếu trực tiếp.</span></p>`,
-                        confirmButtonText: 'Đóng', confirmButtonColor: '#2563eb'
+                        title: 'KHÔNG TÌM THẤY', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)',
+                        html: `<p class="text-sm text-soft">Tệp <b>${esc(file.name)}</b> không khớp nội dung lẫn tên của bất kỳ tài liệu nào đã đóng dấu trên hệ thống.<br><span class="text-faint text-xs">Nếu tài liệu đã đổi tên, hãy nhập mã truy xuất (docId) để đối chiếu trực tiếp.</span></p>`,
+                        confirmButtonText: 'Đóng', confirmButtonColor: 'var(--accent)'
                     });
                 }
             }
@@ -1878,7 +2003,7 @@ async function handleVerify() {
 
         if (!originalHash) {
             UI.updateProgress(0, "Không tìm thấy dữ liệu.", "NOT FOUND");
-            return Swal.fire({ title: 'Lỗi', text: 'Tài liệu này không tồn tại trên chuỗi khối.', icon: 'error', background: '#111827', color: '#fff' });
+            return Swal.fire({ title: 'Lỗi', text: 'Tài liệu này không tồn tại trên chuỗi khối.', icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
         }
 
         UI.updateProgress(50, "Đang băm tệp tin kiểm tra...", "HASHING");
@@ -1888,10 +2013,10 @@ async function handleVerify() {
         const uploaderWallet = docData[3];
         
         const traceHTML = `
-            <div class="mt-4 p-3 bg-black/40 border border-gray-700 rounded-lg text-left text-xs">
-                <p class="text-blue-400 font-bold mb-2 uppercase"><i class="fa-solid fa-fingerprint mr-1"></i> Truy xuất nguồn gốc (Traceability):</p>
-                <p class="text-gray-400 mb-1">Ví tạo: <span class="text-emerald-400 font-mono">${esc(uploaderWallet)}</span></p>
-                <p class="text-gray-400">Thời gian khắc chuỗi: <span class="text-white">${esc(timestamp)}</span></p>
+            <div class="mt-4 p-3 bg-sunken border border-line-strong rounded-lg text-left text-xs">
+                <p class="text-accent font-bold mb-2 uppercase"><i class="fa-solid fa-fingerprint mr-1"></i> Truy xuất nguồn gốc (Traceability):</p>
+                <p class="text-muted mb-1">Ví tạo: <span class="text-ok font-mono">${esc(uploaderWallet)}</span></p>
+                <p class="text-muted">Thời gian khắc chuỗi: <span class="text-ink">${esc(timestamp)}</span></p>
             </div>`;
 
         // Dòng đời phiên bản: tài liệu đã có bản kế nhiệm → cảnh báo "bản cũ"
@@ -1901,7 +2026,7 @@ async function handleVerify() {
             const lin = await ApiService.getDocumentLineage(docId);
             if (lin && lin.success && lin.supersededBy) {
                 const latestId = (lin.latest && lin.latest.docId) || lin.supersededBy.docId;
-                supersededHtml = `<div class="bg-amber-900/30 border border-amber-700 p-3 rounded text-amber-300 text-sm mt-3 text-left"><i class="fa-solid fa-code-branch mr-1"></i><b>Đây là bản cũ</b> — đã có phiên bản mới thay thế. Bản mới nhất: <span class="font-mono text-xs break-all">${esc(latestId)}</span></div>`;
+                supersededHtml = `<div class="bg-warn-soft border border-warn p-3 rounded text-warn text-sm mt-3 text-left"><i class="fa-solid fa-code-branch mr-1"></i><b>Đây là bản cũ</b> — đã có phiên bản mới thay thế. Bản mới nhất: <span class="font-mono text-xs break-all">${esc(latestId)}</span></div>`;
             }
         } catch (e) {}
 
@@ -1922,15 +2047,15 @@ async function handleVerify() {
             if (isRevoked) {
                 UI.updateProgress(100, "Tài liệu nguyên bản nhưng ĐÃ BỊ VÔ HIỆU HÓA.", "REVOKED");
                 Swal.fire({
-                    title: 'TÀI LIỆU ĐÃ BỊ THU HỒI!', icon: 'error', background: '#111827', color: '#fff',
+                    title: 'TÀI LIỆU ĐÃ BỊ THU HỒI!', icon: 'error', background: 'var(--panel)', color: 'var(--ink)',
                     html: `
-                        <div class="text-left text-sm text-gray-300 space-y-3">
-                            <p>Mã băm hoàn toàn trùng khớp với bản gốc, tuy nhiên tài liệu này đã bị <b class="text-red-500">VÔ HIỆU HÓA</b> bởi cơ quan phát hành.</p>
-                            <div class="bg-red-900/20 border border-red-800 p-3 rounded text-red-400"><b>Lý do thu hồi:</b> ${esc(revocationReason)}</div>
+                        <div class="text-left text-sm text-soft space-y-3">
+                            <p>Mã băm hoàn toàn trùng khớp với bản gốc, tuy nhiên tài liệu này đã bị <b class="text-err">VÔ HIỆU HÓA</b> bởi cơ quan phát hành.</p>
+                            <div class="bg-err-soft border border-err p-3 rounded text-err"><b>Lý do thu hồi:</b> ${esc(revocationReason)}</div>
                         </div>
                         ${supersededHtml}
                         ${traceHTML}`,
-                    confirmButtonText: 'Đóng', confirmButtonColor: '#dc2626'
+                    confirmButtonText: 'Đóng', confirmButtonColor: 'var(--err)'
                 }).then(() => UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY"));
             } else {
                 UI.updateProgress(100, "Kiểm chứng thành công. Dữ liệu khớp 100%.", "VERIFIED");
@@ -1941,15 +2066,15 @@ async function handleVerify() {
                 };
                 Swal.fire({
                     title: 'KHỚP 100%', text: 'Tài liệu nguyên bản, tính toàn vẹn được bảo toàn.', 
-                    icon: 'success', background: '#111827', color: '#fff',
+                    icon: 'success', background: 'var(--panel)', color: 'var(--ink)',
                     html: `
-                        <p class="text-gray-300 text-sm mb-4">Mã băm hoàn toàn trùng khớp với bản gốc trên Blockchain.</p>
+                        <p class="text-soft text-sm mb-4">Mã băm hoàn toàn trùng khớp với bản gốc trên Blockchain.</p>
                         ${supersededHtml}
                         ${traceHTML}
-                        <button data-act="pdf" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-bold shadow-md transition">
+                        <button data-act="pdf" class="w-full mt-4 bg-ok hover:brightness-110 text-white py-2 rounded-lg text-sm font-bold shadow-sm transition">
                             <i class="fa-solid fa-file-pdf mr-2"></i> Tải Báo Cáo Chứng Thực (PDF)
                         </button>`,
-                    confirmButtonText: 'Đóng', confirmButtonColor: '#2563eb'
+                    confirmButtonText: 'Đóng', confirmButtonColor: 'var(--accent)'
                 }).then(() => {
                     UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
                     if (fileInput) fileInput.value = '';
@@ -1964,8 +2089,8 @@ async function handleVerify() {
                 text: 'Nếu tài liệu gốc trên hệ thống được bảo mật bằng AES-256, vui lòng nhập khóa bí mật:',
                 input: 'password', inputPlaceholder: 'Nhập khóa bí mật...', 
                 inputAttributes: { autocomplete: 'new-password' },
-                background: '#111827', color: '#fff',
-                confirmButtonColor: '#2563eb', showCancelButton: true, cancelButtonText: 'Hủy đối chiếu'
+                background: 'var(--panel)', color: 'var(--ink)',
+                confirmButtonColor: 'var(--accent)', showCancelButton: true, cancelButtonText: 'Hủy đối chiếu'
             });
 
             if (secretKey === undefined) { 
@@ -1984,45 +2109,45 @@ async function handleVerify() {
             let html = '';
             if (backendResult.aiReport) {
                 html += `
-                    <div class="mt-2 mb-4 p-3 bg-red-900/20 border-l-4 border-red-500 rounded-r-lg text-left shadow-lg">
-                        <p class="text-red-400 font-bold mb-1 uppercase text-[11px] tracking-wider">
+                    <div class="mt-2 mb-4 p-3 bg-err-soft border-l-4 border-err rounded-r-lg text-left shadow-sm">
+                        <p class="text-err font-bold mb-1 uppercase text-[11px] tracking-wider">
                             <i class="fa-solid fa-robot mr-1"></i> Báo Cáo Pháp Y AI (Forensic)
                         </p>
-                        <p class="text-gray-200 text-xs italic leading-relaxed">"${esc(backendResult.aiReport)}"</p>
+                        <p class="text-soft text-xs italic leading-relaxed">"${esc(backendResult.aiReport)}"</p>
                     </div>`;
             }
 
             if (backendResult.anomalies && backendResult.anomalies.length > 0) {
-                html += `<div class="mt-3 p-3 bg-amber-900/20 border-l-4 border-amber-500 rounded-r-lg text-left">
-                    <p class="text-amber-400 font-bold mb-1 uppercase text-[11px] tracking-wider">
+                html += `<div class="mt-3 p-3 bg-warn-soft border-l-4 border-warn rounded-r-lg text-left">
+                    <p class="text-warn font-bold mb-1 uppercase text-[11px] tracking-wider">
                         <i class="fa-solid fa-eye-slash mr-1"></i> Phát hiện ký tự ngụy trang (homoglyph)
                     </p>
-                    <p class="text-gray-400 text-[11px] mb-2">Các ký tự sau trông giống chữ thường nhưng thuộc bảng mã khác — chiêu trò giả mạo phổ biến:</p>
+                    <p class="text-muted text-[11px] mb-2">Các ký tự sau trông giống chữ thường nhưng thuộc bảng mã khác — chiêu trò giả mạo phổ biến:</p>
                     ${backendResult.anomalies.map(a => `
-                        <span class="inline-block bg-[#0b0f19] border border-amber-800 rounded px-2 py-1 mr-1 mb-1 font-mono text-[11px] text-amber-300">
+                        <span class="inline-block bg-sunken border border-warn rounded px-2 py-1 mr-1 mb-1 font-mono text-[11px] text-warn">
                             "${esc(a.char)}" = ${esc(a.code)} (${esc(a.name)}) ${a.inNewFile ? '— chèn vào file kiểm tra' : '— trong bản gốc'}
                         </span>`).join('')}
                 </div>`;
             }
 
             if (backendResult.differences && backendResult.differences.length > 0) {
-                html += '<div class="bg-[#0b0f19] text-gray-300 p-4 rounded-lg text-left font-mono max-h-[300px] overflow-y-auto text-xs mt-3 border border-gray-800 leading-relaxed">';
+                html += '<div class="bg-sunken text-soft p-4 rounded-lg text-left font-mono max-h-[300px] overflow-y-auto text-xs mt-3 border border-line leading-relaxed">';
                 backendResult.differences.forEach(p => {
                     // Class tĩnh thay style inline — không còn giá trị nào chui vào attribute
-                    const cls = p.added ? 'bg-emerald-800 text-white' : p.removed ? 'bg-red-900 text-white line-through' : 'text-gray-400';
+                    const cls = p.added ? 'bg-ok-soft text-ok' : p.removed ? 'bg-err-soft text-err line-through' : 'text-muted';
                     html += `<span class="${cls} rounded-sm px-0.5">${esc(p.value)}</span>`;
                 });
                 html += '</div>';
             } else if (backendResult.imageDiff && /^data:image\//.test(String(backendResult.imageDiff))) {
                 // Chỉ chấp nhận data:image URL — chặn javascript:/url lạ trong src
-                html += `<div class="mt-3 text-center"><img src="${esc(backendResult.imageDiff)}" class="max-w-full max-h-[300px] border border-red-900 rounded-lg mx-auto shadow-lg bg-[#0b0f19]"></div>`;
+                html += `<div class="mt-3 text-center"><img src="${esc(backendResult.imageDiff)}" class="max-w-full max-h-[300px] border border-err rounded-lg mx-auto shadow-sm bg-sunken"></div>`;
             } else if (!backendResult.aiReport) {
                 html += `
-                    <div class="bg-[#0b0f19] text-gray-300 p-4 rounded-lg text-left text-xs mt-3 border border-gray-800 space-y-3">
-                        <p class="text-gray-400">Mã băm không khớp. Không thể tạo bản đồ trực quan (Sai mật khẩu giải mã hoặc lỗi IPFS).</p>
+                    <div class="bg-sunken text-soft p-4 rounded-lg text-left text-xs mt-3 border border-line space-y-3">
+                        <p class="text-muted">Mã băm không khớp. Không thể tạo bản đồ trực quan (Sai mật khẩu giải mã hoặc lỗi IPFS).</p>
                         <div class="pt-3 font-mono text-[11px] space-y-1">
-                            <p class="text-emerald-400 break-all"><b>Hash gốc:</b> ${esc(originalHash)}</p>
-                            <p class="text-red-400 break-all"><b>Hash tải lên:</b> ${esc(currentHash)}</p>
+                            <p class="text-ok break-all"><b>Hash gốc:</b> ${esc(originalHash)}</p>
+                            <p class="text-err break-all"><b>Hash tải lên:</b> ${esc(currentHash)}</p>
                         </div>
                     </div>`;
             }
@@ -2031,15 +2156,15 @@ async function handleVerify() {
             Swal.fire({
                 icon: 'error', title: 'PHÁT HIỆN GIẢ MẠO!',
                 text: 'Mã băm không khớp với chuỗi khối!', 
-                background: '#111827', color: '#fff',
+                background: 'var(--panel)', color: 'var(--ink)',
                 showCancelButton: true, confirmButtonText: 'Xem bằng chứng', cancelButtonText: 'Đóng', 
-                confirmButtonColor: '#2563eb', cancelButtonColor: '#dc2626', reverseButtons: true
+                confirmButtonColor: 'var(--accent)', cancelButtonColor: 'var(--err)', reverseButtons: true
             }).then((res) => {
                 UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
                 if (res.isConfirmed) {
                     Swal.fire({ 
                         title: 'BÁO CÁO GIÁM ĐỊNH', html: html, 
-                        background: '#111827', color: '#fff', width: '700px', confirmButtonColor: '#374151' 
+                        background: 'var(--panel)', color: 'var(--ink)', width: '700px', confirmButtonColor: 'var(--faint)' 
                     }).then(() => {
                         if (fileInput) fileInput.value = '';
                         UI.updateFileName('verifyFile');
@@ -2049,7 +2174,7 @@ async function handleVerify() {
         }
     } catch (err) {
         UI.updateProgress(0, "Lỗi tiến trình giám định.", "ERROR");
-        Swal.fire({ title: 'Lỗi xác thực', text: getShortError(err), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Lỗi xác thực', text: getShortError(err), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     } finally {
         isProcessing = false;
     }
@@ -2064,21 +2189,21 @@ function pickSimilarDoc(fileName, matches) {
         const finish = v => { if (!done) { done = true; resolve(v); } };
         Swal.fire({
             title: 'PHÁT HIỆN TÀI LIỆU TƯƠNG TỰ', icon: 'question',
-            background: '#111827', color: '#fff',
+            background: 'var(--panel)', color: 'var(--ink)',
             html: `
-                <p class="text-sm text-gray-300 text-left mb-3">Nội dung tệp <b>${esc(fileName)}</b> không khớp nguyên bản bản ghi nào, nhưng hệ thống tìm thấy các tài liệu tương tự (theo nội dung hoặc tên). Nếu đây là phiên bản đã bị chỉnh sửa của một trong số đó — chọn để đối chiếu:</p>
+                <p class="text-sm text-soft text-left mb-3">Nội dung tệp <b>${esc(fileName)}</b> không khớp nguyên bản bản ghi nào, nhưng hệ thống tìm thấy các tài liệu tương tự (theo nội dung hoặc tên). Nếu đây là phiên bản đã bị chỉnh sửa của một trong số đó — chọn để đối chiếu:</p>
                 <div class="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar text-left">
                     ${matches.map((m, i) => `
-                        <button type="button" class="sim-pick w-full text-left p-3 rounded-lg border border-gray-700 hover:border-amber-500 bg-gray-800/40 transition" data-i="${esc(String(i))}">
-                            <div class="font-bold text-amber-300 text-xs truncate">${esc(m.fileName || m.docId)}</div>
-                            <div class="font-mono text-[10px] text-gray-500 truncate">${esc(m.docId)}</div>
-                            ${typeof m.score === 'number' ? `<div class="text-[10px] text-cyan-400 mt-0.5">≈ ${esc(String(m.score))}% nội dung trùng bản gốc</div>` : ''}
-                            ${m.isRevoked ? '<div class="text-[10px] text-red-400 mt-0.5">Đã thu hồi</div>' : ''}
+                        <button type="button" class="sim-pick w-full text-left p-3 rounded-lg border border-line-strong hover:border-warn bg-sunken transition" data-i="${esc(String(i))}">
+                            <div class="font-bold text-warn text-xs truncate">${esc(m.fileName || m.docId)}</div>
+                            <div class="font-mono text-[10px] text-faint truncate">${esc(m.docId)}</div>
+                            ${typeof m.score === 'number' ? `<div class="text-[10px] text-info mt-0.5">≈ ${esc(String(m.score))}% nội dung trùng bản gốc</div>` : ''}
+                            ${m.isRevoked ? '<div class="text-[10px] text-err mt-0.5">Đã thu hồi</div>' : ''}
                         </button>`).join('')}
                 </div>`,
             showConfirmButton: false, showCancelButton: true,
             cancelButtonText: 'Không phải — đây là tài liệu khác',
-            cancelButtonColor: '#374151', allowOutsideClick: false,
+            cancelButtonColor: 'var(--faint)', allowOutsideClick: false,
             didOpen: () => {
                 Swal.getHtmlContainer().querySelectorAll('.sim-pick').forEach(b =>
                     b.addEventListener('click', () => {
@@ -2122,18 +2247,18 @@ async function verifyByHashMatches(file, fileHash, matches) {
     const fileInput = document.getElementById('verifyFile');
     if (results.length === 0) {
         UI.updateProgress(0, "Không tìm thấy dữ liệu.", "NOT FOUND");
-        return Swal.fire({ title: 'Lỗi', text: 'Bản ghi tồn tại trong MongoDB nhưng không đọc được trên chuỗi khối.', icon: 'error', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Lỗi', text: 'Bản ghi tồn tại trong MongoDB nhưng không đọc được trên chuỗi khối.', icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     }
 
     const anyActive = results.some(r => !r.revoked);
     const rowsHtml = results.map(r => `
-        <div class="p-3 rounded-lg border ${r.revoked ? 'border-red-800/60 bg-red-900/10' : 'border-emerald-800/60 bg-emerald-900/10'} text-left">
+        <div class="p-3 rounded-lg border ${r.revoked ? 'border-err bg-err-soft' : 'border-ok bg-ok-soft'} text-left">
             <div class="flex items-center justify-between gap-2">
-                <span class="font-mono text-[11px] text-gray-300 truncate" title="${esc(r.docId)}">${esc(r.docId)}</span>
-                <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${r.revoked ? 'bg-red-900/40 text-red-400' : 'bg-emerald-900/40 text-emerald-400'}">${r.revoked ? 'ĐÃ THU HỒI' : 'NGUYÊN BẢN'}</span>
+                <span class="font-mono text-[11px] text-soft truncate" title="${esc(r.docId)}">${esc(r.docId)}</span>
+                <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${r.revoked ? 'bg-err-soft text-err' : 'bg-ok-soft text-ok'}">${r.revoked ? 'ĐÃ THU HỒI' : 'NGUYÊN BẢN'}</span>
             </div>
-            <p class="text-[10px] text-gray-500 mt-1">Ví tạo: <span class="font-mono text-gray-400">${esc(r.uploader)}</span> · ${esc(r.timestamp)}</p>
-            ${r.revoked && r.reason ? `<p class="text-[10px] text-red-400 mt-1">Lý do thu hồi: ${esc(r.reason)}</p>` : ''}
+            <p class="text-[10px] text-faint mt-1">Ví tạo: <span class="font-mono text-muted">${esc(r.uploader)}</span> · ${esc(r.timestamp)}</p>
+            ${r.revoked && r.reason ? `<p class="text-[10px] text-err mt-1">Lý do thu hồi: ${esc(r.reason)}</p>` : ''}
         </div>`).join('');
 
     const firstActive = results.find(r => !r.revoked);
@@ -2148,14 +2273,14 @@ async function verifyByHashMatches(file, fileHash, matches) {
     UI.updateProgress(100, anyActive ? "Kiểm chứng thành công. Dữ liệu khớp 100%." : "Tài liệu nguyên bản nhưng đã bị vô hiệu hóa.", anyActive ? "VERIFIED" : "REVOKED");
     Swal.fire({
         title: anyActive ? 'KHỚP 100%' : 'TÀI LIỆU ĐÃ BỊ THU HỒI!',
-        icon: anyActive ? 'success' : 'error', background: '#111827', color: '#fff',
+        icon: anyActive ? 'success' : 'error', background: 'var(--panel)', color: 'var(--ink)',
         html: `
-            <p class="text-gray-300 text-sm mb-3">Mã băm của tệp khớp ${results.length > 1 ? `${results.length} bản ghi` : 'bản ghi'} trên Blockchain${matches.length > results.length ? ' (một số bản ghi không đọc được trên chuỗi)' : ''}:</p>
+            <p class="text-soft text-sm mb-3">Mã băm của tệp khớp ${results.length > 1 ? `${results.length} bản ghi` : 'bản ghi'} trên Blockchain${matches.length > results.length ? ' (một số bản ghi không đọc được trên chuỗi)' : ''}:</p>
             <div class="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">${rowsHtml}</div>
-            ${firstActive ? `<button data-act="pdf" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-bold shadow-md transition">
+            ${firstActive ? `<button data-act="pdf" class="w-full mt-4 bg-ok hover:brightness-110 text-white py-2 rounded-lg text-sm font-bold shadow-sm transition">
                 <i class="fa-solid fa-file-pdf mr-2"></i> Tải Báo Cáo Chứng Thực (PDF)
             </button>` : ''}`,
-        confirmButtonText: 'Đóng', confirmButtonColor: '#2563eb'
+        confirmButtonText: 'Đóng', confirmButtonColor: 'var(--accent)'
     }).then(() => {
         UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
         if (fileInput) { fileInput.value = ''; UI.updateFileName('verifyFile'); }
@@ -2185,23 +2310,23 @@ window.toggleDocVisibility = async (docId, currentVis) => {
     const next = currentVis === 'public' ? 'private' : 'public';
     const r = await Swal.fire({
         title: 'ĐỔI CHẾ ĐỘ HIỂN THỊ',
-        html: `<p class="text-sm text-gray-300">Chuyển tài liệu sang
+        html: `<p class="text-sm text-soft">Chuyển tài liệu sang
             <b>${next === 'public' ? '🌐 Công khai — mọi ví đăng nhập xem được' : '🔒 Riêng tư — chỉ bạn xem được'}</b>?<br>
-            <span class="text-gray-500 text-xs">${next === 'private' ? 'Lưu ý: ai đã tải/giải mã khi file còn công khai vẫn giữ bản gốc.' : 'Khóa giải mã sẽ được cấp cho mọi ví đăng nhập.'}</span></p>`,
-        icon: 'question', background: '#111827', color: '#fff',
-        showCancelButton: true, confirmButtonText: 'Đổi chế độ', cancelButtonText: 'Hủy', confirmButtonColor: '#2563eb'
+            <span class="text-faint text-xs">${next === 'private' ? 'Lưu ý: ai đã tải/giải mã khi file còn công khai vẫn giữ bản gốc.' : 'Khóa giải mã sẽ được cấp cho mọi ví đăng nhập.'}</span></p>`,
+        icon: 'question', background: 'var(--panel)', color: 'var(--ink)',
+        showCancelButton: true, confirmButtonText: 'Đổi chế độ', cancelButtonText: 'Hủy', confirmButtonColor: 'var(--accent)'
     });
     if (!r.isConfirmed) return;
     try { await ApiService.ensureAuth(web3.signer, web3.currentAccount); } catch (e) {
-        return Swal.fire({ title: 'Chưa xác thực', text: 'Vui lòng kết nối ví trước.', icon: 'warning', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Chưa xác thực', text: 'Vui lòng kết nối ví trước.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
     }
     const res = await ApiService.setDocumentVisibility(docId, next);
     if (!res.ok) {
-        return Swal.fire({ title: 'Không đổi được', text: res.message || 'Lỗi máy chủ', icon: 'error', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Không đổi được', text: res.message || 'Lỗi máy chủ', icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     }
     Swal.fire({ toast: true, position: 'top-end', icon: 'success',
         title: next === 'public' ? 'Đã chuyển sang Công khai' : 'Đã chuyển sang Riêng tư',
-        background: '#111827', color: '#fff', timer: 2200, showConfirmButton: false });
+        background: 'var(--panel)', color: 'var(--ink)', timer: 2200, showConfirmButton: false });
     loadTransactionHistory();
 };
 
@@ -2213,7 +2338,7 @@ window.revokeDoc = async (docId) => {
     try {
         await ApiService.ensureAuth(web3.signer, web3.currentAccount);
     } catch (e) {
-        return Swal.fire({ title: 'Chưa xác thực', text: 'Vui lòng kết nối ví và ký xác thực trước khi thu hồi.', icon: 'warning', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Chưa xác thực', text: 'Vui lòng kết nối ví và ký xác thực trước khi thu hồi.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
     }
 
     // 1. TÌM CHÍNH XÁC CHỦ SỞ HỮU FILE VÀ KÍCH THƯỚC FILE
@@ -2262,7 +2387,7 @@ window.revokeDoc = async (docId) => {
                 web3.contract.userRoles(web3.currentAccount)
             ]);
             if (Number(upRole) === 3 && Number(myRole) < 3) {
-                return Swal.fire({ title: 'Không đủ quyền', text: 'Tài liệu do ví Admin tải lên — chỉ Admin mới được thu hồi.', icon: 'error', background: '#111827', color: '#fff' });
+                return Swal.fire({ title: 'Không đủ quyền', text: 'Tài liệu do ví Admin tải lên — chỉ Admin mới được thu hồi.', icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
             }
         } catch (e) { /* đọc role lỗi thì để contract tự chặn ở bước giao dịch */ }
     }
@@ -2273,7 +2398,7 @@ window.revokeDoc = async (docId) => {
         inputValue: suggestedReason || '',
         inputPlaceholder: 'Nhập lý do thu hồi (Bắt buộc)...',
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Xác nhận Thu hồi', cancelButtonText: 'Hủy', 
-        background: '#111827', color: '#fff', confirmButtonColor: '#dc2626',
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--err)',
         inputValidator: (value) => { if (!value) return 'Vui lòng nhập lý do thu hồi!'; }
     });
 
@@ -2315,7 +2440,7 @@ window.revokeDoc = async (docId) => {
             UI.updateProgress(100, "Thu hồi hoàn tất!", "SUCCESS");
             
             Swal.fire({
-                title: 'Thành công', icon: 'success', background: '#111827', color: '#fff',
+                title: 'Thành công', icon: 'success', background: 'var(--panel)', color: 'var(--ink)',
                 text: onChainDone
                     ? 'Tài liệu đã bị thu hồi trên Blockchain và hoàn trả dung lượng.'
                     : 'Tài liệu này không có bản ghi trên contract hiện tại — đã ghi cờ thu hồi trong Database (off-chain).'
@@ -2325,7 +2450,7 @@ window.revokeDoc = async (docId) => {
             loadRevokedHistory();
         } catch (err) {
             UI.updateProgress(0, "Lỗi tiến trình.", "ERROR");
-            Swal.fire({ title: 'Thất bại', text: getShortError(err, 'Giao dịch bị từ chối hoặc bạn đã hủy ký xác thực.'), icon: 'error', background: '#111827', color: '#fff' });
+            Swal.fire({ title: 'Thất bại', text: getShortError(err, 'Giao dịch bị từ chối hoặc bạn đã hủy ký xác thực.'), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
         } finally { 
             isProcessing = false; 
         }
@@ -2336,17 +2461,17 @@ window.revokeDoc = async (docId) => {
 window.showLineage = async (docId) => {
     const r = await ApiService.getDocumentLineage(docId);
     if (!r || !r.success) {
-        return Swal.fire({ title: 'Không có dữ liệu', text: 'Không tìm thấy dòng đời của tài liệu này.', icon: 'info', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Không có dữ liệu', text: 'Không tìm thấy dòng đời của tài liệu này.', icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
     }
-    const arrow = '<div class="text-center text-purple-500 text-xs py-0.5"><i class="fa-solid fa-arrow-down"></i></div>';
+    const arrow = '<div class="text-center text-violet text-xs py-0.5"><i class="fa-solid fa-arrow-down"></i></div>';
     const rows = r.chain.map(n => `
         <div class="flex items-center gap-3 ${n.docId === docId ? '' : 'opacity-70'}">
-            <span class="bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded text-[10px] font-bold w-10 text-center flex-shrink-0">v${n.version}</span>
+            <span class="bg-violet-soft text-violet px-2 py-0.5 rounded text-[10px] font-bold w-10 text-center flex-shrink-0">v${n.version}</span>
             <div class="min-w-0 flex-1 text-left">
-                <div class="text-xs text-gray-200 truncate" title="${esc(n.fileName || '')}">${esc(n.fileName || '(không tên)')}</div>
-                <div class="text-[10px] font-mono text-gray-500 truncate">${esc(n.docId)}${n.docId === docId ? ' — đang xem' : ''}</div>
+                <div class="text-xs text-soft truncate" title="${esc(n.fileName || '')}">${esc(n.fileName || '(không tên)')}</div>
+                <div class="text-[10px] font-mono text-faint truncate">${esc(n.docId)}${n.docId === docId ? ' — đang xem' : ''}</div>
             </div>
-            ${n.isRevoked ? '<span class="text-red-400 text-[10px] font-bold flex-shrink-0">THU HỒI</span>' : '<span class="text-emerald-400 text-[10px] font-bold flex-shrink-0">HỢP LỆ</span>'}
+            ${n.isRevoked ? '<span class="text-err text-[10px] font-bold flex-shrink-0">THU HỒI</span>' : '<span class="text-ok text-[10px] font-bold flex-shrink-0">HỢP LỆ</span>'}
         </div>`).join(arrow);
     Swal.fire({
         title: 'DÒNG ĐỜI TÀI LIỆU',
@@ -2354,8 +2479,8 @@ window.showLineage = async (docId) => {
             <div class="space-y-1 mt-2">
 ${rows}
             </div>
-            ${r.supersededBy ? `<div class="mt-3 p-2.5 bg-amber-900/30 border border-amber-800 rounded text-amber-300 text-xs text-left">Tài liệu đang xem là <b>bản cũ</b> — bản mới nhất: <span class="font-mono">${esc(r.latest.docId)}</span></div>` : ''}`,
-        background: '#111827', color: '#fff', confirmButtonColor: '#374151', confirmButtonText: 'Đóng', width: '34rem'
+            ${r.supersededBy ? `<div class="mt-3 p-2.5 bg-warn-soft border border-warn rounded text-warn text-xs text-left">Tài liệu đang xem là <b>bản cũ</b> — bản mới nhất: <span class="font-mono">${esc(r.latest.docId)}</span></div>` : ''}`,
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--faint)', confirmButtonText: 'Đóng', width: '34rem'
     });
 };
 
@@ -2363,7 +2488,7 @@ async function loadTransactionHistory() {
     const tbody = document.getElementById('history-table-body');
     if (!tbody) return;
     
-    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-blue-500"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang quét sổ cái Blockchain...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-accent"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang quét sổ cái Blockchain...</td></tr>';
     
     try {
         let html = '';
@@ -2442,7 +2567,7 @@ async function loadTransactionHistory() {
             const v = verOf(docId), next = succOf[docId];
             if (v <= 1 && !next) return '';
             const stale = next ? ' · cũ' : '';
-            return `<span class="bg-purple-900/50 text-purple-300 px-1.5 py-0.5 rounded text-[9px] font-bold ml-1 whitespace-nowrap" title="${esc('Phiên bản ' + v + (next ? ' — đã có bản mới thay thế' : ''))}">v${v}${stale}</span>`;
+            return `<span class="bg-violet-soft text-violet px-1.5 py-0.5 rounded text-[9px] font-bold ml-1 whitespace-nowrap" title="${esc('Phiên bản ' + v + (next ? ' — đã có bản mới thay thế' : ''))}">v${v}${stale}</span>`;
         };
         const hasLineage = (docId) => verOf(docId) > 1 || !!succOf[docId];
 
@@ -2480,78 +2605,78 @@ async function loadTransactionHistory() {
                 if (org) {
                     partnerOrgCounts[org] = (partnerOrgCounts[org] || 0) + 1;
                     partnerHtml += `
-                    <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}" data-org="${esc(org)}">
-                        <td class="px-3 py-2 font-bold text-center text-gray-500">${pStt++}</td>
-                        <td class="px-3 py-2 font-mono text-blue-400 text-xs">
+                    <tr class="border-b border-line hover:bg-hover transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}" data-org="${esc(org)}">
+                        <td class="px-3 py-2 font-bold text-center text-faint">${pStt++}</td>
+                        <td class="px-3 py-2 font-mono text-accent text-xs">
                             <div class="truncate max-w-[150px]" title="${esc(docId)}">${esc(docId)}</div>
-                            <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
-                            <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px] mt-1"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                            <div class="mt-1 text-[11px] text-muted font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
+                            <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px] mt-1"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                         </td>
-                        <td class="px-3 py-2 text-xs text-gray-300">
+                        <td class="px-3 py-2 text-xs text-soft">
                             ${window.partnerBadge(partnerOrgs, docId)}
-                            <div class="text-gray-400 text-[11px] font-medium mt-1"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
+                            <div class="text-muted text-[11px] font-medium mt-1"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                         </td>
-                        <td class="px-3 py-2 font-mono text-[10px] text-gray-500">
-                            <div class="text-gray-400 mb-1 truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
+                        <td class="px-3 py-2 font-mono text-[10px] text-faint">
+                            <div class="text-muted mb-1 truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
                             <div class="flex items-center gap-3">
-                                <a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="File mã hóa trên IPFS" class="text-emerald-500 hover:text-emerald-400 text-[10px] uppercase font-bold transition">
+                                <a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="File mã hóa trên IPFS" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition">
                                     <i class="fa-solid fa-cloud mr-1"></i> IPFS
                                 </a>
-                                <span class="text-amber-500/90 text-[10px] uppercase font-bold bg-amber-900/20 px-2 py-0.5 rounded border border-amber-900/40" title="Chỉ tổ chức sở hữu API key tải về tại cổng /partner">
+                                <span class="text-warn text-[10px] uppercase font-bold bg-warn-soft px-2 py-0.5 rounded border border-warn" title="Chỉ tổ chức sở hữu API key tải về tại cổng /partner">
                                     <i class="fa-solid fa-lock mr-1"></i> Chỉ tổ chức mở được
                                 </span>
                             </div>
                         </td>
                         <td class="px-3 py-2 text-center">
-                            ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-purple-400 hover:text-purple-300 text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-gray-600 text-[10px]">—</span>'}
+                            ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
                         </td>
-                        <td class="px-3 py-2 text-center"><span class="bg-amber-900/40 text-amber-400 px-2 py-1 rounded text-[10px] font-bold uppercase">ĐỐI TÁC</span></td>
+                        <td class="px-3 py-2 text-center"><span class="bg-warn-soft text-warn px-2 py-1 rounded text-[10px] font-bold uppercase">ĐỐI TÁC</span></td>
                     </tr>`;
                     continue;
                 }
 
                 const canRevoke = await canRevokeDoc(uploader);
                 html += `
-                <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
-                    <td class="px-3 py-2 font-bold text-center text-gray-500">${stt++}</td>
-                        <td class="px-3 py-2 font-mono text-blue-400 text-xs">
+                <tr class="border-b border-line hover:bg-hover transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
+                    <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
+                        <td class="px-3 py-2 font-mono text-accent text-xs">
                             <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(docId)}">${esc(docId)}</span>${verBadge(docId)}</div>
-                            <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
-                            <div class="mt-1 text-[9px] ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'text-emerald-400' : 'text-gray-500'}"><i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
+                            <div class="mt-1 text-[11px] text-muted font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
+                            <div class="mt-1 text-[9px] ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'text-ok' : 'text-faint'}"><i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
                             <div class="mt-1.5 flex gap-3">
-                                <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
-                                ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-purple-400 hover:text-purple-300 transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
-                                ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
-                                ${canRevoke ? `<button data-act="revoke" data-v="${esc(docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+                                <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
+                                ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
+                                ${canRevoke ? `<button data-act="revoke" data-v="${esc(docId)}" class="text-err hover:text-err transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
                             </div>
                         </td>
-                    <td class="px-3 py-2 text-xs text-gray-300">
+                    <td class="px-3 py-2 text-xs text-soft">
                         <div class="mb-1">${window.getWalletName(uploader)}</div>
                         ${window.partnerBadge(partnerOrgs, docId)}
-                        <div class="text-gray-400 text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
+                        <div class="text-muted text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                     </td>
-                    <td class="px-3 py-2 font-mono text-[10px] text-gray-500">
-                        <div class="text-gray-400 mb-1 truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
+                    <td class="px-3 py-2 font-mono text-[10px] text-faint">
+                        <div class="text-muted mb-1 truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
                         <div class="flex items-center gap-3">
-                            <a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="Xem file mã hóa gốc trên IPFS" class="text-emerald-500 hover:text-emerald-400 text-[10px] uppercase font-bold transition">
+                            <a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="Xem file mã hóa gốc trên IPFS" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition">
                                 <i class="fa-solid fa-cloud mr-1"></i> IPFS
                             </a>
                             ${isLockedDoc(docId, uploader) ? `
-                                <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-gray-500 text-[10px] uppercase font-bold bg-gray-800/60 px-2 py-0.5 rounded border border-gray-700 cursor-not-allowed">
+                                <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-faint text-[10px] uppercase font-bold bg-sunken px-2 py-0.5 rounded border border-line-strong cursor-not-allowed">
                                     <i class="fa-solid fa-lock mr-1"></i> Riêng tư
                                 </button>` : `
-                                <button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Xem trực tiếp trong trình duyệt" class="text-emerald-400 hover:text-emerald-300 text-[10px] uppercase font-bold transition bg-emerald-900/20 px-2 py-0.5 rounded border border-emerald-900/50">
+                                <button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
                                     <i class="fa-solid fa-eye mr-1"></i> Xem
                                 </button>
-                                <button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Giải mã và tải tệp gốc về máy" class="text-blue-400 hover:text-blue-300 text-[10px] uppercase font-bold transition bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/50">
+                                <button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Giải mã và tải tệp gốc về máy" class="text-accent hover:text-accent text-[10px] uppercase font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
                                     <i class="fa-solid fa-download mr-1"></i> Tải
                                 </button>`}
                         </div>
                     </td>
                     <td class="px-3 py-2 text-center">
-                        ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-purple-400 hover:text-purple-300 text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-gray-600 text-[10px]">—</span>'}
+                        ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
                     </td>
-                    <td class="px-3 py-2 text-center"><span class="bg-blue-900/40 text-blue-400 px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span></td>
+                    <td class="px-3 py-2 text-center"><span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span></td>
                 </tr>`;
             }
         }
@@ -2570,62 +2695,62 @@ async function loadTransactionHistory() {
                     const searchPayload = esc(`${fileDoc.docId} ${fileDoc.fileName} ${uploader} ${createTime} ${fileDoc.fileHash}`.toLowerCase());
 
                     html += `
-                    <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
-                        <td class="px-3 py-2 font-bold text-center text-gray-500">${stt++}</td>
-                        <td class="px-3 py-2 font-mono text-blue-400 text-xs">
+                    <tr class="border-b border-line hover:bg-hover transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
+                        <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
+                        <td class="px-3 py-2 font-mono text-accent text-xs">
                             <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</span>${verBadge(fileDoc.docId)}</div>
-                            <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileDoc.fileName)}">File: ${esc(fileDoc.fileName)}</div>
-                            <div class="mt-1 text-[9px] ${fileDoc.visibility === 'public' ? 'text-emerald-400' : 'text-gray-500'}"><i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
+                            <div class="mt-1 text-[11px] text-muted font-sans truncate max-w-[150px]" title="${esc(fileDoc.fileName)}">File: ${esc(fileDoc.fileName)}</div>
+                            <div class="mt-1 text-[9px] ${fileDoc.visibility === 'public' ? 'text-ok' : 'text-faint'}"><i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
                             <div class="mt-1.5 flex gap-3">
-                                <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-gray-400 hover:text-white transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
-                                ${hasLineage(fileDoc.docId) ? `<button data-act="lineage" data-v="${esc(fileDoc.docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-purple-400 hover:text-purple-300 transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
-                                ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-cyan-400 hover:text-cyan-300 transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
-                                ${batchCanRevoke ? `<button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-red-400 hover:text-red-300 transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+                                <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                ${hasLineage(fileDoc.docId) ? `<button data-act="lineage" data-v="${esc(fileDoc.docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
+                                ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
+                                ${batchCanRevoke ? `<button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-err hover:text-err transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
                             </div>
                         </td>
-                        <td class="px-3 py-2 text-xs text-gray-300">
+                        <td class="px-3 py-2 text-xs text-soft">
                             <div class="mb-1">${window.getWalletName(uploader)}</div>
-                            <div class="text-gray-400 text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
+                            <div class="text-muted text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                         </td>
-                        <td class="px-3 py-2 font-mono text-[10px] text-gray-500">
-                            <div class="text-gray-400 mb-1 truncate max-w-[150px]" title="${esc(fileDoc.fileHash)}">${esc(fileDoc.fileHash)}</div>
+                        <td class="px-3 py-2 font-mono text-[10px] text-faint">
+                            <div class="text-muted mb-1 truncate max-w-[150px]" title="${esc(fileDoc.fileHash)}">${esc(fileDoc.fileHash)}</div>
                             <div class="flex items-center gap-3">
-                                <a href="https://ipfs.io/ipfs/${esc(fileDoc.ipfsCID)}" target="_blank" rel="noopener noreferrer" title="Xem trên IPFS" class="text-emerald-500 hover:text-emerald-400 text-[10px] uppercase font-bold transition">
+                                <a href="https://ipfs.io/ipfs/${esc(fileDoc.ipfsCID)}" target="_blank" rel="noopener noreferrer" title="Xem trên IPFS" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition">
                                     <i class="fa-solid fa-cloud mr-1"></i> IPFS
                                 </a>
                                 ${isLockedDoc(fileDoc.docId, uploader) ? `
-                                    <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-gray-500 text-[10px] uppercase font-bold bg-gray-800/60 px-2 py-0.5 rounded border border-gray-700 cursor-not-allowed">
+                                    <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-faint text-[10px] uppercase font-bold bg-sunken px-2 py-0.5 rounded border border-line-strong cursor-not-allowed">
                                         <i class="fa-solid fa-lock mr-1"></i> Riêng tư
                                     </button>` : `
-                                    <button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" title="Xem trực tiếp trong trình duyệt" class="text-emerald-400 hover:text-emerald-300 text-[10px] uppercase font-bold transition bg-emerald-900/20 px-2 py-0.5 rounded border border-emerald-900/50">
+                                    <button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
                                         <i class="fa-solid fa-eye mr-1"></i> Xem
                                     </button>
-                                    <button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="text-blue-400 hover:text-blue-300 text-[10px] uppercase font-bold transition bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/50">
+                                    <button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="text-accent hover:text-accent text-[10px] uppercase font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
                                         <i class="fa-solid fa-download mr-1"></i> Tải
                                     </button>`}
                             </div>
                         </td>
                         <td class="px-3 py-2 text-center">
-                            ${batch.txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(batch.txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-purple-400 hover:text-purple-300 text-[10px] font-mono font-bold"><span data-txfee="${esc(batch.txHash)}">…</span></a>` : '<span class="text-gray-600 text-[10px]">—</span>'}
+                            ${batch.txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(batch.txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(batch.txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
                         </td>
                         <td class="px-3 py-2 text-center">
-                            <span class="bg-blue-900/40 text-blue-400 px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span>
+                            <span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span>
                         </td>
                     </tr>`;
                 });
             }
         }
-        tbody.innerHTML = html === '' ? '<tr><td colspan="6" class="px-4 py-10 text-center text-gray-600">Không có tài liệu hợp lệ nào.</td></tr>' : html;
+        tbody.innerHTML = html === '' ? '<tr><td colspan="6" class="px-4 py-10 text-center text-faint">Không có tài liệu hợp lệ nào.</td></tr>' : html;
         // Bảng riêng tài liệu đối tác + chip chọn API key/tổ chức
         const pBody = document.getElementById('partner-docs-body');
         if (pBody) pBody.innerHTML = partnerHtml ||
-            '<tr><td colspan="6" class="px-4 py-10 text-center text-gray-600">Chưa có tài liệu đối tác nào.</td></tr>';
+            '<tr><td colspan="6" class="px-4 py-10 text-center text-faint">Chưa có tài liệu đối tác nào.</td></tr>';
         renderPartnerOrgChips();
         filterHistoryTable();
         fillTxFees(tbody); // điền phí gas sau khi render — không chặn bảng
         if (pBody) fillTxFees(pBody);
     } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-red-500">Lỗi kết nối RPC. Vui lòng kết nối ví trước.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-err">Lỗi kết nối RPC. Vui lòng kết nối ví trước.</td></tr>';
     }
 }
 
@@ -2633,7 +2758,7 @@ async function loadRevokedHistory() {
     const tbody = document.getElementById('revoked-table-body');
     if (!tbody) return;
     
-    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-red-500"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang truy xuất Kho lưu trữ thu hồi...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-err"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang truy xuất Kho lưu trữ thu hồi...</td></tr>';
     
     try {
         let html = ''; 
@@ -2661,25 +2786,25 @@ async function loadRevokedHistory() {
                 const searchPayload = esc(`${docId} ${fileName} ${uploader} ${revokedBy} ${createTime} ${reason}`.toLowerCase());
 
                 html += `
-                <tr class="border-b border-gray-800 bg-red-900/10 hover:bg-red-900/20 transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
-                    <td class="px-3 py-2 font-bold text-center text-red-500">${stt++}</td>
-                    <td class="px-3 py-2 font-mono text-red-400 text-xs">
+                <tr class="border-b border-line bg-err-soft hover:bg-err-soft transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
+                    <td class="px-3 py-2 font-bold text-center text-err">${stt++}</td>
+                    <td class="px-3 py-2 font-mono text-err text-xs">
                     <div class="truncate max-w-[150px]" title="${esc(docId)}">${esc(docId)}</div>
-                        <div class="mt-1 text-[11px] text-gray-500 font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
-                        <button data-act="copy" data-v="${esc(docId)}" class="text-gray-400 hover:text-white transition text-[11px] mt-1.5"><i class="fa-regular fa-copy mr-1"></i>Copy ID</button>
+                        <div class="mt-1 text-[11px] text-faint font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
+                        <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px] mt-1.5"><i class="fa-regular fa-copy mr-1"></i>Copy ID</button>
                     </td>
-                    <td class="px-3 py-2 text-xs text-gray-300">
+                    <td class="px-3 py-2 text-xs text-soft">
                         <div class="mb-1">${window.getWalletName(uploader)}</div>
                         ${window.partnerBadge(partnerOrgs, docId)}
-                        <div class="text-gray-400 text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
+                        <div class="text-muted text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                     </td>
-                    <td class="px-3 py-2 text-xs text-gray-300">
-                        <div class="text-red-300 font-medium mb-1">${esc(reason)}</div>
-                        <div class="flex items-center font-mono text-gray-500 text-[10px]">
+                    <td class="px-3 py-2 text-xs text-soft">
+                        <div class="text-err font-medium mb-1">${esc(reason)}</div>
+                        <div class="flex items-center font-mono text-faint text-[10px]">
                             <span class="mr-1">Bởi:</span> ${window.getWalletName(revokedBy)}
                         </div>
                     </td>
-                    <td class="px-3 py-2 text-center"><span class="bg-red-900/40 text-red-400 px-2 py-1 rounded text-[10px] font-bold">REVOKED (ON-CHAIN)</span></td>
+                    <td class="px-3 py-2 text-center"><span class="bg-err-soft text-err px-2 py-1 rounded text-[10px] font-bold">REVOKED (ON-CHAIN)</span></td>
                 </tr>`;
             }
         }
@@ -2699,25 +2824,25 @@ async function loadRevokedHistory() {
                         const searchPayload = esc(`${fileDoc.docId} ${fileDoc.fileName} ${batch.uploader} ${createTime} ${reason}`.toLowerCase());
 
                         html += `
-                        <tr class="border-b border-gray-800 bg-red-900/10 hover:bg-red-900/20 transition" data-search="${searchPayload}" data-uploader="${esc(String(batch.uploader).toLowerCase())}">
-                            <td class="px-3 py-2 font-bold text-center text-red-500">${stt++}</td>
-                            <td class="px-3 py-2 font-mono text-red-400 text-xs">
+                        <tr class="border-b border-line bg-err-soft hover:bg-err-soft transition" data-search="${searchPayload}" data-uploader="${esc(String(batch.uploader).toLowerCase())}">
+                            <td class="px-3 py-2 font-bold text-center text-err">${stt++}</td>
+                            <td class="px-3 py-2 font-mono text-err text-xs">
                             <div class="truncate max-w-[150px]" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</div>
-                                <div class="mt-1 text-[11px] text-gray-500 font-sans truncate max-w-[150px]" title="${esc(fileDoc.fileName)}">File: ${esc(fileDoc.fileName)}</div>
-                                <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-gray-400 hover:text-white transition text-[11px] mt-1.5"><i class="fa-regular fa-copy mr-1"></i>Copy ID</button>
+                                <div class="mt-1 text-[11px] text-faint font-sans truncate max-w-[150px]" title="${esc(fileDoc.fileName)}">File: ${esc(fileDoc.fileName)}</div>
+                                <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px] mt-1.5"><i class="fa-regular fa-copy mr-1"></i>Copy ID</button>
                             </td>
-                            <td class="px-3 py-2 text-xs text-gray-300">
+                            <td class="px-3 py-2 text-xs text-soft">
                                 <div class="mb-1">${window.getWalletName(batch.uploader)}</div>
-                                <div class="text-gray-400 text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
+                                <div class="text-muted text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                             </td>
-                            <td class="px-3 py-2 text-xs text-gray-300">
-                                <div class="text-red-300 font-medium mb-1">${esc(reason)} <span class="text-[9px] text-gray-500 ml-1">(${esc(revokeTimeStr)})</span></div>
-                                <div class="flex items-center font-mono text-gray-500 text-[10px]">
+                            <td class="px-3 py-2 text-xs text-soft">
+                                <div class="text-err font-medium mb-1">${esc(reason)} <span class="text-[9px] text-faint ml-1">(${esc(revokeTimeStr)})</span></div>
+                                <div class="flex items-center font-mono text-faint text-[10px]">
                                     <span class="mr-1">Bởi:</span> ${window.getWalletName(revoker)}
                                 </div>
                             </td>
                             <td class="px-3 py-2 text-center">
-                                <span class="bg-red-900/40 text-red-400 px-2 py-1 rounded text-[10px] font-bold uppercase">REVOKED (ON-CHAIN)</span>
+                                <span class="bg-err-soft text-err px-2 py-1 rounded text-[10px] font-bold uppercase">REVOKED (ON-CHAIN)</span>
                             </td>
                         </tr>`;
                     }
@@ -2726,13 +2851,13 @@ async function loadRevokedHistory() {
         }
 
         if (html === '') {
-            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-gray-600">Tuyệt vời. Chưa có tài liệu nào bị thu hồi.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-faint">Tuyệt vời. Chưa có tài liệu nào bị thu hồi.</td></tr>';
         } else {
             tbody.innerHTML = html;
             filterRevokedTable();
         }
     } catch (_) { 
-        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-red-500">Lỗi kết nối RPC.</td></tr>'; 
+        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-err">Lỗi kết nối RPC.</td></tr>'; 
     }
 }
 // =====================================================================
@@ -2747,24 +2872,25 @@ async function loadAPIKeys() {
         keys = await ApiService.listApiKeys();
     } catch (e) {
         const isAuthErr = /token|xác thực|đăng nhập|401|403/i.test(String(e.message || ''));
-        if (isAuthErr) return tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-10 text-center text-gray-500">Đang chờ đăng nhập ví...</td></tr>';
-        return tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-10 text-center text-red-400">${esc(e.message)}</td></tr>`;
+        if (isAuthErr) return tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-10 text-center text-faint">Đang chờ đăng nhập ví...</td></tr>';
+        return tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-10 text-center text-err">${esc(e.message)}</td></tr>`;
     }
-    if (keys.length === 0) return tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-10 text-center text-gray-600">Chưa có API Key nào được khởi tạo.</td></tr>';
+    if (keys.length === 0) return tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-10 text-center text-faint">Chưa có API Key nào được khởi tạo.</td></tr>';
 
     tbody.innerHTML = keys.map(k => `
-        <tr class="border-b border-gray-800 hover:bg-gray-800/30 transition-colors">
-            <td class="px-3 py-2 text-gray-300 text-sm font-medium">${esc(k.name)}</td>
-            <td class="px-3 py-2 font-mono text-blue-400 text-xs">${esc(k.prefix)}…</td>
-            <td class="px-3 py-2 text-gray-500 text-xs">${esc(new Date(k.createdAt).toLocaleDateString('vi-VN'))}</td>
+        <tr class="border-b border-line hover:bg-hover transition-colors">
+            <td class="px-3 py-2 text-soft text-sm font-medium">${esc(k.name)}</td>
+            <td class="px-3 py-2 font-mono text-accent text-xs">${esc(k.prefix)}…</td>
+            <td class="px-3 py-2 text-faint text-xs">${esc(new Date(k.createdAt).toLocaleDateString('vi-VN'))}</td>
             <td class="px-3 py-2 text-center">
                 ${k.revoked
-                    ? '<span class="bg-red-900/30 text-red-400 border border-red-800/50 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Revoked</span>'
-                    : `<span class="bg-emerald-900/30 text-emerald-400 border border-emerald-800/50 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Active</span>
-                       <button data-act="revoke-key" data-v="${esc(k._id)}" title="Thu hồi key này" class="ml-2 text-red-400 hover:text-red-300 text-[10px] font-bold uppercase transition"><i class="fa-solid fa-ban"></i></button>`}
+                    ? '<span class="bg-err-soft text-err border border-err px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Revoked</span>'
+                    : `<span class="bg-ok-soft text-ok border border-ok px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Active</span>
+                       <button data-act="revoke-key" data-v="${esc(k._id)}" title="Thu hồi key này" class="ml-2 text-err hover:text-err text-[10px] font-bold uppercase transition"><i class="fa-solid fa-ban"></i></button>`}
             </td>
         </tr>
     `).join('');
+    paginateTbody(tbody);
 }
 
 async function generateNewApiKey() {
@@ -2773,8 +2899,8 @@ async function generateNewApiKey() {
         text: 'Nhập tên hệ thống/đối tác cần cấp API Key:',
         input: 'text', inputAttributes: { autocomplete: 'off' },
         inputPlaceholder: 'VD: Trường cấp 3 ABC, Bệnh viện XYZ...',
-        background: '#111827', color: '#fff',
-        confirmButtonColor: '#2563eb', showCancelButton: true, cancelButtonText: 'Hủy'
+        background: 'var(--panel)', color: 'var(--ink)',
+        confirmButtonColor: 'var(--accent)', showCancelButton: true, cancelButtonText: 'Hủy'
     });
     if (!appName || appName.trim() === '') return;
 
@@ -2783,19 +2909,19 @@ async function generateNewApiKey() {
         // Hiện key ĐÚNG 1 LẦN — server chỉ lưu hash, không xem lại được
         await Swal.fire({
             title: 'API Key đã tạo — lưu lại ngay!',
-            html: `<p class="text-sm text-gray-300 mb-2">Key chỉ hiển thị <b class="text-red-400">một lần duy nhất</b>. Gửi cho đối tác để họ gọi API bằng header <code>x-api-key</code>:</p>
-                <div class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded p-2">
-                    <code class="text-emerald-400 text-xs break-all flex-1 text-left">${esc(token)}</code>
-                    <button id="copy-new-key" class="text-gray-400 hover:text-white shrink-0"><i class="fa-regular fa-copy"></i></button>
+            html: `<p class="text-sm text-soft mb-2">Key chỉ hiển thị <b class="text-err">một lần duy nhất</b>. Gửi cho đối tác để họ gọi API bằng header <code>x-api-key</code>:</p>
+                <div class="flex items-center gap-2 bg-panel border border-line-strong rounded p-2">
+                    <code class="text-ok text-xs break-all flex-1 text-left">${esc(token)}</code>
+                    <button id="copy-new-key" class="text-muted hover:text-ink shrink-0"><i class="fa-regular fa-copy"></i></button>
                 </div>`,
-            icon: 'warning', background: '#0b0f19', color: '#fff',
+            icon: 'warning', background: 'var(--panel)', color: 'var(--ink)',
             didOpen: () => {
                 document.getElementById('copy-new-key')?.addEventListener('click', () => window.copyAPIKey(token));
             }
         });
         loadAPIKeys();
     } catch (e) {
-        Swal.fire({ icon: 'error', title: 'Lỗi', text: e.message, background: '#0b0f19', color: '#fff' });
+        Swal.fire({ icon: 'error', title: 'Lỗi', text: e.message, background: 'var(--panel)', color: 'var(--ink)' });
     }
 }
 
@@ -2804,15 +2930,15 @@ window.revokeApiKey = async function (id) {
         title: 'Thu hồi API Key?',
         text: 'Key sẽ ngừng hoạt động ngay — đối tác không gọi API được nữa.',
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Thu hồi',
-        confirmButtonColor: '#dc2626', background: '#111827', color: '#fff', cancelButtonText: 'Hủy'
+        confirmButtonColor: 'var(--err)', background: 'var(--panel)', color: 'var(--ink)', cancelButtonText: 'Hủy'
     });
     if (!ok.isConfirmed) return;
     try {
         await ApiService.revokeApiKey(id);
         loadAPIKeys();
-        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Đã thu hồi API key', showConfirmButton: false, timer: 2000, background: '#0b0f19', color: '#fff' });
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Đã thu hồi API key', showConfirmButton: false, timer: 2000, background: 'var(--panel)', color: 'var(--ink)' });
     } catch (e) {
-        Swal.fire({ icon: 'error', title: 'Lỗi', text: e.message, background: '#0b0f19', color: '#fff' });
+        Swal.fire({ icon: 'error', title: 'Lỗi', text: e.message, background: 'var(--panel)', color: 'var(--ink)' });
     }
 };
 
@@ -2826,25 +2952,25 @@ function loadRpcConfig() {
 function saveRpcConfig() {
     localStorage.setItem('custom_rpc_url', document.getElementById('rpc-url-input').value);
     localStorage.setItem('custom_chain_id', document.getElementById('chain-id-input').value);
-    Swal.fire({ title: 'Đã lưu cấu hình', text: 'Vui lòng F5 (tải lại trang) để áp dụng.', icon: 'success', background: '#111827', color: '#fff' });
+    Swal.fire({ title: 'Đã lưu cấu hình', text: 'Vui lòng F5 (tải lại trang) để áp dụng.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
 }
 
 function saveSystemSettings() {
-    Swal.fire({ title: 'Đã lưu cài đặt', text: 'Các thiết lập đã được kích hoạt thành công.', icon: 'success', background: '#111827', color: '#fff' });
+    Swal.fire({ title: 'Đã lưu cài đặt', text: 'Các thiết lập đã được kích hoạt thành công.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
 }
 
 window.selectTemplate = (type) => {
     const tplStandard = document.getElementById('tpl-standard'); const tplMinimal = document.getElementById('tpl-minimal');
     const iconStandard = document.getElementById('icon-standard'); const iconMinimal = document.getElementById('icon-minimal');
     if (type === 'standard') {
-        if (tplStandard) tplStandard.className = "border-2 border-blue-600 bg-blue-900/10 rounded-xl p-4 cursor-pointer relative transition duration-200";
+        if (tplStandard) tplStandard.className = "border-2 border-accent bg-accent-soft rounded-md p-4 cursor-pointer relative transition duration-200";
         if (iconStandard) iconStandard.classList.remove('hidden');
-        if (tplMinimal) tplMinimal.className = "border-2 border-gray-800 bg-[#0b0f19] rounded-xl p-4 cursor-pointer hover:border-gray-600 transition duration-200 relative";
+        if (tplMinimal) tplMinimal.className = "border-2 border-line bg-sunken rounded-md p-4 cursor-pointer hover:border-line-strong transition duration-200 relative";
         if (iconMinimal) iconMinimal.classList.add('hidden');
     } else {
-        if (tplMinimal) tplMinimal.className = "border-2 border-blue-600 bg-blue-900/10 rounded-xl p-4 cursor-pointer relative transition duration-200";
+        if (tplMinimal) tplMinimal.className = "border-2 border-accent bg-accent-soft rounded-md p-4 cursor-pointer relative transition duration-200";
         if (iconMinimal) iconMinimal.classList.remove('hidden');
-        if (tplStandard) tplStandard.className = "border-2 border-gray-800 bg-[#0b0f19] rounded-xl p-4 cursor-pointer hover:border-gray-600 transition duration-200 relative";
+        if (tplStandard) tplStandard.className = "border-2 border-line bg-sunken rounded-md p-4 cursor-pointer hover:border-line-strong transition duration-200 relative";
         if (iconStandard) iconStandard.classList.add('hidden');
     }
 };
@@ -2880,11 +3006,11 @@ window.loadWalletRoles = async function() {
 
     // Chưa đăng nhập (chưa có JWT) thì không gọi API — tránh 401 dồn dập lúc mở trang
     if (!ApiService.hasValidToken()) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-gray-600">Vui lòng kết nối ví MetaMask để xem phân quyền.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-faint">Vui lòng kết nối ví MetaMask để xem phân quyền.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-blue-500"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang đồng bộ phân quyền từ Blockchain...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-accent"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang đồng bộ phân quyền từ Blockchain...</td></tr>';
 
     // 1. Lấy danh sách ví từ Backend (MongoDB)
     let wallets = await ApiService.getAllWallets();
@@ -3047,7 +3173,7 @@ window.loadWalletRoles = async function() {
     } catch (e) {}
 
     if (wallets.length === 0) {
-        return tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-gray-600">Chưa có dữ liệu ví.</td></tr>';
+        return tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-faint">Chưa có dữ liệu ví.</td></tr>';
     }
 
     // 5. SẮP XẾP BẢNG
@@ -3114,81 +3240,81 @@ window.loadWalletRoles = async function() {
         const dateObj = new Date(lastActive); 
         const daysOffline = (new Date() - dateObj) / (1000 * 60 * 60 * 24);
         
-        const trendIcon = storageTrend > 0 ? '<i class="fa-solid fa-arrow-trend-up mr-1 text-red-400"></i>' : '<i class="fa-solid fa-arrow-trend-down mr-1 text-emerald-400"></i>';
-        const trendColor = storageTrend > 0 ? 'text-red-400' : 'text-emerald-400';
-        const zombieClass = daysOffline > 30 ? 'text-red-400 font-bold' : 'text-gray-400';
-        const securityBadge = w.securityAlert ? `<span class="mt-1.5 bg-red-900/30 text-red-400 border border-red-800/50 px-2 py-0.5 rounded text-[10px] font-bold flex items-center w-max cursor-help" title="Lịch sử: ${esc(w.securityAlert)}"><i class="fa-solid fa-shield-virus mr-1"></i> Bị Cảnh Cáo</span>` : '<span class="mt-1.5 text-gray-500 text-[10px] flex items-center w-max"><i class="fa-solid fa-check text-emerald-500 mr-1"></i> An toàn</span>';
+        const trendIcon = storageTrend > 0 ? '<i class="fa-solid fa-arrow-trend-up mr-1 text-err"></i>' : '<i class="fa-solid fa-arrow-trend-down mr-1 text-ok"></i>';
+        const trendColor = storageTrend > 0 ? 'text-err' : 'text-ok';
+        const zombieClass = daysOffline > 30 ? 'text-err font-bold' : 'text-muted';
+        const securityBadge = w.securityAlert ? `<span class="mt-1.5 bg-err-soft text-err border border-err px-2 py-0.5 rounded text-[10px] font-bold flex items-center w-max cursor-help" title="Lịch sử: ${esc(w.securityAlert)}"><i class="fa-solid fa-shield-virus mr-1"></i> Bị Cảnh Cáo</span>` : '<span class="mt-1.5 text-faint text-[10px] flex items-center w-max"><i class="fa-solid fa-check text-ok mr-1"></i> An toàn</span>';
 
         // --- XỬ LÝ CỘT 0: CHECKBOX DÀNH CHO ADMIN ---
         // Chỉ vẽ cột checkbox này nếu người đang xem là Admin. Nếu là user thường, cột này sẽ biến mất hoàn toàn.
         // onchange được xử lý bằng event delegation trên .row-checkbox (không inline handler)
         const tdCheckboxHTML = isAdminSystem
-            ? `<td class="px-3 py-2 text-center">${isThisRowAdmin ? '' : `<input type="checkbox" value="${esc(w.address)}" class="row-checkbox rounded bg-gray-900 border-gray-700 text-blue-500 cursor-pointer">`}</td>`
+            ? `<td class="px-3 py-2 text-center">${isThisRowAdmin ? '' : `<input type="checkbox" value="${esc(w.address)}" class="row-checkbox rounded bg-panel border-line-strong text-accent cursor-pointer">`}</td>`
             : ``;
 
         // --- XỬ LÝ CỘT 1: CHỈ HIỂN THỊ TÊN VÀ ID ---
         let displayNameHTML = '';
 
         if (isThisRowAdmin) {
-            displayNameHTML = `<span class="font-bold text-yellow-500 text-[13px] mb-1 uppercase tracking-wider"><i class="fa-solid fa-user-shield mr-1"></i> ADMIN HỆ THỐNG</span>`;
+            displayNameHTML = `<span class="font-bold text-warn text-[13px] mb-1 uppercase tracking-wider"><i class="fa-solid fa-user-shield mr-1"></i> ADMIN HỆ THỐNG</span>`;
         } else {
             const aliasName = w.alias || '';
             displayNameHTML = aliasName
-                ? `<span class="font-bold text-white text-[13px] mb-1">${esc(aliasName)}</span>`
-                : `<span class="italic text-gray-600 text-[11px] mb-1">(Chưa đặt tên)</span>`;
+                ? `<span class="font-bold text-ink text-[13px] mb-1">${esc(aliasName)}</span>`
+                : `<span class="italic text-faint text-[11px] mb-1">(Chưa đặt tên)</span>`;
         }
 
         // Badge quyền hiện ngay dưới tên — trước đây quyền giấu trong menu bánh răng
         const ROLE_BADGE = {
-            'QUẢN LÝ': 'bg-purple-900/40 text-purple-300 border-purple-800/50',
-            'NHẬP LIỆU': 'bg-blue-900/40 text-blue-400 border-blue-800/50',
-            'NGƯỜI XEM': 'bg-sky-900/40 text-sky-300 border-sky-800/50',
-            'BỊ KHÓA': 'bg-red-900/40 text-red-400 border-red-800/50',
-            'ĐÃ XÓA': 'bg-gray-800 text-gray-500 border-gray-700'
+            'QUẢN LÝ': 'bg-violet-soft text-violet border-violet',
+            'NHẬP LIỆU': 'bg-accent-soft text-accent border-accent-line',
+            'NGƯỜI XEM': 'bg-info-soft text-info border-info',
+            'BỊ KHÓA': 'bg-err-soft text-err border-err',
+            'ĐÃ XÓA': 'bg-sunken text-faint border-line-strong'
         };
         const roleBadge = !isThisRowAdmin && w.role
-            ? `<span class="w-max px-2 py-0.5 rounded text-[10px] font-bold border ${ROLE_BADGE[w.role] || 'bg-gray-800 text-gray-400 border-gray-700'}">${esc(w.role)}</span>`
+            ? `<span class="w-max px-2 py-0.5 rounded text-[10px] font-bold border ${ROLE_BADGE[w.role] || 'bg-sunken text-muted border-line-strong'}">${esc(w.role)}</span>`
             : '';
 
         const formattedWalletName = `
             <div class="flex flex-col justify-center gap-0.5">
                 ${displayNameHTML}
                 ${roleBadge}
-                <span class="font-mono text-gray-400 text-[11px]">${esc(w.address.substring(0,6))}...${esc(w.address.substring(38))}</span>
+                <span class="font-mono text-muted text-[11px]">${esc(w.address.substring(0,6))}...${esc(w.address.substring(38))}</span>
             </div>
         `;
 
         // --- XỬ LÝ CỘT 3: BÁNH RĂNG & TRẠNG THÁI ---
         const activeStatusIcon = isRevoked
-            ? '<span class="relative flex h-2 w-2 mr-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span><span class="text-red-400 font-bold text-[10px]">TẠM KHÓA</span>'
-            : '<span class="relative flex h-2 w-2 mr-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span><span class="text-emerald-400 font-bold text-[10px]">ĐANG HOẠT ĐỘNG</span>';
+            ? '<span class="relative flex h-2 w-2 mr-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-err"></span></span><span class="text-err font-bold text-[10px]">TẠM KHÓA</span>'
+            : '<span class="relative flex h-2 w-2 mr-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-ok opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-ok"></span></span><span class="text-ok font-bold text-[10px]">ĐANG HOẠT ĐỘNG</span>';
 
         // Bánh răng: Đã được chặn sẵn, chỉ hiện nếu là Admin
         const gearBtn = (isAdminSystem && !isThisRowAdmin)
-            ? `<button data-act="wallet-settings" data-v="${esc(w.address)}" data-status="${esc(w.status)}" data-role="${esc(w.role)}" data-alias="${esc(w.alias || '')}" class="text-gray-500 hover:text-white transition bg-gray-800 p-1.5 rounded border border-gray-700 hover:bg-gray-700 ml-4 shadow" title="Tùy chọn quản lý"><i class="fa-solid fa-gear"></i></button>`
+            ? `<button data-act="wallet-settings" data-v="${esc(w.address)}" data-status="${esc(w.status)}" data-role="${esc(w.role)}" data-alias="${esc(w.alias || '')}" class="text-faint hover:text-ink transition bg-sunken p-1.5 rounded border border-line-strong hover:bg-hover ml-4 shadow" title="Tùy chọn quản lý"><i class="fa-solid fa-gear"></i></button>`
             : '';
 
         // Ép % width thành số an toàn — dữ liệu DB không được chui vào attribute style
         const pct = (v) => Math.min(100, Math.max(0, Number(v) || 0));
 
         return `
-        <tr class="border-b border-gray-800 hover:bg-[#1f2937]/30 transition ${isRevoked ? 'opacity-60' : ''}" data-row-addr="${esc((w.address||'').toLowerCase())}" data-row-role="${esc(w.role || '')}">
+        <tr class="border-b border-line hover:bg-hover transition ${isRevoked ? 'opacity-60' : ''}" data-row-addr="${esc((w.address||'').toLowerCase())}" data-row-role="${esc(w.role || '')}">
             ${tdCheckboxHTML}
             <td class="py-1.5 px-2">
-                <div class="p-2 cursor-pointer group hover:bg-gray-800 rounded-lg transition-all inline-block w-full" data-act="wallet-preview" data-v="${esc(w.address || '')}" title="Nhấn để xem Hồ Sơ Tài Khoản">
+                <div class="p-2 cursor-pointer group hover:bg-hover rounded-lg transition-all inline-block w-full" data-act="wallet-preview" data-v="${esc(w.address || '')}" title="Nhấn để xem Hồ Sơ Tài Khoản">
                     ${formattedWalletName}
                 </div>
             </td>
             <td class="py-1.5 px-2 pr-4">
-                <div class="p-2 cursor-pointer group hover:bg-gray-800 rounded-lg transition-all inline-block w-full max-w-[240px]" data-act="storage" data-v="${esc(w.address || '')}" title="Nhấn để xem chi tiết tài liệu đã up">
-                    <div class="w-full bg-gray-900 border border-gray-700/50 rounded-full h-1.5 flex overflow-hidden mb-1 group-hover:ring-1 group-hover:ring-blue-500 transition-all">
-                        <div class="bg-blue-500 h-1.5" style="width: ${pct(fileTypes.pdf)}%"></div>
-                        <div class="bg-purple-500 h-1.5" style="width: ${pct(fileTypes.img)}%"></div>
-                        <div class="bg-orange-500 h-1.5" style="width: ${pct(fileTypes.zip)}%"></div>
+                <div class="p-2 cursor-pointer group hover:bg-hover rounded-lg transition-all inline-block w-full max-w-[240px]" data-act="storage" data-v="${esc(w.address || '')}" title="Nhấn để xem chi tiết tài liệu đã up">
+                    <div class="w-full bg-panel border border-line-strong rounded-full h-1.5 flex overflow-hidden mb-1 group-hover:ring-1 group-hover:ring-accent transition-all">
+                        <div class="bg-accent h-1.5" style="width: ${pct(fileTypes.pdf)}%"></div>
+                        <div class="bg-violet h-1.5" style="width: ${pct(fileTypes.img)}%"></div>
+                        <div class="bg-warn h-1.5" style="width: ${pct(fileTypes.zip)}%"></div>
                     </div>
                     <div class="flex justify-between items-end mb-1 mt-2">
-                        <span class="text-xs text-gray-400 font-bold group-hover:text-white transition">
-                            ${esc(storageUsed)} MB <span class="text-gray-600 font-normal group-hover:text-gray-400 transition">/ ${esc(storageLimit)} MB</span>
+                        <span class="text-xs text-muted font-bold group-hover:text-ink transition">
+                            ${esc(storageUsed)} MB <span class="text-faint font-normal group-hover:text-muted transition">/ ${esc(storageLimit)} MB</span>
                         </span>
                         <span class="text-[10px] ${trendColor}">${trendIcon}${storageTrend > 0 ? '+' : ''}${esc(storageTrend)}%</span>
                     </div>
@@ -3220,7 +3346,7 @@ window.handleAssignRole = async function() {
     const roleLevel = isViewer ? 0 : parseInt(rawLevel);
 
     if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        return Swal.fire({ title: 'Lỗi định dạng', text: 'Địa chỉ ví không hợp lệ!', icon: 'warning', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Lỗi định dạng', text: 'Địa chỉ ví không hợp lệ!', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
     }
 
     // Kiểm tra quyền hiện tại trên chain trước khi mở MetaMask —
@@ -3229,16 +3355,16 @@ window.handleAssignRole = async function() {
     try {
         const currentRole = await web3.getUserRole(address);
         if (currentRole === 99) {
-            return Swal.fire({ title: 'Không thể thực hiện', text: 'Đây là ví Admin gốc của hệ thống — Smart Contract không cho phép thay đổi quyền của nó.', icon: 'warning', background: '#111827', color: '#fff' });
+            return Swal.fire({ title: 'Không thể thực hiện', text: 'Đây là ví Admin gốc của hệ thống — Smart Contract không cho phép thay đổi quyền của nó.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
         }
         if (currentRole !== null && currentRole !== undefined) {
             currentRank = Number(currentRole);
             if (!isViewer && roleLevel === 0 && currentRank === 0) {
-                return Swal.fire({ title: 'Không cần khóa', text: 'Ví này chưa từng được cấp quyền nên không có gì để tước. Khóa chỉ áp dụng cho ví đang có quyền.', icon: 'info', background: '#111827', color: '#fff' });
+                return Swal.fire({ title: 'Không cần khóa', text: 'Ví này chưa từng được cấp quyền nên không có gì để tước. Khóa chỉ áp dụng cho ví đang có quyền.', icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
             }
             if (!isViewer && roleLevel === currentRank) {
                 const names = { 1: 'Nhập Liệu', 2: 'Quản Lý', 3: 'Admin' };
-                return Swal.fire({ title: 'Quyền trùng lặp', text: `Ví này đang giữ sẵn quyền ${esc(names[currentRank])} rồi, không cần cấp lại.`, icon: 'info', background: '#111827', color: '#fff' });
+                return Swal.fire({ title: 'Quyền trùng lặp', text: `Ví này đang giữ sẵn quyền ${esc(names[currentRank])} rồi, không cần cấp lại.`, icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
             }
         }
     } catch (e) { /* RPC lỗi thì bỏ qua pre-check, để contract tự chặn */ }
@@ -3249,7 +3375,7 @@ window.handleAssignRole = async function() {
             const wallets = await ApiService.getAllWallets();
             const w = wallets.find(x => (x.address || '').toLowerCase() === address.toLowerCase());
             if (w && w.role === 'NGƯỜI XEM' && w.status === 'ACTIVE') {
-                return Swal.fire({ title: 'Quyền trùng lặp', text: 'Ví này đang là Người Xem rồi, không cần cấp lại.', icon: 'info', background: '#111827', color: '#fff' });
+                return Swal.fire({ title: 'Quyền trùng lặp', text: 'Ví này đang là Người Xem rồi, không cần cấp lại.', icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
             }
         } catch (e) {}
     }
@@ -3269,7 +3395,7 @@ window.handleAssignRole = async function() {
         // Truyền alias vào DB
         await ApiService.syncWalletData(address, { role: roleName, status: roleLevel === 0 && !isViewer ? 'REVOKED' : 'ACTIVE', alias: alias });
 
-        Swal.fire({ title: 'Thành công', text: `Ví đã được cấp quyền: ${esc(roleName)}`, icon: 'success', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Thành công', text: `Ví đã được cấp quyền: ${esc(roleName)}`, icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
         refreshPendingBadge(); // ví vừa duyệt biến mất khỏi khay chờ
 
         document.getElementById('newRoleAddress').value = '';
@@ -3282,12 +3408,12 @@ window.handleAssignRole = async function() {
             const row = document.querySelector(`tr[data-row-addr="${esc(address.toLowerCase())}"]`);
             if (row) {
                 row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                row.classList.add('bg-emerald-900/40');
-                setTimeout(() => row.classList.remove('bg-emerald-900/40'), 3000);
+                row.classList.add('bg-ok-soft');
+                setTimeout(() => row.classList.remove('bg-ok-soft'), 3000);
             }
         }
     } catch (error) {
-        Swal.fire({ title: 'Từ chối', text: getShortError(error, 'Chỉ Admin hệ thống mới có quyền thực thi.'), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Từ chối', text: getShortError(error, 'Chỉ Admin hệ thống mới có quyền thực thi.'), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     } finally {
         isProcessing = false;
         UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
@@ -3302,20 +3428,20 @@ window.manageSingleWalletSettings = function(address, currentStatus, currentRole
     const isLocked = currentStatus === 'REVOKED';
     const lockText = isLocked ? "Mở khóa tài khoản" : "Khóa tài khoản (Tạm dừng)";
     const lockIcon = isLocked ? "fa-unlock" : "fa-lock";
-    const lockColor = isLocked ? "text-emerald-400 hover:bg-emerald-900/30 border-emerald-900/50" : "text-orange-400 hover:bg-orange-900/30 border-orange-900/50";
+    const lockColor = isLocked ? "text-ok hover:bg-ok-soft border-ok" : "text-warn hover:bg-warn-soft border-warn";
 
     const htmlContent = `
         <div class="flex flex-col gap-3 text-sm mt-4">
-            <button data-act="cfg-role" data-v="${esc(address)}" data-role="${esc(currentRole)}" class="flex items-center gap-3 p-3 rounded-lg border border-gray-700 bg-gray-800 hover:bg-gray-700 text-gray-200 transition shadow-sm">
-                <i class="fa-solid fa-user-shield w-5 text-blue-400"></i> Phân lại quyền ví
+            <button data-act="cfg-role" data-v="${esc(address)}" data-role="${esc(currentRole)}" class="flex items-center gap-3 p-3 rounded-lg border border-line-strong bg-sunken hover:bg-hover text-soft transition shadow-sm">
+                <i class="fa-solid fa-user-shield w-5 text-accent"></i> Phân lại quyền ví
             </button>
-            <button data-act="cfg-alias" data-v="${esc(address)}" data-alias="${esc(currentAlias || '')}" class="flex items-center gap-3 p-3 rounded-lg border border-gray-700 bg-gray-800 hover:bg-gray-700 text-gray-200 transition shadow-sm">
-                <i class="fa-solid fa-pen w-5 text-blue-400"></i> Đổi tên nhân viên
+            <button data-act="cfg-alias" data-v="${esc(address)}" data-alias="${esc(currentAlias || '')}" class="flex items-center gap-3 p-3 rounded-lg border border-line-strong bg-sunken hover:bg-hover text-soft transition shadow-sm">
+                <i class="fa-solid fa-pen w-5 text-accent"></i> Đổi tên nhân viên
             </button>
-            <button data-act="cfg-lock" data-v="${esc(address)}" data-locked="${isLocked ? '1' : '0'}" class="flex items-center gap-3 p-3 rounded-lg border bg-gray-800 transition shadow-sm ${lockColor}">
+            <button data-act="cfg-lock" data-v="${esc(address)}" data-locked="${isLocked ? '1' : '0'}" class="flex items-center gap-3 p-3 rounded-lg border bg-sunken transition shadow-sm ${lockColor}">
                 <i class="fa-solid ${lockIcon} w-5"></i> ${lockText}
             </button>
-            <button data-act="cfg-delete" data-v="${esc(address)}" class="flex items-center gap-3 p-3 rounded-lg border border-red-900/50 bg-red-900/10 hover:bg-red-900/30 text-red-400 transition shadow-sm">
+            <button data-act="cfg-delete" data-v="${esc(address)}" class="flex items-center gap-3 p-3 rounded-lg border border-err bg-err-soft hover:bg-err-soft text-err transition shadow-sm">
                 <i class="fa-solid fa-trash w-5"></i> Xóa vĩnh viễn hệ thống
             </button>
         </div>
@@ -3324,7 +3450,7 @@ window.manageSingleWalletSettings = function(address, currentStatus, currentRole
     Swal.fire({
         title: 'TÙY CHỌN TÀI KHOẢN',
         html: htmlContent,
-        background: '#111827', color: '#fff',
+        background: 'var(--panel)', color: 'var(--ink)',
         showConfirmButton: false, showCloseButton: true,
     });
 };
@@ -3335,16 +3461,16 @@ window.openChangeRole = async function(address, currentRole) {
         html: `
             <style>
                 /* Ép màu nền tối và chữ trắng cho ô Select và các Lựa chọn */
-                .swal2-select { background-color: #1f2937 !important; color: #ffffff !important; border: 1px solid #374151 !important; outline: none !important; }
-                .swal2-select option { background-color: #1f2937 !important; color: #ffffff !important; }
+                .swal2-select { background-color: var(--panel) !important; color: var(--ink) !important; border: 1px solid var(--line-strong) !important; outline: none !important; }
+                .swal2-select option { background-color: var(--panel) !important; color: var(--ink) !important; }
             </style>
-            Chọn cấp độ mới cho ví <b class="font-mono text-blue-400">${esc(address.substring(0,8))}...</b>:
+            Chọn cấp độ mới cho ví <b class="font-mono text-accent">${esc(address.substring(0,8))}...</b>:
         `,
         input: 'select',
         inputOptions: { '1': 'Quyền Nhập Liệu (Upload)', '2': 'Quyền Quản Lý (Upload + Thu hồi)', 'viewer': 'Quyền Người Xem (chỉ đọc)' },
         inputValue: currentRole === 'QUẢN LÝ' ? '2' : currentRole === 'NGƯỜI XEM' ? 'viewer' : '1',
         showCancelButton: true, confirmButtonText: 'Lưu thay đổi', cancelButtonText: 'Hủy',
-        background: '#111827', color: '#fff', confirmButtonColor: '#10b981'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--ok)'
     });
 
     if (newRole) {
@@ -3361,10 +3487,10 @@ window.openChangeRole = async function(address, currentRole) {
             await ApiService.syncWalletData(address, { role: roleName, status: 'ACTIVE' });
             
             UI.updateProgress(100, "Đã đổi quyền thành công!", "SUCCESS");
-            Swal.fire({ title: 'Thành công', text: `Đã cấp: ${esc(roleName)}`, icon: 'success', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            Swal.fire({ title: 'Thành công', text: `Đã cấp: ${esc(roleName)}`, icon: 'success', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
             window.loadWalletRoles();
         } catch (err) {
-            Swal.fire({ title: 'Thất bại', text: getShortError(err), icon: 'error', background: '#111827', color: '#fff' });
+            Swal.fire({ title: 'Thất bại', text: getShortError(err), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
         } finally {
             isProcessing = false;
             setTimeout(() => UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY"), 3000);
@@ -3377,16 +3503,16 @@ window.toggleWalletLock = async function(address, isLocked) {
     const roleLevel = isLocked ? 1 : 0; // 1: Nhập liệu (Mở), 0: Tước quyền (Khóa)
     const roleName = isLocked ? 'NHẬP LIỆU' : 'BỊ KHÓA';
     const statusName = isLocked ? 'ACTIVE' : 'REVOKED';
-    const colorCode = isLocked ? '#10b981' : '#dc2626';
+    const colorCode = isLocked ? 'var(--ok)' : 'var(--err)';
 
     const { isConfirmed } = await Swal.fire({
         title: `${esc(actionText)} TÀI KHOẢN?`,
-        html: `Bạn đang thực hiện lệnh <b>${esc(actionText)}</b> cho ví <b class="font-mono text-blue-400">${esc(address.substring(0,8))}...</b>.<br><br><i>Hệ thống sẽ gọi MetaMask để ghi nhận trạng thái lên Blockchain.</i>`,
+        html: `Bạn đang thực hiện lệnh <b>${esc(actionText)}</b> cho ví <b class="font-mono text-accent">${esc(address.substring(0,8))}...</b>.<br><br><i>Hệ thống sẽ gọi MetaMask để ghi nhận trạng thái lên Blockchain.</i>`,
         icon: 'warning', 
         showCancelButton: true, 
         confirmButtonText: `Xác nhận ${esc(actionText)}`, 
         cancelButtonText: 'Hủy lệnh',
-        background: '#111827', color: '#fff', confirmButtonColor: colorCode
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: colorCode
     });
 
     if (isConfirmed) {
@@ -3399,12 +3525,12 @@ window.toggleWalletLock = async function(address, isLocked) {
             await ApiService.syncWalletData(address, { status: statusName, role: roleName });
 
             UI.updateProgress(100, `Đã ${actionText} thành công!`, "SUCCESS");
-            Swal.fire({ title: 'Hoàn tất', text: `Tài khoản đã được ${esc(actionText.toLowerCase())}.`, icon: 'success', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            Swal.fire({ title: 'Hoàn tất', text: `Tài khoản đã được ${esc(actionText.toLowerCase())}.`, icon: 'success', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
             
             window.loadWalletRoles();
             window.checkSelection(); // Reset thanh công cụ nếu đang bật
         } catch (err) {
-            Swal.fire({ title: 'Bị gián đoạn', text: getShortError(err, 'Lệnh bị hủy do bạn từ chối trên MetaMask hoặc lỗi mạng.'), icon: 'error', background: '#111827', color: '#fff' });
+            Swal.fire({ title: 'Bị gián đoạn', text: getShortError(err, 'Lệnh bị hủy do bạn từ chối trên MetaMask hoặc lỗi mạng.'), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
             UI.updateProgress(0, "Giao dịch thất bại.", "FAILED");
         } finally {
             isProcessing = false;
@@ -3417,9 +3543,9 @@ window.toggleWalletLock = async function(address, isLocked) {
 window.deleteWallet = async function(address) {
     const { isConfirmed } = await Swal.fire({
         title: 'XÓA TÀI KHOẢN?',
-        html: `Bạn đang chuẩn bị xóa ví <b class="text-red-400 font-mono">${esc(address.substring(0,8))}...</b>.<br><br><i>Hệ thống sẽ tước quyền trên Blockchain và gỡ tài khoản này khỏi danh bạ quản lý.</i>`,
+        html: `Bạn đang chuẩn bị xóa ví <b class="text-err font-mono">${esc(address.substring(0,8))}...</b>.<br><br><i>Hệ thống sẽ tước quyền trên Blockchain và gỡ tài khoản này khỏi danh bạ quản lý.</i>`,
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Xác nhận Xóa', cancelButtonText: 'Hủy',
-        background: '#111827', color: '#fff', confirmButtonColor: '#dc2626'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--err)'
     });
 
     if (isConfirmed) {
@@ -3434,10 +3560,10 @@ window.deleteWallet = async function(address) {
             await ApiService.syncWalletData(address, { status: 'DELETED', role: 'ĐÃ XÓA' });
 
             UI.updateProgress(100, "Đã xóa ví thành công", "SUCCESS");
-            Swal.fire({ title: 'Đã xóa', text: 'Tài khoản đã được gỡ khỏi hệ thống.', icon: 'success', background: '#111827', color: '#fff', timer: 1500, showConfirmButton: false });
+            Swal.fire({ title: 'Đã xóa', text: 'Tài khoản đã được gỡ khỏi hệ thống.', icon: 'success', background: 'var(--panel)', color: 'var(--ink)', timer: 1500, showConfirmButton: false });
             window.loadWalletRoles();
         } catch (err) {
-            Swal.fire({ title: 'Thất bại', text: getShortError(err, 'Lỗi tước quyền trên chuỗi.'), icon: 'error', background: '#111827', color: '#fff' });
+            Swal.fire({ title: 'Thất bại', text: getShortError(err, 'Lỗi tước quyền trên chuỗi.'), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
         } finally {
             isProcessing = false;
             setTimeout(() => UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY"), 3000);
@@ -3447,9 +3573,9 @@ window.deleteWallet = async function(address) {
 
 // 3b. POPUP "VÍ ĐƯỢC ỦY QUYỀN" — bấm card thống kê → chọn vai trò → xem danh sách ví
 const ROLE_LIST_META = {
-    'NHẬP LIỆU': { color: 'text-blue-300', badge: 'bg-blue-900/40 text-blue-400 border-blue-800/50', icon: 'fa-pen-to-square' },
-    'QUẢN LÝ': { color: 'text-purple-300', badge: 'bg-purple-900/40 text-purple-300 border-purple-800/50', icon: 'fa-user-tie' },
-    'NGƯỜI XEM': { color: 'text-sky-300', badge: 'bg-sky-900/40 text-sky-300 border-sky-800/50', icon: 'fa-eye' }
+    'NHẬP LIỆU': { color: 'text-accent', badge: 'bg-accent-soft text-accent border-accent-line', icon: 'fa-pen-to-square' },
+    'QUẢN LÝ': { color: 'text-violet', badge: 'bg-violet-soft text-violet border-violet', icon: 'fa-user-tie' },
+    'NGƯỜI XEM': { color: 'text-info', badge: 'bg-info-soft text-info border-info', icon: 'fa-eye' }
 };
 let __roleModalWallets = [];
 
@@ -3501,7 +3627,7 @@ window.showRoleList = function (role) {
     }
     // Ví chỉ-đọc (không có tab quản lý): xem danh sách ngay trong popup
     const meta = role === 'ALL'
-        ? { color: 'text-gray-200', badge: 'bg-gray-800 text-gray-300 border-gray-600', icon: 'fa-users' }
+        ? { color: 'text-soft', badge: 'bg-sunken text-soft border-line-strong', icon: 'fa-users' }
         : ROLE_LIST_META[role];
     if (!meta) return;
     document.getElementById('role-list-title').innerHTML =
@@ -3513,15 +3639,15 @@ window.showRoleList = function (role) {
     const badgeOf = (r) => ROLE_LIST_META[r]?.badge || meta.badge;
     const body = document.getElementById('role-list-body');
     body.innerHTML = rows.length === 0
-        ? `<div class="h-full flex flex-col items-center justify-center text-gray-600 gap-2 py-10">
+        ? `<div class="h-full flex flex-col items-center justify-center text-faint gap-2 py-10">
                <i class="fa-solid fa-users-slash text-2xl"></i>
                <p class="text-xs">${role === 'ALL' ? 'Chưa có ví nào được ủy quyền' : `Chưa có ví nào được cấp quyền ${esc(role)}`}</p>
            </div>`
         : rows.map(w => `
-           <div class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-gray-800/40 border border-gray-700/50 hover:border-gray-600 transition">
+           <div class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-sunken border border-line-strong hover:border-line-strong transition">
                <div class="min-w-0">
-                   <p class="text-[13px] font-bold text-white truncate">${esc(w.alias || '(Chưa đặt tên)')}</p>
-                   <p class="font-mono text-[10px] text-gray-500">${esc(w.address)}</p>
+                   <p class="text-[13px] font-bold text-ink truncate">${esc(w.alias || '(Chưa đặt tên)')}</p>
+                   <p class="font-mono text-[10px] text-faint">${esc(w.address)}</p>
                </div>
                <span class="shrink-0 ml-3 w-max px-2 py-0.5 rounded text-[10px] font-bold border ${badgeOf(w.role)}">${esc(w.role)}</span>
            </div>`).join('');
@@ -3540,35 +3666,35 @@ window.openPreviewDrawer = async function(address) {
     if (!w) return;
 
     document.getElementById('drawer-content').innerHTML = `
-        <div class="p-5 border-b border-gray-800 flex justify-between items-center bg-[#111827]">
-            <h3 class="text-white font-bold"><i class="fa-solid fa-user-shield text-blue-500 mr-2"></i> Hồ Sơ Tài Khoản</h3>
-            <button data-act="drawer-close" class="text-gray-500 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+        <div class="p-5 border-b border-line flex justify-between items-center bg-sunken">
+            <h3 class="text-ink font-bold"><i class="fa-solid fa-user-shield text-accent mr-2"></i> Hồ Sơ Tài Khoản</h3>
+            <button data-act="drawer-close" class="text-faint hover:text-ink transition"><i class="fa-solid fa-xmark text-lg"></i></button>
         </div>
         <div class="p-5 flex-1 overflow-y-auto space-y-6">
             <div>
-                <label class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">TÀI KHOẢN VÍ</label>
-                <div class="mt-1">${w.role === 'ADMIN' ? '<span class="text-yellow-500 font-bold text-[10px] bg-yellow-900/20 px-2 py-0.5 rounded border border-yellow-900/50">ADMIN</span>' : `<span class="text-blue-400 font-bold text-[10px] bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/50">${esc(w.role)}</span>`}</div>
+                <label class="text-[10px] text-faint font-bold uppercase tracking-wider">TÀI KHOẢN VÍ</label>
+                <div class="mt-1">${w.role === 'ADMIN' ? '<span class="text-warn font-bold text-[10px] bg-warn-soft px-2 py-0.5 rounded border border-warn">ADMIN</span>' : `<span class="text-accent font-bold text-[10px] bg-accent-soft px-2 py-0.5 rounded border border-accent-line">${esc(w.role)}</span>`}</div>
             </div>
             <div class="mt-4">
-                <label class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">ĐỊA CHỈ VÍ</label>
+                <label class="text-[10px] text-faint font-bold uppercase tracking-wider">ĐỊA CHỈ VÍ</label>
                 <div class="flex items-center gap-2 mt-1">
-                    <div class="font-mono text-blue-400 text-sm bg-gray-900 p-2 rounded border border-gray-800 break-all flex-1">${esc(w.address)}</div>
-                    <button data-act="copy" data-v="${esc(w.address)}" class="bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white p-2.5 rounded border border-gray-700 transition" title="Copy địa chỉ ví"><i class="fa-regular fa-copy"></i></button>
+                    <div class="font-mono text-accent text-sm bg-panel p-2 rounded border border-line break-all flex-1">${esc(w.address)}</div>
+                    <button data-act="copy" data-v="${esc(w.address)}" class="bg-sunken hover:bg-hover text-muted hover:text-ink p-2.5 rounded border border-line-strong transition" title="Copy địa chỉ ví"><i class="fa-regular fa-copy"></i></button>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3 mt-4">
-                <div class="bg-gray-900 p-3 rounded-lg border border-gray-800 text-center">
-                    <div class="text-[10px] text-gray-500 font-bold uppercase mb-1">Đã dùng IPFS</div>
-                    <div class="text-xl text-white font-bold">${esc(w.storageUsed)} <span class="text-xs text-gray-500">MB</span></div>
+                <div class="bg-panel p-3 rounded-lg border border-line text-center">
+                    <div class="text-[10px] text-faint font-bold uppercase mb-1">Đã dùng IPFS</div>
+                    <div class="text-xl text-ink font-bold">${esc(w.storageUsed)} <span class="text-xs text-faint">MB</span></div>
                 </div>
-                <div class="bg-gray-900 p-3 rounded-lg border border-gray-800 text-center">
-                    <div class="text-[10px] text-gray-500 font-bold uppercase mb-1">Xu hướng</div>
-                    <div class="text-xl ${w.storageTrend > 0 ? 'text-red-400' : 'text-emerald-400'} font-bold">${esc(w.storageTrend)}%</div>
+                <div class="bg-panel p-3 rounded-lg border border-line text-center">
+                    <div class="text-[10px] text-faint font-bold uppercase mb-1">Xu hướng</div>
+                    <div class="text-xl ${w.storageTrend > 0 ? 'text-err' : 'text-ok'} font-bold">${esc(w.storageTrend)}%</div>
                 </div>
             </div>
             <div>
-                <label class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2 block">Cảnh báo bảo mật</label>
-                <div class="text-xs p-3 rounded border ${w.securityAlert ? 'bg-red-900/20 border-red-900/50 text-red-400' : 'bg-emerald-900/20 border-emerald-900/50 text-emerald-400'}">
+                <label class="text-[10px] text-faint font-bold uppercase tracking-wider mb-2 block">Cảnh báo bảo mật</label>
+                <div class="text-xs p-3 rounded border ${w.securityAlert ? 'bg-err-soft border-err text-err' : 'bg-ok-soft border-ok text-ok'}">
                     ${w.securityAlert ? `<i class="fa-solid fa-triangle-exclamation mr-1"></i> ${esc(w.securityAlert)}` : `<i class="fa-solid fa-shield-check mr-1"></i> Hệ thống an toàn.`}
                 </div>
             </div>
@@ -3596,11 +3722,11 @@ window.toggleDrawer = function(isOpen) {
 // =====================================================================
 let __walletRoleFilter = 'ALL';
 const WALLET_FILTER_STYLE = {
-    'ALL':        { on: 'bg-gray-700 text-white border-gray-400',          off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-white' },
-    'NHẬP LIỆU':  { on: 'bg-blue-600/30 text-blue-300 border-blue-500',    off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-blue-300' },
-    'QUẢN LÝ':    { on: 'bg-purple-600/30 text-purple-300 border-purple-500', off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-purple-300' },
-    'NGƯỜI XEM':  { on: 'bg-sky-600/30 text-sky-300 border-sky-500',       off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-sky-300' },
-    'BỊ KHÓA':    { on: 'bg-red-600/30 text-red-300 border-red-500',       off: 'bg-gray-800/50 text-gray-400 border-gray-700 hover:text-red-300' }
+    'ALL':        { on: 'bg-hover text-ink border-line-strong',          off: 'bg-sunken text-muted border-line-strong hover:text-ink' },
+    'NHẬP LIỆU':  { on: 'bg-accent-soft text-accent border-accent',    off: 'bg-sunken text-muted border-line-strong hover:text-accent' },
+    'QUẢN LÝ':    { on: 'bg-violet-soft text-violet border-violet', off: 'bg-sunken text-muted border-line-strong hover:text-violet' },
+    'NGƯỜI XEM':  { on: 'bg-info-soft text-info border-info',       off: 'bg-sunken text-muted border-line-strong hover:text-info' },
+    'BỊ KHÓA':    { on: 'bg-err-soft text-err border-err',       off: 'bg-sunken text-muted border-line-strong hover:text-err' }
 };
 
 window.filterWalletTable = function(role) {
@@ -3619,6 +3745,7 @@ window.filterWalletTable = function(role) {
         btn.className = 'wallet-filter px-3 py-1 rounded-lg text-[11px] font-bold border transition ' +
             (btn.dataset.filter === role ? s.on : s.off);
     });
+    paginateTbody(document.getElementById('wallet-roles-table-body'), 1);
     window.checkSelection();
 };
 
@@ -3664,7 +3791,7 @@ window.lockSelectedWallets = async function() {
         title: 'KHÓA VÍ HÀNG LOẠT',
         html: `Bạn đang khóa <b>${selectedAddresses.length} ví</b>.<br><br><i>Lưu ý: Vì lý do bảo mật Blockchain, MetaMask sẽ bật lên yêu cầu bạn xác nhận giao dịch cho từng ví một. Vui lòng ấn "Xác nhận" liên tục cho đến khi hoàn tất.</i>`,
         icon: 'warning', showCancelButton: true, confirmButtonText: 'Bắt đầu Khóa', cancelButtonText: 'Hủy',
-        background: '#111827', color: '#fff', confirmButtonColor: '#dc2626'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--err)'
     });
 
     if (!isConfirmed) return;
@@ -3683,9 +3810,9 @@ window.lockSelectedWallets = async function() {
         }
         
         UI.updateProgress(100, "Đã khóa thành công toàn bộ!", "SUCCESS");
-        Swal.fire({ title: 'Hoàn tất', text: `Đã khóa thành công ${esc(successCount)} ví.`, icon: 'success', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Hoàn tất', text: `Đã khóa thành công ${esc(successCount)} ví.`, icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
     } catch (err) {
-        Swal.fire({ title: 'Bị gián đoạn', text: getShortError(err, 'Quá trình bị hủy do bạn từ chối trên MetaMask.'), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Bị gián đoạn', text: getShortError(err, 'Quá trình bị hủy do bạn từ chối trên MetaMask.'), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     } finally {
         isProcessing = false;
         window.loadWalletRoles(); 
@@ -3709,7 +3836,7 @@ window.unlockSelectedWallets = async function() {
         title: 'MỞ KHÓA HÀNG LOẠT',
         html: `Bạn sẽ khôi phục <b>Quyền Nhập Liệu</b> cho <b>${selectedAddresses.length} ví</b>.<br><br><i>Hệ thống sẽ gọi MetaMask để ghi đè quyền lên Blockchain.</i>`,
         icon: 'info', showCancelButton: true, confirmButtonText: 'Mở Khóa Ngay', cancelButtonText: 'Hủy',
-        background: '#111827', color: '#fff', confirmButtonColor: '#10b981'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--ok)'
     });
 
     if (!isConfirmed) return;
@@ -3727,9 +3854,9 @@ window.unlockSelectedWallets = async function() {
         }
         
         UI.updateProgress(100, "Đã mở khóa thành công!", "SUCCESS");
-        Swal.fire({ title: 'Hoàn tất', text: `Đã khôi phục hoạt động cho ${esc(successCount)} ví.`, icon: 'success', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Hoàn tất', text: `Đã khôi phục hoạt động cho ${esc(successCount)} ví.`, icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
     } catch (err) {
-        Swal.fire({ title: 'Bị gián đoạn', text: getShortError(err, 'Quá trình bị hủy do bạn từ chối trên MetaMask.'), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Bị gián đoạn', text: getShortError(err, 'Quá trình bị hủy do bạn từ chối trên MetaMask.'), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     } finally {
         isProcessing = false;
         window.loadWalletRoles(); 
@@ -3758,7 +3885,7 @@ window.sendBulkNotification = async function() {
         showCancelButton: true,
         confirmButtonText: '<i class="fa-solid fa-paper-plane mr-1"></i> Gửi thông báo',
         cancelButtonText: 'Hủy',
-        background: '#111827', color: '#fff', confirmButtonColor: '#3b82f6'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--accent)'
     });
 
     if (message) {
@@ -3771,7 +3898,7 @@ window.sendBulkNotification = async function() {
                 title: 'Đã gửi!',
                 text: `Thông báo đã được đẩy tới ${esc(count)} thiết bị.`,
                 icon: 'success',
-                background: '#111827', color: '#fff',
+                background: 'var(--panel)', color: 'var(--ink)',
                 timer: 2000, showConfirmButton: false
             });
             
@@ -3801,11 +3928,11 @@ window.openStorageModal = async function(walletAddress) {
     const roleSpan = document.getElementById('storage-modal-role');
     if (roleSpan) {
         roleSpan.innerText = roleName;
-        roleSpan.className = isAdmin ? "text-yellow-500 font-bold text-[10px] bg-yellow-900/20 px-2 py-0.5 rounded border border-yellow-900/50 inline-block" : "text-blue-400 font-bold text-[10px] bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/50 inline-block";
+        roleSpan.className = isAdmin ? "text-warn font-bold text-[10px] bg-warn-soft px-2 py-0.5 rounded border border-warn inline-block" : "text-accent font-bold text-[10px] bg-accent-soft px-2 py-0.5 rounded border border-accent-line inline-block";
     }
     
     modal.classList.remove('hidden');
-    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-blue-500"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang trích xuất dữ liệu sổ cái...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-accent"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang trích xuất dữ liệu sổ cái...</td></tr>';
     
     try {
         let html = ''; let stt = 1;
@@ -3823,8 +3950,8 @@ window.openStorageModal = async function(walletAddress) {
         const myAddr = (web3.currentAccount || '').toLowerCase();
         const isAdminViewer = window.__isAdminWallet === true;
         // File private chỉ chủ ví mở — kể cả ADMIN xem hồ sơ ví khác cũng chỉ thấy khóa
-        const lockChip = `<span class="ml-2 text-gray-500 text-[11px] uppercase font-bold bg-gray-800/60 px-2 py-1 rounded border border-gray-700" title="Tài liệu riêng tư — chỉ người tải lên xem được"><i class="fa-solid fa-lock mr-1"></i>Riêng tư</span>`;
-        const partnerChip = `<span class="ml-2 text-amber-500/90 text-[11px] uppercase font-bold bg-amber-900/20 px-2 py-1 rounded border border-amber-900/40" title="Chỉ tổ chức sở hữu API key tải về tại cổng /partner"><i class="fa-solid fa-lock mr-1"></i>Chỉ tổ chức mở được</span>`;
+        const lockChip = `<span class="ml-2 text-faint text-[11px] uppercase font-bold bg-sunken px-2 py-1 rounded border border-line-strong" title="Tài liệu riêng tư — chỉ người tải lên xem được"><i class="fa-solid fa-lock mr-1"></i>Riêng tư</span>`;
+        const partnerChip = `<span class="ml-2 text-warn text-[11px] uppercase font-bold bg-warn-soft px-2 py-1 rounded border border-warn" title="Chỉ tổ chức sở hữu API key tải về tại cổng /partner"><i class="fa-solid fa-lock mr-1"></i>Chỉ tổ chức mở được</span>`;
         const locked = (docUploader, vis) => (vis || 'private') !== 'public' && docUploader.toLowerCase() !== myAddr;
 
         // Lấy file đơn lẻ (On-chain)
@@ -3850,26 +3977,26 @@ window.openStorageModal = async function(walletAddress) {
                     const mongoFile = mongoByDocId[docId];
                     const sizeText = (mongoFile && mongoFile.fileSize) || '---';
                     let fileName = docId.replace(/_\d+$/, '').replace(/\.enc$/, '');
-                    const statusBadge = isRevoked ? '<span class="bg-red-900/40 text-red-400 px-2 py-1 rounded text-[10px] font-bold">BỊ THU HỒI</span>' : '<span class="bg-emerald-900/40 text-emerald-400 px-2 py-1 rounded text-[10px] font-bold uppercase">HỢP LỆ</span>';
+                    const statusBadge = isRevoked ? '<span class="bg-err-soft text-err px-2 py-1 rounded text-[10px] font-bold">BỊ THU HỒI</span>' : '<span class="bg-ok-soft text-ok px-2 py-1 rounded text-[10px] font-bold uppercase">HỢP LỆ</span>';
                     const orgBadge = org ? `<div class="mt-1">${window.partnerBadge(partnerOrgs, docId)}</div>` : '';
 
                     // Nút xem/tải: thu hồi → ẩn; doc đối tác → khóa tổ chức; private của ví khác → khóa
                     const downloadBtn = isRevoked ? '' : org ? partnerChip : locked(uploader, mongoFile && mongoFile.visibility) ? lockChip
-                        : `<button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" class="ml-2 text-emerald-400 hover:text-emerald-300 text-[11px] bg-emerald-900/20 px-2 py-1 rounded border border-emerald-900/50 transition" title="Xem trực tiếp"><i class="fa-solid fa-eye mr-1"></i> Xem</button><button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" class="ml-2 text-blue-400 hover:text-blue-300 text-[11px] bg-blue-900/20 px-2 py-1 rounded border border-blue-900/50 transition" title="Tải & Giải mã"><i class="fa-solid fa-download mr-1"></i> Tải về</button>`;
+                        : `<button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" class="ml-2 text-ok hover:text-ok text-[11px] bg-ok-soft px-2 py-1 rounded border border-ok transition" title="Xem trực tiếp"><i class="fa-solid fa-eye mr-1"></i> Xem</button><button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" class="ml-2 text-accent hover:text-accent text-[11px] bg-accent-soft px-2 py-1 rounded border border-accent-line transition" title="Tải & Giải mã"><i class="fa-solid fa-download mr-1"></i> Tải về</button>`;
 
                     html += `
-                    <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition ${isRevoked ? 'opacity-50' : ''}">
-                        <td class="px-3 py-2 font-bold text-center text-gray-500">${stt++}</td>
-                        <td class="px-3 py-2 font-mono text-blue-400 text-xs">
+                    <tr class="border-b border-line hover:bg-hover transition ${isRevoked ? 'opacity-50' : ''}">
+                        <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
+                        <td class="px-3 py-2 font-mono text-accent text-xs">
                         <div class="flex items-center">
                         <span class="truncate max-w-[120px]" title="${esc(docId)}">${esc(docId)}</span>
-                        <button data-act="copy" data-v="${esc(docId)}" class="ml-2 text-gray-400 hover:text-white"><i class="fa-regular fa-copy"></i></button>
+                        <button data-act="copy" data-v="${esc(docId)}" class="ml-2 text-muted hover:text-ink"><i class="fa-regular fa-copy"></i></button>
                         </div>
-                        <div class="mt-1 text-[11px] text-gray-400 font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
+                        <div class="mt-1 text-[11px] text-muted font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
                         ${orgBadge}
                         </td>
-                        <td class="px-3 py-2 text-left font-mono text-[11px] text-gray-300">${esc(sizeText)}</td>
-                        <td class="px-3 py-2 text-xs text-gray-400">${esc(createTime)}</td>
+                        <td class="px-3 py-2 text-left font-mono text-[11px] text-soft">${esc(sizeText)}</td>
+                        <td class="px-3 py-2 text-xs text-muted">${esc(createTime)}</td>
                         <td class="px-3 py-2 text-center flex justify-center items-center">
                             ${statusBadge} ${downloadBtn}
                         </td>
@@ -3886,23 +4013,23 @@ window.openStorageModal = async function(walletAddress) {
                     if (seenDocIds.has(fileDoc.docId)) return;
                     seenDocIds.add(fileDoc.docId);
                     const isRevoked = fileDoc.isRevoked;
-                    const statusBadge = isRevoked ? '<span class="bg-red-900/40 text-red-400 px-2 py-1 rounded text-[10px] font-bold">BỊ THU HỒI</span>' : '<span class="bg-emerald-900/40 text-emerald-400 px-2 py-1 rounded text-[10px] font-bold uppercase">HỢP LỆ</span>';
+                    const statusBadge = isRevoked ? '<span class="bg-err-soft text-err px-2 py-1 rounded text-[10px] font-bold">BỊ THU HỒI</span>' : '<span class="bg-ok-soft text-ok px-2 py-1 rounded text-[10px] font-bold uppercase">HỢP LỆ</span>';
 
                     // Nút xem/tải: thu hồi → ẩn; private của ví khác → khóa (kể cả ADMIN)
                     const downloadBtn = isRevoked ? '' : locked(batch.uploader, fileDoc.visibility) ? lockChip
-                        : `<button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="ml-2 text-emerald-400 hover:text-emerald-300 text-[11px] bg-emerald-900/20 px-2 py-1 rounded border border-emerald-900/50 transition" title="Xem trực tiếp"><i class="fa-solid fa-eye mr-1"></i> Xem</button><button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="ml-2 text-blue-400 hover:text-blue-300 text-[11px] bg-blue-900/20 px-2 py-1 rounded border border-blue-900/50 transition" title="Tải & Giải mã"><i class="fa-solid fa-download mr-1"></i> Tải về</button>`;
+                        : `<button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="ml-2 text-ok hover:text-ok text-[11px] bg-ok-soft px-2 py-1 rounded border border-ok transition" title="Xem trực tiếp"><i class="fa-solid fa-eye mr-1"></i> Xem</button><button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="ml-2 text-accent hover:text-accent text-[11px] bg-accent-soft px-2 py-1 rounded border border-accent-line transition" title="Tải & Giải mã"><i class="fa-solid fa-download mr-1"></i> Tải về</button>`;
 
                     html += `
-                    <tr class="border-b border-gray-800 hover:bg-[#1f2937] transition ${isRevoked ? 'opacity-50' : ''}">
-                        <td class="px-3 py-2 font-bold text-center text-gray-500">${stt++}</td>
-                        <td class="px-3 py-2 font-mono text-blue-400 text-xs">
+                    <tr class="border-b border-line hover:bg-hover transition ${isRevoked ? 'opacity-50' : ''}">
+                        <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
+                        <td class="px-3 py-2 font-mono text-accent text-xs">
                         <div class="flex items-center">
                             <span class="truncate max-w-[120px]" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</span>
-                            <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="ml-2 text-gray-400 hover:text-white"><i class="fa-regular fa-copy"></i></button>
+                            <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="ml-2 text-muted hover:text-ink"><i class="fa-regular fa-copy"></i></button>
                             </div>
                         </td>
-                        <td class="px-3 py-2 text-left font-mono text-[11px] text-gray-300">${esc(fileDoc.fileSize || '---')}</td>
-                        <td class="px-3 py-2 text-xs text-gray-400">${esc(createTime)}</td>
+                        <td class="px-3 py-2 text-left font-mono text-[11px] text-soft">${esc(fileDoc.fileSize || '---')}</td>
+                        <td class="px-3 py-2 text-xs text-muted">${esc(createTime)}</td>
                         <td class="px-3 py-2 text-center flex justify-center items-center">
                             ${statusBadge} ${downloadBtn}
                         </td>
@@ -3911,9 +4038,9 @@ window.openStorageModal = async function(walletAddress) {
             }
         }
         
-        tbody.innerHTML = html === '' ? '<tr><td colspan="5" class="px-4 py-10 text-center text-gray-500">Ví này chưa tải lên tài liệu nào.</td></tr>' : html;
+        tbody.innerHTML = html === '' ? '<tr><td colspan="5" class="px-4 py-10 text-center text-faint">Ví này chưa tải lên tài liệu nào.</td></tr>' : html;
     } catch (error) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-red-500">Lỗi khi truy xuất Blockchain. Hãy chắc chắn bạn đã kết nối ví.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-err">Lỗi khi truy xuất Blockchain. Hãy chắc chắn bạn đã kết nối ví.</td></tr>';
     }
 };
 // =====================================================================
@@ -3936,8 +4063,8 @@ async function resolveDocKey(docId, originalFileName) {
         input: 'password',
         inputAttributes: { autocomplete: 'new-password' },
         inputPlaceholder: 'Nhập mật khẩu...',
-        background: '#111827', color: '#fff',
-        confirmButtonColor: '#10b981', showCancelButton: true, cancelButtonText: 'Hủy'
+        background: 'var(--panel)', color: 'var(--ink)',
+        confirmButtonColor: 'var(--ok)', showCancelButton: true, cancelButtonText: 'Hủy'
     });
     return secretKey || null;
 }
@@ -4014,8 +4141,8 @@ async function retrieveDecryptedBlob(ipfsCID, secretKey, originalFileName) {
                 input: 'password',
                 inputAttributes: { autocomplete: 'new-password' },
                 inputPlaceholder: 'Nhập lại khóa AES...',
-                background: '#111827', color: '#fff',
-                confirmButtonColor: '#10b981', showCancelButton: true, cancelButtonText: 'Hủy'
+                background: 'var(--panel)', color: 'var(--ink)',
+                confirmButtonColor: 'var(--ok)', showCancelButton: true, cancelButtonText: 'Hủy'
             });
             if (!retryKey) throw e;
             secretKey = retryKey;
@@ -4045,7 +4172,7 @@ window.previewDocument = async (ipfsCID, originalFileName, docId) => {
     const win = window.open('', '_blank');
     if (!win) return window.downloadAndDecrypt(ipfsCID, originalFileName, docId); // popup bị chặn → tải về
 
-    if (cidInvalid(ipfsCID)) { win.close(); return Swal.fire({ title: 'Dữ Liệu Không Hợp Lệ', text: INVALID_CID_MSG, icon: 'error', background: '#111827', color: '#fff' }); }
+    if (cidInvalid(ipfsCID)) { win.close(); return Swal.fire({ title: 'Dữ Liệu Không Hợp Lệ', text: INVALID_CID_MSG, icon: 'error', background: 'var(--panel)', color: 'var(--ink)' }); }
     if (isProcessing) { win.close(); return; }
 
     isProcessing = true;
@@ -4115,7 +4242,7 @@ window.previewDocument = async (ipfsCID, originalFileName, docId) => {
 
 window.downloadAndDecrypt = async (ipfsCID, originalFileName, docId) => {
     if (cidInvalid(ipfsCID)) {
-        return Swal.fire({ title: 'Dữ Liệu Không Hợp Lệ', text: INVALID_CID_MSG, icon: 'error', background: '#111827', color: '#fff' });
+        return Swal.fire({ title: 'Dữ Liệu Không Hợp Lệ', text: INVALID_CID_MSG, icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     }
     if (isProcessing) return;
 
@@ -4131,7 +4258,7 @@ window.downloadAndDecrypt = async (ipfsCID, originalFileName, docId) => {
         Swal.fire({
             title: `Đã giải mã "${esc(originalFileName)}"`,
             toast: true, position: 'top-end', timer: 2200, showConfirmButton: false,
-            icon: 'success', background: '#111827', color: '#fff'
+            icon: 'success', background: 'var(--panel)', color: 'var(--ink)'
         });
     } catch (error) {
         handleRetrieveError(error);
@@ -4144,11 +4271,11 @@ window.downloadAndDecrypt = async (ipfsCID, originalFileName, docId) => {
 function handleRetrieveError(error) {
     UI.updateProgress(0, "Truy xuất thất bại.", "ERROR");
     if (error.message === "SYNC_DELAY") {
-        Swal.fire({ title: 'Lỗi Kết Nối', text: 'Mạng IPFS không phản hồi. Vui lòng kiểm tra lại đường truyền internet.', icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Lỗi Kết Nối', text: 'Mạng IPFS không phản hồi. Vui lòng kiểm tra lại đường truyền internet.', icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     } else if (error.message === "WRONG_PASSWORD") {
-        Swal.fire({ title: 'Sai Mật Khẩu!', text: 'Mật khẩu giải mã không chính xác.', icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Sai Mật Khẩu!', text: 'Mật khẩu giải mã không chính xác.', icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     } else {
-        Swal.fire({ title: 'Lỗi', text: esc(error?.message || String(error)), icon: 'error', background: '#111827', color: '#fff' });
+        Swal.fire({ title: 'Lỗi', text: esc(error?.message || String(error)), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
     }
 }
 window.closeStorageModal = function() { document.getElementById('storage-modal-overlay').classList.add('hidden'); };
