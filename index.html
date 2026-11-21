@@ -238,11 +238,6 @@ tailwind.config = { theme: { extend: {
                         <i class="fa-regular fa-clock mr-2 text-accent"></i> <span id="real-time-clock">--:--:--</span>
                     </span>
                     
-                    <!-- SYSTEM ONLINE -->
-                    <span class="bg-ok-soft text-ok border border-ok text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-sm tracking-wide">
-                        <span class="w-2 h-2 rounded-full bg-ok mr-2"></span> System Online
-                    </span>
-
                     <!-- NÚT KẾT NỐI VÍ (Sẽ tự động ẩn đi sau khi đăng nhập) -->
                     <button id="btn-connect" class="bg-accent hover:brightness-110 text-white px-5 py-1.5 rounded-full text-sm font-bold transition">
                         <i class="fa-brands fa-ethereum me-2"></i> Kết nối Ví
@@ -263,32 +258,6 @@ tailwind.config = { theme: { extend: {
                         </p>
                     </div>
                 </div>
-                <!-- Dashboard Stats -->
-                <div id="dashboard-stats" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <div onclick="document.getElementById('nav-history').click()" class="bg-panel border border-line px-4 py-2.5 rounded-md relative overflow-hidden cursor-pointer hover:bg-hover hover:border-accent-line transition duration-200 group">
-                        <div class="absolute right-0 top-0 h-full w-1 bg-accent group-hover:"></div>
-                        <p class="text-[10px] text-faint font-bold group-hover:text-accent transition">TỔNG TÀI LIỆU (ON-CHAIN)</p>
-                        <h4 class="text-lg font-bold text-ink mt-0.5"><span id="stat-total-docs">--</span> <span class="text-xs text-faint font-normal">file</span></h4>
-                        <i class="fa-solid fa-arrow-up-right-from-square absolute top-3 right-3 text-faint group-hover:text-accent transition opacity-0 group-hover:opacity-100"></i>
-                    </div>
-                    <div onclick="window.openRoleModal && window.openRoleModal()" class="bg-panel border border-line px-4 py-2.5 rounded-md relative overflow-hidden cursor-pointer hover:bg-hover hover:border-ok transition duration-200 group">
-                        <div class="absolute right-0 top-0 h-full w-1 bg-ok group-hover:"></div>
-                        <p class="text-[10px] text-faint font-bold group-hover:text-ok transition">VÍ ĐƯỢC ỦY QUYỀN</p>
-                        <h4 class="text-lg font-bold text-ink mt-0.5"><span id="stat-total-issuers">--</span> <span class="text-xs text-faint font-normal">ví</span></h4>
-                        <i class="fa-solid fa-arrow-up-right-from-square absolute top-3 right-3 text-faint group-hover:text-ok transition opacity-0 group-hover:opacity-100"></i>
-                    </div>
-                    <div class="bg-panel border border-line px-4 py-2.5 rounded-md relative overflow-hidden">
-                        <div class="absolute right-0 top-0 h-full w-1 bg-violet"></div>
-                        <p class="text-[10px] text-faint font-bold">CHI PHÍ LƯU TRỮ IPFS</p>
-                        <h4 class="text-lg font-bold text-ink mt-0.5">$<span id="stat-ipfs-cost">0.00</span> <span class="text-xs text-ok font-normal">(Tiết kiệm)</span></h4>
-                    </div>
-                    <div class="bg-panel border border-line px-4 py-2.5 rounded-md relative overflow-hidden">
-                        <div class="absolute right-0 top-0 h-full w-1 bg-info"></div>
-                        <p class="text-[10px] text-faint font-bold">THỜI GIAN ĐÁP ỨNG BLOCKCHAIN</p>
-                        <h4 class="text-lg font-bold text-ink mt-0.5"><span id="stat-rpc-latency">--</span> <span class="text-xs text-faint font-normal">ms</span></h4>
-                    </div>
-                </div>
-
                 <div id="workspace-grid" class="grid grid-cols-1 lg:grid-cols-12 lg:auto-rows-[minmax(0,1fr)] gap-6 items-stretch flex-1 min-h-0">
                     <!-- ============================================== -->
                     <!-- CỘT TRÁI (Khu vực làm việc - Chiếm 7/12 màn hình)-->
@@ -893,7 +862,7 @@ tailwind.config = { theme: { extend: {
                                 <div id="dash-kpi-active" class="stat"><div class="stat-value text-faint">…</div></div>
                                 <div id="dash-kpi-stamped" class="stat"><div class="stat-value text-faint">…</div></div>
                                 <div id="dash-kpi-revoked" class="stat"><div class="stat-value text-faint">…</div></div>
-                                <div id="dash-kpi-wallets" class="stat"><div class="stat-value text-faint">…</div></div>
+                                <div id="dash-kpi-wallets" class="stat clickable" title="Xem danh sách ví được cấp quyền" onclick="window.openRoleModal && window.openRoleModal()"><div class="stat-value text-faint">…</div></div>
                             </div>
                             <!-- KPI phụ — chỉ ADMIN (dashboard.js hiện khi isAdmin) -->
                             <div id="dash-admin-row" class="hidden grid grid-cols-1 md:grid-cols-3 gap-3"></div>
