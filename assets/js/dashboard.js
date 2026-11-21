@@ -130,11 +130,20 @@ async function loadAdmin() {
     _errors.admin = (_admin.pending === null && _admin.sessions === null && _admin.keys === null);
 }
 
-async function loadSource(src) {
+// Timeout mỗi nguồn — fetch của apiService không có AbortSignal, 1 request
+// treo (backend sập/network suspended) sẽ khóa allSettled → dashboard trắng
+const SRC_TIMEOUT_MS = 20000;
+function withTimeout(promise, ms) {
+    return Promise.race([
+        promise,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+    ]);
+}
+
+async function loadSource(src, timeoutMs) {
     try {
-        if (src === 'chain') await loadChain();
-        else if (src === 'db') await loadDb();
-        else if (src === 'admin') await loadAdmin();
+        const job = src === 'chain' ? loadChain() : src === 'db' ? loadDb() : loadAdmin();
+        await (timeoutMs ? withTimeout(job, timeoutMs) : job);
     } catch {
         _errors[src] = true;
     }
@@ -445,7 +454,7 @@ export function initDashboard(ctx) {
             const btn = e.target.closest('#tab-dashboard [data-act="dash-retry"]');
             if (!btn) return;
             const src = btn.dataset.src;
-            if (src) loadSource(src);
+            if (src) loadSource(src, SRC_TIMEOUT_MS);
         });
         // Vào tab dashboard → refresh (throttle 30s lo chi phí RPC)
         document.addEventListener('bdi:tab', (e) => {
@@ -462,10 +471,11 @@ export function refreshDashboard(force = false) {
     if (_inflight) return _inflight;
     _lastRefresh = now;
     _inflight = (async () => {
-        const jobs = [['chain', loadChain], ['db', loadDb]];
-        if (_ctx.isAdmin) jobs.push(['admin', loadAdmin]);
-        await Promise.allSettled(jobs.map(([s, fn]) => fn().catch(() => { _errors[s] = true; })));
-        renderAll();
+        const jobs = [['chain'], ['db']];
+        if (_ctx.isAdmin) jobs.push(['admin']);
+        // Mỗi nguồn render độc lập (loadSource đã renderAll sau khi xong) —
+        // nguồn nhanh hiện trước, nguồn treo chỉ hiện error strip sau timeout
+        await Promise.allSettled(jobs.map(([s]) => loadSource(s, SRC_TIMEOUT_MS)));
     })().finally(() => { _inflight = null; });
     return _inflight;
 }
