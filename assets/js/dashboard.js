@@ -198,7 +198,6 @@ function renderAdminRow() {
     const pending = _admin.pending;
     const keys = _admin.keys;
     const activeKeys = Array.isArray(keys) ? keys.filter(k => !k.revoked) : null;
-    const lastUsed = activeKeys && activeKeys.length ? activeKeys.map(k => k.lastUsedAt || 0).filter(Boolean).sort((a, b) => b - a)[0] : null;
     // Ví hoạt động: địa chỉ distinct xuất hiện trong event đóng dấu/thu hồi on-chain
     const actors = new Set();
     if (!_errors.chain) {
@@ -209,7 +208,7 @@ function renderAdminRow() {
     row.innerHTML =
         cell(pending === null ? '—' : pending.length, 'Ví chờ duyệt', 'Database') +
         cell(_errors.chain ? '—' : actors.size, 'Ví hoạt động', 'On-chain') +
-        cell(activeKeys === null ? '—' : `${activeKeys.length}${lastUsed ? ' · dùng gần nhất ' + new Date(lastUsed).toLocaleDateString('vi-VN') : ''}`, 'API key active', 'Database');
+        cell(activeKeys === null ? '—' : activeKeys.length, 'API key active', 'Database');
 }
 
 function relTime(ts) {
