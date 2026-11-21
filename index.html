@@ -885,21 +885,21 @@ tailwind.config = { theme: { extend: {
                 <!-- TAB DASHBOARD: Tổng quan — sibling của #workspace-grid, full width -->
                 <div id="tab-dashboard" class="hidden flex-1 min-h-0 flex flex-col">
                     <div class="flex-1 overflow-y-auto">
-                        <div class="space-y-4 pb-6">
+                        <div class="dash max-w-5xl mx-auto w-full space-y-3 pb-6">
                             <!-- Dòng chẩn đoán tạm thời: dashboard.js ghi trạng thái vào đây -->
                             <div id="dash-debug" class="text-[11px] font-mono rounded-md px-2 py-1 bg-[var(--bg-soft)] border border-[var(--border)]">[dash] html loaded</div>
                             <!-- KPI on-chain -->
-                            <div id="dash-kpi-row" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div id="dash-kpi-row" class="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <div id="dash-kpi-active" class="stat"><div class="stat-value text-faint">…</div></div>
                                 <div id="dash-kpi-stamped" class="stat"><div class="stat-value text-faint">…</div></div>
                                 <div id="dash-kpi-revoked" class="stat"><div class="stat-value text-faint">…</div></div>
                                 <div id="dash-kpi-wallets" class="stat"><div class="stat-value text-faint">…</div></div>
                             </div>
                             <!-- KPI phụ — chỉ ADMIN (dashboard.js hiện khi isAdmin) -->
-                            <div id="dash-admin-row" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                            <div id="dash-admin-row" class="hidden grid grid-cols-1 md:grid-cols-3 gap-3"></div>
                             <!-- Grid chính 2 cột -->
-                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
-                                <div class="xl:col-span-2 space-y-4">
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 items-start">
+                                <div class="xl:col-span-2 space-y-3">
                                     <div class="card">
                                         <h3 class="text-sm font-bold text-ink mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-column text-accent"></i>Đóng dấu theo thời gian</h3>
                                         <div id="dash-chart"></div>
@@ -909,7 +909,7 @@ tailwind.config = { theme: { extend: {
                                         <div id="dash-feed"></div>
                                     </div>
                                 </div>
-                                <div class="space-y-4">
+                                <div class="space-y-3">
                                     <div class="card" id="dash-sys"></div>
                                     <div class="card hidden" id="dash-role"></div>
                                 </div>

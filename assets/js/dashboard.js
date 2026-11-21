@@ -246,7 +246,7 @@ async function renderFeed() {
         : '<i class="fa-solid fa-file-circle-xmark text-err"></i>';
     const label = (k) => k === 'added' ? 'Đóng dấu' : 'Thu hồi';
     box.innerHTML = `<ul class="divide-y divide-line">${items.map(it => `
-        <li class="flex items-center gap-3 py-2.5">
+        <li class="flex items-center gap-3 py-2">
             <span class="w-8 h-8 rounded-md bg-sunken border border-line flex items-center justify-center shrink-0">${icon(it.kind)}</span>
             <div class="flex-1 min-w-0">
                 <div class="text-sm text-ink font-medium truncate">${label(it.kind)} <span class="font-mono text-xs text-accent">${esc(shortId(it.docId))}</span></div>
@@ -339,7 +339,7 @@ async function renderChart() {
         <div class="flex items-baseline justify-between mb-1">
             <span class="text-[11px] text-faint">${total} tài liệu / ${CHART_DAYS} ngày · cao nhất ${max}/ngày</span>
         </div>
-        <svg viewBox="0 0 ${W} ${H}" class="w-full" style="height:150px" role="img" aria-label="Biểu đồ đóng dấu 30 ngày">
+        <svg viewBox="0 0 ${W} ${H}" class="w-full" style="height:120px" role="img" aria-label="Biểu đồ đóng dấu 30 ngày">
             <line x1="0" y1="${padT + plotH}" x2="${W}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
             ${bars}${labels}
         </svg>`;

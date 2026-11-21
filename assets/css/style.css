@@ -145,6 +145,12 @@ body {
 .stat.clickable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
 .stat.clickable:hover { border-color: var(--accent-line); box-shadow: 0 0 0 1px var(--accent-line); }
 
+/* Dashboard: gọn hơn — card/stat padding nhỏ, value vừa phải */
+.dash .card { padding: 14px; }
+.dash .stat { padding: 10px 14px; }
+.dash .stat .stat-value { font-size: 20px; }
+.dash h3 { margin-bottom: 10px; }
+
 /* Empty state */
 .empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
