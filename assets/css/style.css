@@ -74,9 +74,12 @@ body {
 
 /* ---------- Scrollbar ---------- */
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
+/* Thanh cuộn mảnh ~5px, thumb nhạt — áp cho mọi scroll container kể cả
+   scrollbar của cả trang (viewport) lẫn sidebar/bảng/log */
+html { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
 
 /* ---------- Utilities ---------- */
