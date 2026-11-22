@@ -1,8 +1,8 @@
-import { UI } from './uiHandler.js?v=20260214';
-import { Web3Service } from './web3Service.js?v=20260214';
-import { ApiService } from './apiService.js?v=20260214';
-import { initDashboard } from './dashboard.js?v=20260214';
-import { esc } from './sanitize.js?v=20260214';
+import { UI } from './uiHandler.js?v=20261122';
+import { Web3Service } from './web3Service.js?v=20261122';
+import { ApiService } from './apiService.js?v=20261122';
+import { initDashboard } from './dashboard.js?v=20261122';
+import { esc } from './sanitize.js?v=20261122';
 
 const web3 = new Web3Service();
 let isProcessing = false;

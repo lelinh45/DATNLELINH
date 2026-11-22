@@ -1,5 +1,5 @@
-import { esc } from './sanitize.js?v=20260214';
-import { CONFIG } from './config.js?v=20260214';
+import { esc } from './sanitize.js?v=20261122';
+import { CONFIG } from './config.js?v=20261122';
 
 // =====================================================================
 // DASHBOARD TỔNG QUAN — module riêng, không tạo Web3Service thứ hai.

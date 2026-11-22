@@ -82,6 +82,10 @@ html { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
 
+/* Cuộn được nhưng ẩn thanh — dùng cho nav sidebar, không cần scrollbar lộ */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* ---------- Utilities ---------- */
 
 .pg-hidden { display: none !important; }

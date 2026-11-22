@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=20260214';
+import { CONFIG } from './config.js?v=20261122';
 
 // =====================================================================
 // PHIÊN ĐĂNG NHẬP (JWT) — chữ ký MetaMask thay mật khẩu

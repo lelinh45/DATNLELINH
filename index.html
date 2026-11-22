@@ -37,7 +37,7 @@ tailwind.config = { theme: { extend: {
     <script src="https://cdn.jsdelivr.net/npm/merkletreejs@latest/merkletree.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=20261122">
 </head>
 <body class="bg-canvas h-screen overflow-hidden text-ink font-sans">
     
@@ -113,7 +113,7 @@ tailwind.config = { theme: { extend: {
           </div>
 
           <!-- Core Menu -->
-          <div class="px-4 flex-1 overflow-y-auto">
+          <div class="px-4 flex-1 overflow-y-auto no-scrollbar">
             <div class="flex items-center gap-2 text-xs font-bold text-accent mb-4 px-3 py-2 bg-accent-soft border-l-2 border-accent tracking-wider uppercase rounded-r-md shadow-sm">
               <i class="fa-solid fa-clipboard-check text-accent"></i> Xác Thực & Kiểm Định
             </div>
@@ -978,7 +978,7 @@ tailwind.config = { theme: { extend: {
     </div>
 
     <!-- Nạp Controller Module ES6 -->
-    <script type="module" src="assets/js/main.js?v=20260214"></script>
+    <script type="module" src="assets/js/main.js?v=20261122"></script>
     <script>
     function switchUI(tabId, clickedElement) {
         const allTabs = ['tab-pending', 'tab-dashboard', 'tab-upload', 'tab-verify', 'tab-history', 'tab-revoked', 'tab-roles', 'tab-apikeys', 'tab-rpc', 'tab-template', 'tab-settings'];
