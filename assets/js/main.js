@@ -1841,18 +1841,26 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
             const fileItem = fileDataArray[i];
             const file = fileItem.fileObj;
             
-            // % chạy theo từng file trong slot 15→60: encrypt ~15% slot, upload ~55%
+            // Tiến trình THẬT: mỗi file 1 slot đều trong 15→60.
+            // Encrypt ~30% slot chạy theo chunk AES, upload ~70% slot chạy theo byte XHR thật.
             const N = fileDataArray.length;
-            UI.updateProgress(15 + Math.round(((i + 0.15) / N) * 45), `Đang mã hóa file ${i + 1}/${N}:${file.name}...`, "ENCRYPTING");
+            const slotW = 45 / N;
+            const slotStart = 15 + i * slotW;
+            const encStart = slotStart, encEnd = slotStart + slotW * 0.3;
+            const upStart = encEnd, upEnd = slotStart + slotW;
+            UI.updateProgress(Math.round(encStart), `Đang mã hóa file ${i + 1}/${N}:${file.name}...`, "ENCRYPTING");
             leaves.push("0x" + fileItem.hash);
-            
+
             // AES Mã hóa — build chuỗi nhị phân theo chunk (tránh nổ stack/trễ với file lớn)
             const arrayBuffer = await file.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
             let binaryString = '';
             const CHUNK = 0x8000;
+            let lastEncPct = -1;
             for (let off = 0; off < uint8Array.length; off += CHUNK) {
                 binaryString += String.fromCharCode.apply(null, uint8Array.subarray(off, off + CHUNK));
+                const p = Math.round(encStart + (off / Math.max(1, uint8Array.length)) * (encEnd - encStart));
+                if (p !== lastEncPct) { lastEncPct = p; UI.updateProgress(p, `Đang mã hóa file ${i + 1}/${N}:${file.name}...`, "ENCRYPTING"); }
             }
 
             const fileKey = fileItem._key || secretKey; // khóa riêng nếu có, không thì khóa chung
@@ -1860,8 +1868,11 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
             const encryptedBlob = new Blob([encryptedData], { type: 'text/plain' });
             const encryptedFile = new File([encryptedBlob], file.name + '.enc', { type: 'text/plain' });
 
-            UI.updateProgress(15 + Math.round(((i + 0.55) / N) * 45), `Đang đẩy tệp ${i + 1}/${N} lên mạng IPFS...`, "UPLOADING");
-            const uploadData = await ApiService.uploadFileWithProgress(encryptedFile, () => {});
+            UI.updateProgress(Math.round(encEnd), `Đang đẩy tệp ${i + 1}/${N} lên mạng IPFS...`, "UPLOADING");
+            const uploadData = await ApiService.uploadFileWithProgress(encryptedFile, (pct) => {
+                const p = Math.round(upStart + Math.min(100, Math.max(0, pct)) / 100 * (upEnd - upStart));
+                UI.updateProgress(p, `Đang đẩy tệp ${i + 1}/${N} lên IPFS... ${pct}%`, "UPLOADING");
+            });
             
             if (!uploadData.success) throw new Error(`Lỗi upload tệp ${file.name}`);
             
@@ -1895,7 +1906,9 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         // Manifest lên IPFS — lọc BỎ encKey (manifest là public, ai có CID đều đọc được)
         const publicFiles = uploadedDocs.map(({ encKey, chunkHashes, ...rest }) => rest);
         const manifestBlob = new Blob([JSON.stringify({ batchId, merkleRoot, timestamp: Date.now(), files: publicFiles })], { type: 'application/json' });
-        const manifestUpload = await ApiService.uploadFileWithProgress(new File([manifestBlob], `${batchId}_manifest.json`), () => {});
+        const manifestUpload = await ApiService.uploadFileWithProgress(new File([manifestBlob], `${batchId}_manifest.json`), (pct) => {
+            UI.updateProgress(Math.round(65 + Math.min(100, Math.max(0, pct)) / 100 * 10), "Đang lưu manifest lên IPFS...", "MERKLE TREE");
+        });
 
         UI.updateProgress(85, "Đang chờ chữ ký MetaMask (Ký 1 lần duy nhất cho toàn bộ tệp)...", "SIGNING");
         // Ghi từng docId + fileHash + ipfsURI lên chain trong 1 giao dịch — để verify từng tài liệu hoạt động
