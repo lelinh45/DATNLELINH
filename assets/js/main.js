@@ -2716,7 +2716,10 @@ async function loadTransactionHistory() {
                 <tr class="border-b border-line hover:bg-hover transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                     <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
                         <td class="px-3 py-2 font-mono text-accent text-xs">
-                            <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(docId)}">${esc(docId)}</span>${verBadge(docId)}</div>
+                            <div class="flex items-center gap-1.5">
+                                <i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe text-ok' : 'fa-lock text-faint'} text-[10px] shrink-0" title="${esc(fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư')}"></i>
+                                <span class="truncate max-w-[110px] inline-block" title="${esc(docId)}">${esc(docId)}</span>${verBadge(docId)}
+                            </div>
                         </td>
                     <td class="px-3 py-2 text-xs text-soft">
                         <div class="mb-1">${window.getWalletName(uploader)}</div>
@@ -2783,7 +2786,10 @@ async function loadTransactionHistory() {
                     <tr class="border-b border-line hover:bg-hover transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                         <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
                         <td class="px-3 py-2 font-mono text-accent text-xs">
-                            <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</span>${verBadge(fileDoc.docId)}</div>
+                            <div class="flex items-center gap-1.5">
+                                <i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe text-ok' : 'fa-lock text-faint'} text-[10px] shrink-0" title="${esc(fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư')}"></i>
+                                <span class="truncate max-w-[110px] inline-block" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</span>${verBadge(fileDoc.docId)}
+                            </div>
                         </td>
                         <td class="px-3 py-2 text-xs text-soft">
                             <div class="mb-1">${window.getWalletName(uploader)}</div>
