@@ -406,7 +406,7 @@ function renderRole() {
             ${_errors.admin ? errStrip('admin', 'Không tải được dữ liệu quản trị') : `
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between"><span class="text-faint text-xs">Ví chờ duyệt</span><span class="text-warn font-semibold">${pending === null ? '—' : pending.length}</span></div>
-                <div class="flex justify-between"><span class="text-faint text-xs">Phiên thiết bị (chưa thu hồi)</span><span class="text-ink font-semibold">${sessions === null ? '—' : sessions.length}</span></div>
+                <div class="flex justify-between"><span class="text-faint text-xs">Phiên hoạt động (24h)</span><span class="text-ink font-semibold">${sessions === null ? '—' : sessions.length}</span></div>
                 ${recent.map(s => `<div class="text-[11px] text-muted pl-3 border-l-2 border-line">${esc(s.deviceLabel || 'Thiết bị không rõ')} · ${esc(s.current ? 'hiện tại' : relTime(s.lastSeen ? s.lastSeen / 1000 : null))}</div>`).join('')}
                 <div class="flex justify-between pt-1 border-t border-line"><span class="text-faint text-xs">API key dùng gần nhất</span><span class="text-ink font-semibold text-xs">${lastKey ? esc(new Date(lastKey.lastUsedAt).toLocaleString('vi-VN')) : '—'}</span></div>
             </div>`}`;
