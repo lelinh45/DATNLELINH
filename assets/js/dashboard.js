@@ -180,10 +180,10 @@ function renderKpis() {
         return;
     }
     const m = _metrics || {};
-    kpiCard('dash-kpi-active', m.docCount ?? '—', 'Tài liệu hiệu lực', 'On-chain + Database');
-    kpiCard('dash-kpi-stamped', _added.length, 'Đã đóng dấu', 'On-chain');
-    kpiCard('dash-kpi-revoked', _revoked.length, 'Đã thu hồi', 'On-chain');
-    kpiCard('dash-kpi-wallets', m.issuerCount ?? '—', 'Ví được cấp quyền', 'On-chain + Database');
+    kpiCard('dash-kpi-active', m.docCount ?? '—', 'Tài liệu hiệu lực', 'File chưa thu hồi');
+    kpiCard('dash-kpi-stamped', _added.length, 'Đã đóng dấu', 'Tổng lần ghi on-chain');
+    kpiCard('dash-kpi-revoked', _revoked.length, 'Đã thu hồi', 'Tổng lần thu hồi');
+    kpiCard('dash-kpi-wallets', m.issuerCount != null ? Math.max(0, m.issuerCount - 1) : '—', 'Ví được cấp quyền', 'Vai trò ≥ NHẬP LIỆU');
 }
 
 function renderAdminRow() {
@@ -204,11 +204,11 @@ function renderAdminRow() {
         for (const ev of _added) { const a = ev.args?.[3]; if (a) actors.add(String(a).toLowerCase()); }
         for (const ev of _revoked) { const a = ev.args?.[1]; if (a) actors.add(String(a).toLowerCase()); }
     }
-    const cell = (v, l, s) => `<div class="stat"><div class="stat-value">${esc(v)}</div><div class="stat-label">${esc(l)}</div><div class="stat-sub">${esc(s)}</div></div>`;
+    const cell = (v, l, s, onclick = '') => `<div class="stat${onclick ? ' clickable' : ''}"${onclick ? ` onclick="${onclick}"` : ''}><div class="stat-value">${esc(v)}</div><div class="stat-label">${esc(l)}</div><div class="stat-sub">${esc(s)}</div></div>`;
     row.innerHTML =
-        cell(pending === null ? '—' : pending.length, 'Ví chờ duyệt', 'Database') +
-        cell(_errors.chain ? '—' : actors.size, 'Ví hoạt động', 'On-chain') +
-        cell(activeKeys === null ? '—' : activeKeys.length, 'API key active', 'Database');
+        cell(pending === null ? '—' : pending.length, 'Ví chờ duyệt', 'Chờ admin duyệt', `switchUI('tab-roles', document.getElementById('nav-roles'))`) +
+        cell(_errors.chain ? '—' : actors.size, 'Ví hoạt động', 'Địa chỉ distinct trong event', `switchUI('tab-history', document.getElementById('nav-history'))`) +
+        cell(activeKeys === null ? '—' : activeKeys.length, 'API key active', 'Chưa thu hồi', `switchUI('tab-apikeys', document.getElementById('nav-apikeys'))`);
 }
 
 function relTime(ts) {
@@ -249,7 +249,7 @@ async function renderFeed() {
             <span class="w-8 h-8 rounded-md bg-sunken border border-line flex items-center justify-center shrink-0">${icon(it.kind)}</span>
             <div class="flex-1 min-w-0">
                 <div class="text-sm text-ink font-medium truncate">${label(it.kind)} <span class="font-mono text-xs text-accent">${esc(shortId(it.docId))}</span></div>
-                <div class="text-[11px] text-faint">${esc(shortAddr(it.actor))} · block ${esc(String(it.block ?? '—'))}</div>
+                <div class="text-[11px] text-faint">${window.getWalletName ? window.getWalletName(it.actor) : esc(shortAddr(it.actor))} · block ${esc(String(it.block ?? '—'))}</div>
             </div>
             <span class="text-[11px] text-faint shrink-0">${esc(relTime(it.ts))}</span>
         </li>`).join('')}</ul>`;
@@ -342,13 +342,21 @@ async function renderChart() {
         bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="var(--accent)"><title>${c} tài liệu — ${lbl}</title></rect>` +
             `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 3).toFixed(1)}" font-size="8" font-weight="700" fill="var(--ink)" text-anchor="middle">${c}</text>`;
     }
-    // Nhãn trục X: mỗi ~5 ngày
+    // Nhãn trục X: mỗi ~5 ngày + vạch dọc mờ để đối chiếu cột ↔ ngày
     let labels = '';
-    for (let i = 0; i < CHART_DAYS; i += 5) {
+    const xLabel = (i) => {
         const d = new Date(today.getTime() - (CHART_DAYS - 1 - i) * 86400000);
-        labels += `<text x="${(padL + i * slot + slot / 2).toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--faint)" text-anchor="middle">${d.getDate()}/${d.getMonth() + 1}</text>`;
+        const x = padL + i * slot + slot / 2;
+        return { x, txt: `${d.getDate()}/${d.getMonth() + 1}` };
+    };
+    for (let i = 0; i < CHART_DAYS; i += 5) {
+        const { x, txt } = xLabel(i);
+        labels += `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1" opacity="0.5"/>` +
+            `<text x="${x.toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--faint)" text-anchor="middle">${txt}</text>`;
     }
-    labels += `<text x="${(padL + plotW - slot / 2).toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--faint)" text-anchor="middle">${today.getDate()}/${today.getMonth() + 1}</text>`;
+    { const { x, txt } = xLabel(CHART_DAYS - 1);
+      labels += `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1" opacity="0.5"/>` +
+        `<text x="${x.toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--faint)" text-anchor="middle">${txt}</text>`; }
     box.innerHTML = `
         <div class="flex items-baseline justify-between mb-1">
             <span class="text-[11px] text-faint">${total} tài liệu / ${CHART_DAYS} ngày · cao nhất ${max}/ngày</span>
@@ -391,12 +399,14 @@ function renderRole() {
         const recent = (sessions || []).slice(0, 3);
         const keys = Array.isArray(_admin.keys) ? _admin.keys : null;
         const lastKey = keys && keys.filter(k => k.lastUsedAt).sort((a, b) => b.lastUsedAt - a.lastUsedAt)[0];
+        const pending = Array.isArray(_admin.pending) ? _admin.pending : null;
         box.classList.remove('hidden');
         box.innerHTML = `
             <h3 class="text-sm font-bold text-ink mb-3 flex items-center gap-2"><i class="fa-solid fa-user-tie text-violet"></i>Tổng quan quản trị</h3>
             ${_errors.admin ? errStrip('admin', 'Không tải được dữ liệu quản trị') : `
             <div class="space-y-2 text-sm">
-                <div class="flex justify-between"><span class="text-faint text-xs">Phiên đang hoạt động</span><span class="text-ink font-semibold">${sessions === null ? '—' : sessions.length}</span></div>
+                <div class="flex justify-between"><span class="text-faint text-xs">Ví chờ duyệt</span><span class="text-warn font-semibold">${pending === null ? '—' : pending.length}</span></div>
+                <div class="flex justify-between"><span class="text-faint text-xs">Phiên thiết bị (chưa thu hồi)</span><span class="text-ink font-semibold">${sessions === null ? '—' : sessions.length}</span></div>
                 ${recent.map(s => `<div class="text-[11px] text-muted pl-3 border-l-2 border-line">${esc(s.deviceLabel || 'Thiết bị không rõ')} · ${esc(s.current ? 'hiện tại' : relTime(s.lastSeen ? s.lastSeen / 1000 : null))}</div>`).join('')}
                 <div class="flex justify-between pt-1 border-t border-line"><span class="text-faint text-xs">API key dùng gần nhất</span><span class="text-ink font-semibold text-xs">${lastKey ? esc(new Date(lastKey.lastUsedAt).toLocaleString('vi-VN')) : '—'}</span></div>
             </div>`}`;

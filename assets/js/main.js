@@ -41,6 +41,17 @@ document.addEventListener('click', (e) => {
         case 'kick-session':    if (d.v) window.kickDeviceSession(d.v); break;
         case 'approve-session': if (d.v) window.approveDeviceSession(d.v); break;
         case 'revoke-key':      if (d.v) window.revokeApiKey(d.v); break;
+        case 'expand': {
+            // Bảng lịch sử: mở/đóng dòng chi tiết ngay sau dòng tài liệu
+            const tr = el.closest('tr');
+            const det = tr && tr.nextElementSibling;
+            if (det && det.classList.contains('doc-detail')) {
+                det.classList.toggle('hidden');
+                const icon = el.querySelector('i');
+                if (icon) icon.classList.toggle('fa-rotate-180');
+            }
+            break;
+        }
         case 'pg-prev': case 'pg-next': {
             const tb = document.getElementById(d.t);
             if (tb) paginateTbody(tb, (pgPageById.get(tb.id) || 1) + (d.act === 'pg-next' ? 1 : -1));
@@ -525,16 +536,19 @@ function paginateTbody(tbody, page) {
     if (!tbody) return;
     const tbodyId = tbody.id;
     const allRows = Array.from(tbody.querySelectorAll('tr'));
-    // "Hiển thị" = qua được filter: search dùng style.display, filter role ví dùng class .hidden
+    // "Hiển thị" = qua được filter: search dùng style.display, filter role ví dùng class .hidden.
+    // Dòng .doc-detail bám theo trạng thái pg-hidden của dòng cha ngay trước nó.
     const isFilterVisible = r => r.style.display !== 'none' && !r.classList.contains('hidden');
-    const visRows = allRows.filter(isFilterVisible);
+    const visRows = allRows.filter(r => !r.classList.contains('doc-detail') && isFilterVisible(r));
     const pages = Math.max(1, Math.ceil(visRows.length / PG_PER_PAGE));
     const cur = Math.min(Math.max(1, page ?? pgPageById.get(tbodyId) ?? 1), pages);
     pgPageById.set(tbodyId, cur);
-    let vi = 0;
+    let vi = 0, prevHidden = false;
     allRows.forEach(r => {
-        if (!isFilterVisible(r)) { r.classList.remove('pg-hidden'); return; }
-        r.classList.toggle('pg-hidden', Math.floor(vi++ / PG_PER_PAGE) !== cur - 1);
+        if (r.classList.contains('doc-detail')) { r.classList.toggle('pg-hidden', prevHidden); return; }
+        if (!isFilterVisible(r)) { r.classList.remove('pg-hidden'); prevHidden = false; return; }
+        prevHidden = Math.floor(vi++ / PG_PER_PAGE) !== cur - 1;
+        r.classList.toggle('pg-hidden', prevHidden);
     });
     renderPager(tbody, visRows.length, pages, cur);
 }
@@ -1827,7 +1841,9 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
             const fileItem = fileDataArray[i];
             const file = fileItem.fileObj;
             
-            UI.updateProgress(20, `Đang mã hóa file ${i + 1}/${fileDataArray.length}:${file.name}...`, "ENCRYPTING");
+            // % chạy theo từng file trong slot 15→60: encrypt ~15% slot, upload ~55%
+            const N = fileDataArray.length;
+            UI.updateProgress(15 + Math.round(((i + 0.15) / N) * 45), `Đang mã hóa file ${i + 1}/${N}:${file.name}...`, "ENCRYPTING");
             leaves.push("0x" + fileItem.hash);
             
             // AES Mã hóa — build chuỗi nhị phân theo chunk (tránh nổ stack/trễ với file lớn)
@@ -1844,7 +1860,7 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
             const encryptedBlob = new Blob([encryptedData], { type: 'text/plain' });
             const encryptedFile = new File([encryptedBlob], file.name + '.enc', { type: 'text/plain' });
 
-            UI.updateProgress(40, `Đang đẩy tệp ${i + 1}/${fileDataArray.length} lên mạng IPFS...`, "UPLOADING");
+            UI.updateProgress(15 + Math.round(((i + 0.55) / N) * 45), `Đang đẩy tệp ${i + 1}/${N} lên mạng IPFS...`, "UPLOADING");
             const uploadData = await ApiService.uploadFileWithProgress(encryptedFile, () => {});
             
             if (!uploadData.success) throw new Error(`Lỗi upload tệp ${file.name}`);
@@ -2498,7 +2514,7 @@ async function loadTransactionHistory() {
     const tbody = document.getElementById('history-table-body');
     if (!tbody) return;
     
-    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-accent"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang quét sổ cái Blockchain...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-accent"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang quét sổ cái Blockchain...</td></tr>';
     
     try {
         let html = '';
@@ -2651,14 +2667,6 @@ async function loadTransactionHistory() {
                     <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
                         <td class="px-3 py-2 font-mono text-accent text-xs">
                             <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(docId)}">${esc(docId)}</span>${verBadge(docId)}</div>
-                            <div class="mt-1 text-[11px] text-muted font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
-                            <div class="mt-1 text-[9px] ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'text-ok' : 'text-faint'}"><i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
-                            <div class="mt-1.5 flex gap-3">
-                                <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
-                                ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
-                                ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
-                                ${canRevoke ? `<button data-act="revoke" data-v="${esc(docId)}" class="text-err hover:text-err transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
-                            </div>
                         </td>
                     <td class="px-3 py-2 text-xs text-soft">
                         <div class="mb-1">${window.getWalletName(uploader)}</div>
@@ -2687,6 +2695,23 @@ async function loadTransactionHistory() {
                         ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
                     </td>
                     <td class="px-3 py-2 text-center"><span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span></td>
+                    <td class="px-2 py-2 text-center w-10">
+                        <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200"></i></button>
+                    </td>
+                </tr>
+                <tr class="doc-detail hidden border-b border-line" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
+                    <td colspan="7" class="px-3 py-2 bg-sunken/40">
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                            <span class="text-[11px] text-muted font-sans" title="${esc(fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileName)}</span>
+                            <span class="text-[9px] ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'text-ok' : 'text-faint'}"><i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư'}</span>
+                            <span class="flex gap-3 ml-auto">
+                                <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
+                                ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
+                                ${canRevoke ? `<button data-act="revoke" data-v="${esc(docId)}" class="text-err hover:text-err transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+                            </span>
+                        </div>
+                    </td>
                 </tr>`;
             }
         }
@@ -2709,14 +2734,6 @@ async function loadTransactionHistory() {
                         <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
                         <td class="px-3 py-2 font-mono text-accent text-xs">
                             <div class="flex items-center"><span class="truncate max-w-[120px] inline-block" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</span>${verBadge(fileDoc.docId)}</div>
-                            <div class="mt-1 text-[11px] text-muted font-sans truncate max-w-[150px]" title="${esc(fileDoc.fileName)}">File: ${esc(fileDoc.fileName)}</div>
-                            <div class="mt-1 text-[9px] ${fileDoc.visibility === 'public' ? 'text-ok' : 'text-faint'}"><i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</div>
-                            <div class="mt-1.5 flex gap-3">
-                                <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
-                                ${hasLineage(fileDoc.docId) ? `<button data-act="lineage" data-v="${esc(fileDoc.docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
-                                ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
-                                ${batchCanRevoke ? `<button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-err hover:text-err transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
-                            </div>
                         </td>
                         <td class="px-3 py-2 text-xs text-soft">
                             <div class="mb-1">${window.getWalletName(uploader)}</div>
@@ -2746,11 +2763,28 @@ async function loadTransactionHistory() {
                         <td class="px-3 py-2 text-center">
                             <span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span>
                         </td>
+                        <td class="px-2 py-2 text-center w-10">
+                            <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200"></i></button>
+                        </td>
+                    </tr>
+                    <tr class="doc-detail hidden border-b border-line" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
+                        <td colspan="7" class="px-3 py-2 bg-sunken/40">
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                                <span class="text-[11px] text-muted font-sans" title="${esc(fileDoc.fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileDoc.fileName)}</span>
+                                <span class="text-[9px] ${fileDoc.visibility === 'public' ? 'text-ok' : 'text-faint'}"><i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</span>
+                                <span class="flex gap-3 ml-auto">
+                                    <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                    ${hasLineage(fileDoc.docId) ? `<button data-act="lineage" data-v="${esc(fileDoc.docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
+                                    ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
+                                    ${batchCanRevoke ? `<button data-act="revoke" data-v="${esc(fileDoc.docId)}" class="text-err hover:text-err transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
+                                </span>
+                            </div>
+                        </td>
                     </tr>`;
                 });
             }
         }
-        tbody.innerHTML = html === '' ? '<tr><td colspan="6" class="px-4 py-10 text-center text-faint">Không có tài liệu hợp lệ nào.</td></tr>' : html;
+        tbody.innerHTML = html === '' ? '<tr><td colspan="7" class="px-4 py-10 text-center text-faint">Không có tài liệu hợp lệ nào.</td></tr>' : html;
         // Bảng riêng tài liệu đối tác + chip chọn API key/tổ chức
         const pBody = document.getElementById('partner-docs-body');
         if (pBody) pBody.innerHTML = partnerHtml ||
@@ -2760,7 +2794,7 @@ async function loadTransactionHistory() {
         fillTxFees(tbody); // điền phí gas sau khi render — không chặn bảng
         if (pBody) fillTxFees(pBody);
     } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-err">Lỗi kết nối RPC. Vui lòng kết nối ví trước.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-err">Lỗi kết nối RPC. Vui lòng kết nối ví trước.</td></tr>';
     }
 }
 
