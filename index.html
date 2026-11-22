@@ -705,7 +705,7 @@ tailwind.config = { theme: { extend: {
                             <span id="status-badge" class="bg-sunken text-soft border border-line-strong text-[10px] px-2 py-0.5 rounded font-bold">STANDBY</span>
                         </div>
                         
-                        <div class="bg-sunken border border-line rounded-lg p-4 mb-4 shrink-0">
+                        <div id="progress-box" class="bg-sunken border border-line rounded-lg p-4 mb-4 shrink-0">
                             <div class="flex justify-between text-xs font-bold text-muted mb-2">
                                 <span id="progress-text">Hệ thống đang rảnh</span>
                                 <span id="progress-percent" class="text-accent">0%</span>
@@ -713,6 +713,7 @@ tailwind.config = { theme: { extend: {
                             <div class="w-full bg-sunken rounded-full h-1.5">
                                 <div id="progress-bar" class="bg-accent h-1.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
                             </div>
+                            <div id="progress-stage" class="text-[10px] text-faint mt-1.5 h-3.5 truncate"></div>
                         </div>
 
                         <!-- Khung Terminal (Đã đưa trở lại vào trong Cột Phải) -->

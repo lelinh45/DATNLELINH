@@ -309,3 +309,14 @@ body {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
     letter-spacing: .05em; color: var(--muted);
 }
+
+/* ---------- Progress: trạng thái chờ ví (sọc chạy, không đứng im) ---------- */
+
+#progress-box.waiting #progress-bar {
+    background: repeating-linear-gradient(45deg, var(--warn) 0 8px, transparent 8px 16px);
+    background-size: 200% 100%;
+    animation: bdi-wait-stripes 1s linear infinite;
+}
+@keyframes bdi-wait-stripes {
+    to { background-position: -32px 0; }
+}

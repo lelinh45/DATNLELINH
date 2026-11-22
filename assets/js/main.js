@@ -381,11 +381,48 @@ function updateUploadSteps(status) {
     });
 }
 
+// Nhãn bước chi tiết dưới thanh % — chỉ gán "Bước x/5" cho status riêng của upload,
+// status dùng chung (HASHING/QUERYING...) chỉ hiện nhãn chung để không gán sai bước.
+const PROGRESS_STAGE = {
+    SCANNING: 'Đang quét & chuẩn bị dữ liệu', HASHING: 'Đang băm SHA-256',
+    QUERYING: 'Đang truy vấn sổ cái', ANALYZING: 'Đang phân tích dữ liệu',
+    PROCESSING: 'Đang gửi giao dịch lên Sepolia',
+    ENCRYPTING: 'Bước 2/5 · Mã hóa AES từng file',
+    UPLOADING: 'Bước 3/5 · Pin nội dung mã hóa lên IPFS',
+    'MERKLE TREE': 'Bước 4/5 · Merkle Root + manifest',
+    SIGNING: 'Bước 4/5 · Chờ ký 1 giao dịch trên Sepolia',
+    SYNCING: 'Đang đồng bộ trạng thái vào Database',
+    REVOKING: 'Đang ghi thu hồi lên contract',
+    SUCCESS: 'Hoàn tất', VERIFIED: 'Giám định hoàn tất', REVOKED: 'Đã thu hồi',
+    FAILED: 'Thất bại', ERROR: 'Lỗi', 'NOT FOUND': 'Không tìm thấy'
+};
+const WAIT_WALLET_STATUSES = new Set(['SIGNING', 'REVOKING']);
+
 UI.updateProgress = function(percent, message, status) {
     if (originalUpdateProgress) {
         originalUpdateProgress.call(UI, percent, message, status);
     }
     updateUploadSteps(status);
+
+    // Trạng thái chờ ví: bar sọc chạy + badge "CHỜ DUYỆT VÍ" + stage kèm địa chỉ ví
+    const isWaiting = WAIT_WALLET_STATUSES.has(status)
+        || (status === 'PROCESSING' && /metamask/i.test(String(message || '')));
+    const box = document.getElementById('progress-box');
+    if (box) box.classList.toggle('waiting', isWaiting);
+    const badge = document.getElementById('status-badge');
+    if (badge && isWaiting && percent !== 100) {
+        badge.innerText = 'CHỜ DUYỆT VÍ';
+        badge.className = 'bg-warn-soft text-warn border border-warn text-[10px] px-2 py-0.5 rounded font-bold';
+    }
+    const stageEl = document.getElementById('progress-stage');
+    if (stageEl) {
+        let stage = PROGRESS_STAGE[status] || '';
+        if (isWaiting && web3 && web3.currentAccount) {
+            const a = web3.currentAccount;
+            stage += ` · ví ${a.substring(0, 6)}...${a.substring(38)}`;
+        }
+        stageEl.innerText = stage;
+    }
 
     // Trạng thái kết thúc (100% hoặc lỗi/dừng) → tự trả về "đang rảnh" sau 4s,
     // trừ khi một tiến trình mới đã bắt đầu trước đó (timer bị hủy ở mọi lần gọi).
@@ -393,7 +430,7 @@ UI.updateProgress = function(percent, message, status) {
     if (status !== 'STANDBY' && (percent === 100 || PROGRESS_TERMINAL.includes(status))) {
         progressIdleTimer = setTimeout(() => {
             progressIdleTimer = null;
-            originalUpdateProgress.call(UI, 0, "Hệ thống đang rảnh", "STANDBY");
+            UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY");
         }, 4000);
     }
 
