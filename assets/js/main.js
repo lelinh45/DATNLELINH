@@ -47,8 +47,7 @@ document.addEventListener('click', (e) => {
             const det = tr && tr.nextElementSibling;
             if (det && det.classList.contains('doc-detail')) {
                 det.classList.toggle('hidden');
-                const icon = el.querySelector('i');
-                if (icon) icon.classList.toggle('fa-rotate-180');
+                el.classList.toggle('text-accent', !det.classList.contains('hidden'));
             }
             break;
         }
@@ -2722,42 +2721,38 @@ async function loadTransactionHistory() {
                             </div>
                         </td>
                     <td class="px-3 py-2 text-xs text-soft">
-                        <div class="mb-1">${window.getWalletName(uploader)}</div>
+                        <div>${window.getWalletName(uploader)}</div>
                         ${window.partnerBadge(partnerOrgs, docId)}
-                        <div class="text-muted text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                     </td>
                     <td class="px-3 py-2 font-mono text-[10px] text-faint">
-                        <div class="text-muted mb-1 truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
-                        <div class="flex items-center gap-3">
-                            <a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="Xem file mã hóa gốc trên IPFS" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition">
-                                <i class="fa-solid fa-cloud mr-1"></i> IPFS
-                            </a>
-                            ${isLockedDoc(docId, uploader) ? `
-                                <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-faint text-[10px] uppercase font-bold bg-sunken px-2 py-0.5 rounded border border-line-strong cursor-not-allowed">
-                                    <i class="fa-solid fa-lock mr-1"></i> Riêng tư
-                                </button>` : `
-                                <button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
-                                    <i class="fa-solid fa-eye mr-1"></i> Xem
-                                </button>
-                                <button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Giải mã và tải tệp gốc về máy" class="text-accent hover:text-accent text-[10px] uppercase font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
-                                    <i class="fa-solid fa-download mr-1"></i> Tải
-                                </button>`}
-                        </div>
+                        <div class="text-muted truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
                     </td>
                     <td class="px-3 py-2 text-center">
                         ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
                     </td>
                     <td class="px-3 py-2 text-center"><span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span></td>
                     <td class="px-2 py-2 text-center w-10">
-                        <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200"></i></button>
+                        <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-circle-info text-[12px]"></i></button>
                     </td>
                 </tr>
                 <tr class="doc-detail hidden border-b border-line" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                     <td colspan="7" class="px-3 py-2 bg-sunken/40">
                         <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                             <span class="text-[11px] text-muted font-sans" title="${esc(fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileName)}</span>
+                            <span class="text-[10px] text-faint whitespace-nowrap"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</span>
                             <span class="text-[9px] ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'text-ok' : 'text-faint'}"><i class="fa-solid ${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileMeta[docId] && fileMeta[docId].visibility === 'public' ? 'Công khai' : 'Riêng tư'}</span>
-                            <span class="flex gap-3 ml-auto">
+                            <span class="flex gap-3 ml-auto flex-wrap">
+                                <a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="Xem file mã hóa gốc trên IPFS" class="text-ok hover:text-ok text-[11px] font-bold transition"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>
+                                ${isLockedDoc(docId, uploader) ? `
+                                    <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-faint text-[11px] uppercase font-bold bg-sunken px-2 py-0.5 rounded border border-line-strong cursor-not-allowed">
+                                        <i class="fa-solid fa-lock mr-1"></i> Riêng tư
+                                    </button>` : `
+                                    <button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[11px] font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
+                                        <i class="fa-solid fa-eye mr-1"></i> Xem
+                                    </button>
+                                    <button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Giải mã và tải tệp gốc về máy" class="text-accent hover:text-accent text-[11px] font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
+                                        <i class="fa-solid fa-download mr-1"></i> Tải
+                                    </button>`}
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                 ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
                                 ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
@@ -2792,26 +2787,10 @@ async function loadTransactionHistory() {
                             </div>
                         </td>
                         <td class="px-3 py-2 text-xs text-soft">
-                            <div class="mb-1">${window.getWalletName(uploader)}</div>
-                            <div class="text-muted text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
+                            <div>${window.getWalletName(uploader)}</div>
                         </td>
                         <td class="px-3 py-2 font-mono text-[10px] text-faint">
-                            <div class="text-muted mb-1 truncate max-w-[150px]" title="${esc(fileDoc.fileHash)}">${esc(fileDoc.fileHash)}</div>
-                            <div class="flex items-center gap-3">
-                                <a href="https://ipfs.io/ipfs/${esc(fileDoc.ipfsCID)}" target="_blank" rel="noopener noreferrer" title="Xem trên IPFS" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition">
-                                    <i class="fa-solid fa-cloud mr-1"></i> IPFS
-                                </a>
-                                ${isLockedDoc(fileDoc.docId, uploader) ? `
-                                    <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-faint text-[10px] uppercase font-bold bg-sunken px-2 py-0.5 rounded border border-line-strong cursor-not-allowed">
-                                        <i class="fa-solid fa-lock mr-1"></i> Riêng tư
-                                    </button>` : `
-                                    <button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[10px] uppercase font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
-                                        <i class="fa-solid fa-eye mr-1"></i> Xem
-                                    </button>
-                                    <button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="text-accent hover:text-accent text-[10px] uppercase font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
-                                        <i class="fa-solid fa-download mr-1"></i> Tải
-                                    </button>`}
-                            </div>
+                            <div class="text-muted truncate max-w-[150px]" title="${esc(fileDoc.fileHash)}">${esc(fileDoc.fileHash)}</div>
                         </td>
                         <td class="px-3 py-2 text-center">
                             ${batch.txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(batch.txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(batch.txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
@@ -2820,15 +2799,27 @@ async function loadTransactionHistory() {
                             <span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span>
                         </td>
                         <td class="px-2 py-2 text-center w-10">
-                            <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200"></i></button>
+                            <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-circle-info text-[12px]"></i></button>
                         </td>
                     </tr>
                     <tr class="doc-detail hidden border-b border-line" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                         <td colspan="7" class="px-3 py-2 bg-sunken/40">
                             <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                                 <span class="text-[11px] text-muted font-sans" title="${esc(fileDoc.fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileDoc.fileName)}</span>
+                                <span class="text-[10px] text-faint whitespace-nowrap"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</span>
                                 <span class="text-[9px] ${fileDoc.visibility === 'public' ? 'text-ok' : 'text-faint'}"><i class="fa-solid ${fileDoc.visibility === 'public' ? 'fa-globe' : 'fa-lock'} mr-1"></i>${fileDoc.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</span>
-                                <span class="flex gap-3 ml-auto">
+                                <span class="flex gap-3 ml-auto flex-wrap">
+                                    <a href="https://ipfs.io/ipfs/${esc(fileDoc.ipfsCID)}" target="_blank" rel="noopener noreferrer" title="Xem trên IPFS" class="text-ok hover:text-ok text-[11px] font-bold transition"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>
+                                    ${isLockedDoc(fileDoc.docId, uploader) ? `
+                                        <button data-act="locked" title="Tài liệu riêng tư — chỉ người tải lên xem được" class="text-faint text-[11px] uppercase font-bold bg-sunken px-2 py-0.5 rounded border border-line-strong cursor-not-allowed">
+                                            <i class="fa-solid fa-lock mr-1"></i> Riêng tư
+                                        </button>` : `
+                                        <button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[11px] font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
+                                            <i class="fa-solid fa-eye mr-1"></i> Xem
+                                        </button>
+                                        <button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="text-accent hover:text-accent text-[11px] font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
+                                            <i class="fa-solid fa-download mr-1"></i> Tải
+                                        </button>`}
                                     <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                     ${hasLineage(fileDoc.docId) ? `<button data-act="lineage" data-v="${esc(fileDoc.docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
                                     ${isOwnDoc(fileDoc.docId, uploader) ? `<button data-act="vis" data-v="${esc(fileDoc.docId)}" data-vis="${esc(fileDoc.visibility || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
@@ -2858,13 +2849,27 @@ async function loadRevokedHistory() {
     const tbody = document.getElementById('revoked-table-body');
     if (!tbody) return;
     
-    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-err"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang truy xuất Kho lưu trữ thu hồi...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-err"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang truy xuất Kho lưu trữ thu hồi...</td></tr>';
     
     try {
         let html = ''; 
         let stt = 1;
         const seenRevoked = new Set(); // on-chain + DB cùng đánh dấu 1 tài liệu — chỉ render 1 dòng
         const partnerOrgs = await ApiService.getPartnerDocs(); // badge ĐỐI TÁC
+        const localBatches = await ApiService.getBatchesFromDatabase();
+        // Map docId → visibility/uploader để quyết định khóa file private
+        // (isLockedDoc của loadTransactionHistory không với tới hàm này)
+        const revMeta = {};
+        for (const b of localBatches) for (const f of (b.files || [])) {
+            revMeta[f.docId] = { visibility: f.visibility || 'private', uploader: (b.uploader || '').toLowerCase() };
+        }
+        const myAddrRev = (web3.currentAccount || '').toLowerCase();
+        const isLockedRev = (docId, uploaderAddr) => {
+            const m = revMeta[docId];
+            const vis = m ? m.visibility : 'private';
+            const owner = (m && m.uploader) || (uploaderAddr || '').toLowerCase();
+            return vis !== 'public' && owner !== myAddrRev;
+        };
 
         // 1. Quét On-chain
         const events = await web3.queryRevokedHistory();
@@ -2874,12 +2879,13 @@ async function loadRevokedHistory() {
                 if (seenRevoked.has(docId)) continue;
                 seenRevoked.add(docId);
                 if (partnerOrgs[docId]) continue; // doc đối tác không lẫn vào kho thu hồi của ví
-                let uploader = '---'; let createTime = '---';
+                let uploader = '---'; let createTime = '---'; let ipfsLink = '';
                 
                 try { 
                     const docData = await web3.getDocumentFromChain(docId); 
                     uploader = docData[3]; 
                     createTime = window.formatTimeForce(Number(docData[2]) * 1000); // ÉP CHUẨN GIỜ
+                    ipfsLink = (docData[1] || '').replace('ipfs://', '');
                 } catch (e) {}
                 
                 let fileName = docId.replace(/_\d+$/, '').replace(/\.enc$/, '');
@@ -2890,13 +2896,10 @@ async function loadRevokedHistory() {
                     <td class="px-3 py-2 font-bold text-center text-err">${stt++}</td>
                     <td class="px-3 py-2 font-mono text-err text-xs">
                     <div class="truncate max-w-[150px]" title="${esc(docId)}">${esc(docId)}</div>
-                        <div class="mt-1 text-[11px] text-faint font-sans truncate max-w-[150px]" title="${esc(fileName)}">File: ${esc(fileName)}</div>
-                        <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px] mt-1.5"><i class="fa-regular fa-copy mr-1"></i>Copy ID</button>
                     </td>
                     <td class="px-3 py-2 text-xs text-soft">
-                        <div class="mb-1">${window.getWalletName(uploader)}</div>
+                        <div>${window.getWalletName(uploader)}</div>
                         ${window.partnerBadge(partnerOrgs, docId)}
-                        <div class="text-muted text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
                     </td>
                     <td class="px-3 py-2 text-xs text-soft">
                         <div class="text-err font-medium mb-1">${esc(reason)}</div>
@@ -2905,12 +2908,33 @@ async function loadRevokedHistory() {
                         </div>
                     </td>
                     <td class="px-3 py-2 text-center"><span class="bg-err-soft text-err px-2 py-1 rounded text-[10px] font-bold">REVOKED (ON-CHAIN)</span></td>
+                    <td class="px-2 py-2 text-center w-10">
+                        <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-circle-info text-[12px]"></i></button>
+                    </td>
+                </tr>
+                <tr class="doc-detail hidden border-b border-line" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
+                    <td colspan="6" class="px-3 py-2 bg-sunken/40">
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                            <span class="text-[11px] text-muted font-sans" title="${esc(fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileName)}</span>
+                            <span class="text-[10px] text-faint whitespace-nowrap"><i class="fa-regular fa-clock mr-1"></i>Ngày tạo: ${esc(createTime)}</span>
+                            <span class="flex gap-3 ml-auto flex-wrap">
+                                ${ipfsLink ? `<a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="Xem file mã hóa trên IPFS" class="text-ok hover:text-ok text-[11px] font-bold transition"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>` : ''}
+                                ${ipfsLink && !isLockedRev(docId, uploader) ? `
+                                    <button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[11px] font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
+                                        <i class="fa-solid fa-eye mr-1"></i> Xem
+                                    </button>
+                                    <button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Giải mã và tải tệp gốc về máy" class="text-accent hover:text-accent text-[11px] font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
+                                        <i class="fa-solid fa-download mr-1"></i> Tải
+                                    </button>` : ''}
+                                <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                            </span>
+                        </div>
+                    </td>
                 </tr>`;
             }
         }
 
         // 2. Quét Off-chain Batch
-        const localBatches = await ApiService.getBatchesFromDatabase();
         if (localBatches.length > 0) {
             for (let batch of [...localBatches].reverse()) {
                 const createTime = window.formatTimeForce(batch.timestamp);
@@ -2928,12 +2952,9 @@ async function loadRevokedHistory() {
                             <td class="px-3 py-2 font-bold text-center text-err">${stt++}</td>
                             <td class="px-3 py-2 font-mono text-err text-xs">
                             <div class="truncate max-w-[150px]" title="${esc(fileDoc.docId)}">${esc(fileDoc.docId)}</div>
-                                <div class="mt-1 text-[11px] text-faint font-sans truncate max-w-[150px]" title="${esc(fileDoc.fileName)}">File: ${esc(fileDoc.fileName)}</div>
-                                <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px] mt-1.5"><i class="fa-regular fa-copy mr-1"></i>Copy ID</button>
                             </td>
                             <td class="px-3 py-2 text-xs text-soft">
-                                <div class="mb-1">${window.getWalletName(batch.uploader)}</div>
-                                <div class="text-muted text-[11px] font-medium"><i class="fa-regular fa-clock mr-1"></i>${esc(createTime)}</div>
+                                <div>${window.getWalletName(batch.uploader)}</div>
                             </td>
                             <td class="px-3 py-2 text-xs text-soft">
                                 <div class="text-err font-medium mb-1">${esc(reason)} <span class="text-[9px] text-faint ml-1">(${esc(revokeTimeStr)})</span></div>
@@ -2944,6 +2965,28 @@ async function loadRevokedHistory() {
                             <td class="px-3 py-2 text-center">
                                 <span class="bg-err-soft text-err px-2 py-1 rounded text-[10px] font-bold uppercase">REVOKED (ON-CHAIN)</span>
                             </td>
+                            <td class="px-2 py-2 text-center w-10">
+                                <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-circle-info text-[12px]"></i></button>
+                            </td>
+                        </tr>
+                        <tr class="doc-detail hidden border-b border-line" data-search="${searchPayload}" data-uploader="${esc(String(batch.uploader).toLowerCase())}">
+                            <td colspan="6" class="px-3 py-2 bg-sunken/40">
+                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                                    <span class="text-[11px] text-muted font-sans" title="${esc(fileDoc.fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileDoc.fileName)}</span>
+                                    <span class="text-[10px] text-faint whitespace-nowrap"><i class="fa-regular fa-clock mr-1"></i>Ngày tạo: ${esc(createTime)}</span>
+                                    <span class="flex gap-3 ml-auto flex-wrap">
+                                        ${fileDoc.ipfsCID ? `<a href="https://ipfs.io/ipfs/${esc(fileDoc.ipfsCID)}" target="_blank" rel="noopener noreferrer" title="Xem trên IPFS" class="text-ok hover:text-ok text-[11px] font-bold transition"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>` : ''}
+                                        ${fileDoc.ipfsCID && !isLockedRev(fileDoc.docId, batch.uploader) ? `
+                                            <button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[11px] font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
+                                                <i class="fa-solid fa-eye mr-1"></i> Xem
+                                            </button>
+                                            <button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="text-accent hover:text-accent text-[11px] font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
+                                                <i class="fa-solid fa-download mr-1"></i> Tải
+                                            </button>` : ''}
+                                        <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+                                    </span>
+                                </div>
+                            </td>
                         </tr>`;
                     }
                 });
@@ -2951,13 +2994,13 @@ async function loadRevokedHistory() {
         }
 
         if (html === '') {
-            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-faint">Tuyệt vời. Chưa có tài liệu nào bị thu hồi.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-faint">Tuyệt vời. Chưa có tài liệu nào bị thu hồi.</td></tr>';
         } else {
             tbody.innerHTML = html;
             filterRevokedTable();
         }
     } catch (_) { 
-        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-10 text-center text-err">Lỗi kết nối RPC.</td></tr>'; 
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-err">Lỗi kết nối RPC.</td></tr>'; 
     }
 }
 // =====================================================================
