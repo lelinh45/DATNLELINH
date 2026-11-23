@@ -67,6 +67,42 @@ nghĩa nếu không có khóa AES.
   REST. Dữ liệu cách ly theo từng key.
 - **Quota IPFS thật** — trước mỗi lần pin đọc dung lượng thật từ Pinata
   (`userPinnedDataTotal`), trần 1GB tổng tài khoản; lỗi thì fail-closed.
+- **Dashboard tổng quan** — KPI trực tiếp từ chain + MongoDB: tài liệu hiệu
+  lực, tổng lần đóng dấu, tổng lần thu hồi, ví được cấp quyền (đã trừ owner);
+  hàng admin: ví chờ duyệt, ví hoạt động (địa chỉ distinct trong event),
+  API key active. Mọi ô KPI click điều hướng đúng tab tương ứng.
+- **Biểu đồ đóng dấu 30 ngày** — cột tài liệu/ngày, số đếm in trên đỉnh cột,
+  lưới ngang theo số lượng, vạch dọc mốc ngày mỗi ~5 ngày để đối chiếu.
+- **Hoạt động gần đây** — feed event đóng dấu/thu hồi on-chain, hiện tên ví
+  (alias/Admin badge) thay địa chỉ cụt.
+- **Tiến trình blockchain realtime** — thanh % phản ánh việc thật: mã hóa AES
+  chạy theo chunk, upload IPFS chạy theo byte XHR thật (kèm % byte), manifest
+  cũng theo byte. Khi chờ MetaMask (ký/thu hồi/phân quyền) thanh chuyển sọc
+  chạy + badge "CHỜ DUYỆT VÍ" kèm địa chỉ ví đang ký; dòng stage cho biết
+  đang ở bước mấy (Bước 2/5 Mã hóa → 3/5 Pin IPFS → 4/5 Merkle + ký → Xong).
+- **Sổ cái truy xuất gọn** — mỗi tài liệu 1 dòng chính (STT, ID + icon
+  khóa/globe chế độ, ví tạo, hash/IPFS, phí gas link Etherscan, trạng thái,
+  nút expand); tên file, chế độ và các thao tác (Copy/Dòng đời/Đổi chế độ/
+  Thu hồi) nằm trong dòng chi tiết mở rộng — không làm rối bảng. Phân trang
+  15 dòng/trang, ô search lọc mờ, dán `0x...` lọc chính xác theo ví.
+- **Kho tài liệu đã thu hồi** — danh sách riêng, lý do thu hồi hiển thị công khai.
+- **Quản lý phân quyền ví** — modal danh sách ví on-chain + vai trò, ví chờ
+  duyệt (badge trên header + khay admin), cấp NHẬP LIỆU/QUẢN LÝ/ADMIN qua
+  giao dịch `assignRole` do ví admin ký.
+- **Phiên thiết bị 24h** — dashboard + chuông thông báo chỉ đếm phiên còn
+  sống (`lastSeen` < 24h = JWT TTL) hoặc đang pending; phiên cũ tự hết
+  hiệu lực, không cộng dồn. Thu hồi phiên từ thiết bị khác yêu cầu ký lại
+  ví (step-up).
+- **Quản lý API key (admin)** — tạo/thu hồi `sk_live_...` cho đối tác, xem
+  lần dùng gần nhất; tài liệu đối tác hiển thị ở pane riêng của sổ cái,
+  lọc theo tổ chức.
+- **Verify công khai** — `verify.html` tra cứu không cần đăng nhập;
+  trang trong app tự băm file → lookup hash → gợi ý bản gốc khi sửa nhẹ
+  (fuzzy hash CTPH) → diff ký tự + heatmap ảnh + báo cáo Gemini khi giả mạo.
+- **Chứng nhận số PDF** — sau verify tải PDF chứng nhận có QR code trỏ
+  về trang verify công khai.
+- **Giao diện** — dark/light theme (lưu localStorage), responsive (drawer
+  nav mobile), phân trang bảng, terminal log realtime.
 
 ## Chạy dự án
 
@@ -132,8 +168,7 @@ Khuyến nghị thêm `MASTER_KEY` (bọc khóa escrow; để trống dùng JWT_
 ## Kiểm thử
 
 ```bash
-npm test    # 80 ca: contract, auth/OTP, consistency, hardening HTTP, secrets, XSS, viewer/pending
-            # (+ 16 ca test module xác thực trong backend-data-integrity)
+npm test    # 114 ca: contract, auth/OTP, consistency, hardening HTTP, secrets, XSS, viewer/pending
 ```
 
 E2E an toàn (không ghi chain, không đụng DB production — dùng MongoDB local
@@ -163,10 +198,13 @@ auth.js                       — challenge → JWT, phiên thiết bị, OTP (s
 models/                       — Wallet, Batch, DeviceSession, ApiKey,
                                 PartnerDocument, Notification, AuthChallenge
 assets/js/                    — frontend: web3Service (MetaMask/contract),
-                                apiService (gọi backend), uiHandler, sanitize, main
-test/                         — 80 ca test tự động (node:test)
+                                apiService (gọi backend), dashboard (KPI/chart/feed),
+                                uiHandler, sanitize, main
+test/                         — 114 ca test tự động (node:test)
 scripts/migrate_to_atlas.js   — copy toàn bộ collection local → MongoDB Atlas
 render.yaml                   — Blueprint deploy Render (build, env, plan free)
+verify.html                   — trang tra cứu công khai, không cần đăng nhập
+partner.html                  — cổng đối tác B2B (API key)
 .npmrc                        — legacy-peer-deps (xung đột hardhat/toolbox)
 BaoCao_DeTai.html             — báo cáo đồ án đầy đủ, in được ra A4 / tải về Word
 ```
