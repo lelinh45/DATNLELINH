@@ -2857,19 +2857,6 @@ async function loadRevokedHistory() {
         const seenRevoked = new Set(); // on-chain + DB cùng đánh dấu 1 tài liệu — chỉ render 1 dòng
         const partnerOrgs = await ApiService.getPartnerDocs(); // badge ĐỐI TÁC
         const localBatches = await ApiService.getBatchesFromDatabase();
-        // Map docId → visibility/uploader để quyết định khóa file private
-        // (isLockedDoc của loadTransactionHistory không với tới hàm này)
-        const revMeta = {};
-        for (const b of localBatches) for (const f of (b.files || [])) {
-            revMeta[f.docId] = { visibility: f.visibility || 'private', uploader: (b.uploader || '').toLowerCase() };
-        }
-        const myAddrRev = (web3.currentAccount || '').toLowerCase();
-        const isLockedRev = (docId, uploaderAddr) => {
-            const m = revMeta[docId];
-            const vis = m ? m.visibility : 'private';
-            const owner = (m && m.uploader) || (uploaderAddr || '').toLowerCase();
-            return vis !== 'public' && owner !== myAddrRev;
-        };
 
         // 1. Quét On-chain
         const events = await web3.queryRevokedHistory();
@@ -2879,13 +2866,12 @@ async function loadRevokedHistory() {
                 if (seenRevoked.has(docId)) continue;
                 seenRevoked.add(docId);
                 if (partnerOrgs[docId]) continue; // doc đối tác không lẫn vào kho thu hồi của ví
-                let uploader = '---'; let createTime = '---'; let ipfsLink = '';
+                let uploader = '---'; let createTime = '---';
                 
                 try { 
                     const docData = await web3.getDocumentFromChain(docId); 
                     uploader = docData[3]; 
                     createTime = window.formatTimeForce(Number(docData[2]) * 1000); // ÉP CHUẨN GIỜ
-                    ipfsLink = (docData[1] || '').replace('ipfs://', '');
                 } catch (e) {}
                 
                 let fileName = docId.replace(/_\d+$/, '').replace(/\.enc$/, '');
@@ -2918,14 +2904,6 @@ async function loadRevokedHistory() {
                             <span class="text-[11px] text-muted font-sans" title="${esc(fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileName)}</span>
                             <span class="text-[10px] text-faint whitespace-nowrap"><i class="fa-regular fa-clock mr-1"></i>Ngày tạo: ${esc(createTime)}</span>
                             <span class="flex gap-3 ml-auto flex-wrap">
-                                ${ipfsLink ? `<a href="https://ipfs.io/ipfs/${esc(ipfsLink)}" target="_blank" rel="noopener noreferrer" title="Xem file mã hóa trên IPFS" class="text-ok hover:text-ok text-[11px] font-bold transition"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>` : ''}
-                                ${ipfsLink && !isLockedRev(docId, uploader) ? `
-                                    <button data-act="preview" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[11px] font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
-                                        <i class="fa-solid fa-eye mr-1"></i> Xem
-                                    </button>
-                                    <button data-act="decrypt" data-v="${esc(ipfsLink)}" data-name="${esc(fileName)}" data-id="${esc(docId)}" title="Giải mã và tải tệp gốc về máy" class="text-accent hover:text-accent text-[11px] font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
-                                        <i class="fa-solid fa-download mr-1"></i> Tải
-                                    </button>` : ''}
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                             </span>
                         </div>
@@ -2975,14 +2953,6 @@ async function loadRevokedHistory() {
                                     <span class="text-[11px] text-muted font-sans" title="${esc(fileDoc.fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileDoc.fileName)}</span>
                                     <span class="text-[10px] text-faint whitespace-nowrap"><i class="fa-regular fa-clock mr-1"></i>Ngày tạo: ${esc(createTime)}</span>
                                     <span class="flex gap-3 ml-auto flex-wrap">
-                                        ${fileDoc.ipfsCID ? `<a href="https://ipfs.io/ipfs/${esc(fileDoc.ipfsCID)}" target="_blank" rel="noopener noreferrer" title="Xem trên IPFS" class="text-ok hover:text-ok text-[11px] font-bold transition"><i class="fa-solid fa-cloud mr-1"></i>IPFS</a>` : ''}
-                                        ${fileDoc.ipfsCID && !isLockedRev(fileDoc.docId, batch.uploader) ? `
-                                            <button data-act="preview" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" title="Xem trực tiếp trong trình duyệt" class="text-ok hover:text-ok text-[11px] font-bold transition bg-ok-soft px-2 py-0.5 rounded border border-ok">
-                                                <i class="fa-solid fa-eye mr-1"></i> Xem
-                                            </button>
-                                            <button data-act="decrypt" data-v="${esc(fileDoc.ipfsCID)}" data-name="${esc(fileDoc.fileName)}" data-id="${esc(fileDoc.docId)}" class="text-accent hover:text-accent text-[11px] font-bold transition bg-accent-soft px-2 py-0.5 rounded border border-accent-line">
-                                                <i class="fa-solid fa-download mr-1"></i> Tải
-                                            </button>` : ''}
                                         <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                     </span>
                                 </div>
