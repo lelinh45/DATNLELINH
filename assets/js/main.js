@@ -2866,12 +2866,17 @@ async function loadRevokedHistory() {
                 if (seenRevoked.has(docId)) continue;
                 seenRevoked.add(docId);
                 if (partnerOrgs[docId]) continue; // doc đối tác không lẫn vào kho thu hồi của ví
-                let uploader = '---'; let createTime = '---';
+                let uploader = '---'; let createTime = '---'; let revokeTime = '';
                 
                 try { 
                     const docData = await web3.getDocumentFromChain(docId); 
                     uploader = docData[3]; 
                     createTime = window.formatTimeForce(Number(docData[2]) * 1000); // ÉP CHUẨN GIỜ
+                } catch (e) {}
+                // Thời điểm thu hồi = timestamp block chứa event DocumentRevoked
+                try {
+                    const blk = await web3.provider.getBlock(ev.blockNumber);
+                    if (blk && blk.timestamp) revokeTime = window.formatTimeForce(blk.timestamp * 1000);
                 } catch (e) {}
                 
                 let fileName = docId.replace(/_\d+$/, '').replace(/\.enc$/, '');
@@ -2900,10 +2905,10 @@ async function loadRevokedHistory() {
                 </tr>
                 <tr class="doc-detail hidden border-b border-line" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                     <td colspan="6" class="px-3 py-2 bg-sunken/40">
-                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                            <span class="text-[11px] text-muted font-sans" title="${esc(fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileName)}</span>
-                            <span class="text-[10px] text-faint whitespace-nowrap"><i class="fa-regular fa-clock mr-1"></i>Ngày tạo: ${esc(createTime)}</span>
-                            <span class="flex gap-3 ml-auto flex-wrap">
+                        <div class="flex items-center gap-x-4 flex-nowrap overflow-hidden">
+                            <span class="text-[11px] text-muted font-sans truncate max-w-[200px]" title="${esc(fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileName)}</span>
+                            ${revokeTime ? `<span class="text-[10px] text-faint whitespace-nowrap shrink-0"><i class="fa-regular fa-clock mr-1"></i>Ngày thu hồi: ${esc(revokeTime)}</span>` : ''}
+                            <span class="flex gap-3 ml-auto shrink-0">
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                             </span>
                         </div>
@@ -2949,10 +2954,10 @@ async function loadRevokedHistory() {
                         </tr>
                         <tr class="doc-detail hidden border-b border-line" data-search="${searchPayload}" data-uploader="${esc(String(batch.uploader).toLowerCase())}">
                             <td colspan="6" class="px-3 py-2 bg-sunken/40">
-                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                                    <span class="text-[11px] text-muted font-sans" title="${esc(fileDoc.fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileDoc.fileName)}</span>
-                                    <span class="text-[10px] text-faint whitespace-nowrap"><i class="fa-regular fa-clock mr-1"></i>Ngày tạo: ${esc(createTime)}</span>
-                                    <span class="flex gap-3 ml-auto flex-wrap">
+                                <div class="flex items-center gap-x-4 flex-nowrap overflow-hidden">
+                                    <span class="text-[11px] text-muted font-sans truncate max-w-[200px]" title="${esc(fileDoc.fileName)}"><i class="fa-regular fa-file mr-1"></i>${esc(fileDoc.fileName)}</span>
+                                    <span class="text-[10px] text-faint whitespace-nowrap shrink-0"><i class="fa-regular fa-clock mr-1"></i>Ngày thu hồi: ${esc(revokeTimeStr)}</span>
+                                    <span class="flex gap-3 ml-auto shrink-0">
                                         <button data-act="copy" data-v="${esc(fileDoc.docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                     </span>
                                 </div>
