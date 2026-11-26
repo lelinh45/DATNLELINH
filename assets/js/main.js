@@ -520,6 +520,22 @@ window.getWalletName = function(address) {
     return `<span class="text-accent font-mono bg-accent-soft px-1.5 py-0.5 rounded border border-accent-line">${displayName}</span>`;
 };
 
+// Nhãn gọn cho cột NGUỒN GỐC: tên (hoặc địa chỉ ngắn) + mã ví rút gọn + cờ ADMIN.
+// name === short khi ví chưa đặt alias — cell chỉ hiện 1 lần, không trùng.
+window.getWalletLabel = function(address) {
+    if (!address) return { name: '---', short: '', isAdmin: false, full: '' };
+    const adminAddr = (window.__chainOwner || "0x8b10e25a2c6f91a5969b8db38b88b9e1002e1911").toLowerCase();
+    const target = address.toLowerCase();
+    const short = `${address.substring(0, 6)}...${address.substring(38)}`;
+    let alias = '';
+    try {
+        const wallets = JSON.parse(localStorage.getItem('bdi_authorized_wallets') || '[]');
+        const w = wallets.find(x => x.address && x.address.toLowerCase() === target);
+        alias = (w && w.alias) ? w.alias : '';
+    } catch (e) {}
+    return { name: alias || short, short, isAdmin: target === adminAddr, full: address };
+};
+
 // Badge "ĐỐI TÁC · orgName" cho tài liệu upload qua API key đối tác —
 // giao dịch on-chain do server ký hộ bằng ví ADMIN nên cần badge phân biệt
 window.partnerBadge = (partnerOrgs, docId) => {
@@ -2711,6 +2727,7 @@ async function loadTransactionHistory() {
                 }
 
                 const canRevoke = await canRevokeDoc(uploader);
+                const wl = window.getWalletLabel(uploader);
                 html += `
                 <tr class="border-b border-line hover:bg-hover transition" data-search="${searchPayload}" data-uploader="${esc(String(uploader).toLowerCase())}">
                     <td class="px-3 py-2 font-bold text-center text-faint">${stt++}</td>
@@ -2721,8 +2738,11 @@ async function loadTransactionHistory() {
                             </div>
                         </td>
                     <td class="px-3 py-2 text-xs text-soft">
-                        <div>${window.getWalletName(uploader)}</div>
-                        ${window.partnerBadge(partnerOrgs, docId)}
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            ${wl.isAdmin ? '<i class="fa-solid fa-crown text-warn text-[10px] shrink-0" title="Ví ADMIN"></i>' : ''}
+                            <span class="truncate max-w-[110px]" title="${esc(wl.name !== wl.short ? wl.name + ' (' + wl.full + ')' : wl.full)}">${esc(wl.name)}</span>
+                            ${wl.name !== wl.short ? `<span class="text-[9px] text-faint font-mono shrink-0">${esc(wl.short)}</span>` : ''}
+                        </div>
                     </td>
                     <td class="px-3 py-2 font-mono text-[10px] text-faint">
                         <div class="text-muted truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
@@ -2770,6 +2790,7 @@ async function loadTransactionHistory() {
                 const createTime = window.formatTimeForce(batch.timestamp);
                 const uploader = batch.uploader;
                 const batchCanRevoke = await canRevokeDoc(uploader);
+                const wl = window.getWalletLabel(uploader);
 
                 batch.files.forEach(fileDoc => {
                     if (fileDoc.isRevoked || revokedIds.has(fileDoc.docId)) return;
@@ -2787,7 +2808,11 @@ async function loadTransactionHistory() {
                             </div>
                         </td>
                         <td class="px-3 py-2 text-xs text-soft">
-                            <div>${window.getWalletName(uploader)}</div>
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                ${wl.isAdmin ? '<i class="fa-solid fa-crown text-warn text-[10px] shrink-0" title="Ví ADMIN"></i>' : ''}
+                                <span class="truncate max-w-[110px]" title="${esc(wl.name !== wl.short ? wl.name + ' (' + wl.full + ')' : wl.full)}">${esc(wl.name)}</span>
+                                ${wl.name !== wl.short ? `<span class="text-[9px] text-faint font-mono shrink-0">${esc(wl.short)}</span>` : ''}
+                            </div>
                         </td>
                         <td class="px-3 py-2 font-mono text-[10px] text-faint">
                             <div class="text-muted truncate max-w-[150px]" title="${esc(fileDoc.fileHash)}">${esc(fileDoc.fileHash)}</div>
