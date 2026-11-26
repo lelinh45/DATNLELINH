@@ -110,10 +110,25 @@ export class Web3Service {
     // ==========================================
     // CƠ CHẾ PHÂN TRANG & CACHE BLOCK (TỐI ƯU RPC)
     // ==========================================
-    async getEventsInChunks(filter, cacheKeyName) {
+    async getEventsInChunks(filter, cacheKeyName, onProgress) {
+        // Dedupe: dashboard + sổ cái có thể gọi cùng cacheKey đồng thời —
+        // dùng chung 1 lần quét thay vì bắn đôi request làm dính rate limit.
+        const scopedKey = `bdi_cache_v2_${CONFIG.CONTRACT_ADDRESS}_${cacheKeyName}`;
+        if (!this._scanInflight) this._scanInflight = {};
+        if (this._scanInflight[scopedKey]) return this._scanInflight[scopedKey];
+        const p = this._scanEventsInChunks(filter, cacheKeyName, onProgress)
+            .finally(() => { delete this._scanInflight[scopedKey]; });
+        this._scanInflight[scopedKey] = p;
+        return p;
+    }
+
+    async _scanEventsInChunks(filter, cacheKeyName, onProgress) {
         const latestBlock = await this.provider.getBlockNumber();
-        const START_BLOCK = 11740000;
-        const CHUNK_SIZE = 9000;
+        // Chunk lớn mặc định (45k < giới hạn 50k của RPC phổ biến) — cold scan
+        // origin mới chỉ còn ~11 request thay vì ~50. RPC nào từ chối range
+        // lớn (MetaMask/Infura cap thấp hơn) tự động tụt về 9.000 bên dưới.
+        let CHUNK_SIZE = 45000;
+        const MIN_CHUNK = 9000;
         // Cache gắn theo địa chỉ contract — deploy contract mới thì sự kiện của
         // contract cũ không bị trộn vào danh sách (tránh docId trùng lặp ảo)
         const scopedKey = `bdi_cache_v2_${CONFIG.CONTRACT_ADDRESS}_${cacheKeyName}`;
@@ -128,22 +143,44 @@ export class Web3Service {
             // latest → hố sự kiện vĩnh viễn trong cache (tài liệu/thu hồi/
             // phân quyền "nhảy" sai so với chain cho tới khi xóa localStorage).
             let contiguousTo = fromBlock - 1;
-            for (let from = fromBlock; from <= latestBlock; from += CHUNK_SIZE) {
-                let to = from + CHUNK_SIZE - 1;
-                if (to > latestBlock) to = latestBlock;
-                try {
-                    const chunk = await this.contract.queryFilter(filter, from, to);
-                    const mappedChunk = chunk.map(ev => ({
-                        args: Array.from(ev.args).map(arg => typeof arg === 'bigint' ? arg.toString() : arg),
-                        transactionHash: ev.transactionHash,
-                        blockNumber: ev.blockNumber
-                    }));
-                    newEvents = newEvents.concat(mappedChunk);
-                    contiguousTo = to;
-                } catch (error) {
-                    console.warn(`Dừng quét tại block ${from}-${to} (sẽ quét lại lần sau):`, error);
+            let from = fromBlock;
+            while (from <= latestBlock) {
+                let to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
+                // Retry chunk lỗi (rate limit/RPC chập chờn) trước khi dừng scan —
+                // 1 chunk hỏng không nên khóa toàn bộ phần quét phía sau.
+                // Lỗi do range quá lớn → tụt chunkSize về MIN_CHUNK rồi thử lại.
+                let chunk = null;
+                for (let attempt = 0; attempt < 3 && !chunk; attempt++) {
+                    try {
+                        chunk = await this.contract.queryFilter(filter, from, to);
+                    } catch (error) {
+                        const msg = String(error?.info?.error?.message || error?.message || error);
+                        if (/range|limit|exceed|large|block range/i.test(msg) && CHUNK_SIZE > MIN_CHUNK) {
+                            CHUNK_SIZE = MIN_CHUNK;
+                            to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
+                        } else if (attempt === 2) {
+                            console.warn(`Dừng quét tại block ${from}-${to} (sẽ quét lại lần sau):`, error);
+                        } else {
+                            await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+                        }
+                    }
+                }
+                if (!chunk) {
+                    // Chunk to vẫn hỏng sau retry → có thể RPC cap range nhỏ
+                    // hơn dự kiến (message không khớp regex) → tụt chunk rồi
+                    // thử lại đúng block này thay vì bỏ cuộc cả scan.
+                    if (CHUNK_SIZE > MIN_CHUNK) { CHUNK_SIZE = MIN_CHUNK; continue; }
                     break;
                 }
+                const mappedChunk = chunk.map(ev => ({
+                    args: Array.from(ev.args).map(arg => typeof arg === 'bigint' ? arg.toString() : arg),
+                    transactionHash: ev.transactionHash,
+                    blockNumber: ev.blockNumber
+                }));
+                newEvents = newEvents.concat(mappedChunk);
+                contiguousTo = to;
+                if (onProgress) onProgress(to, latestBlock);
+                from += CHUNK_SIZE;
             }
             cacheData.events = cacheData.events.concat(newEvents);
             cacheData.lastScanned = contiguousTo;
@@ -216,14 +253,14 @@ export class Web3Service {
         return tx.hash;
     }
 
-    async queryHistory() {
+    async queryHistory(onProgress) {
         if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
-        return await this.getEventsInChunks(this.contract.filters.DocumentAdded(), 'added_events'); 
+        return await this.getEventsInChunks(this.contract.filters.DocumentAdded(), 'added_events', onProgress); 
     }
 
-    async queryRevokedHistory() {
+    async queryRevokedHistory(onProgress) {
         if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
-        return await this.getEventsInChunks(this.contract.filters.DocumentRevoked(), 'revoked_events'); 
+        return await this.getEventsInChunks(this.contract.filters.DocumentRevoked(), 'revoked_events', onProgress); 
     }
 
     async revokeDocument(docId, reason) {

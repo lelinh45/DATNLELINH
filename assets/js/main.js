@@ -2580,6 +2580,16 @@ async function loadTransactionHistory() {
     if (!tbody) return;
     
     tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-accent"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang quét sổ cái Blockchain...</td></tr>';
+    // Tiến độ quét block thật từ getEventsInChunks — lần đầu vào origin
+    // (cache localStorage rỗng) phải quét hàng trăm chunk, cần thấy % để
+    // không tưởng app bị treo.
+    const scanTd = tbody.querySelector('td');
+    const scanPct = (to, latest) => {
+        if (scanTd && latest > 0) {
+            const pct = Math.min(99, Math.round((to / latest) * 100));
+            scanTd.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang quét mạng lưới... ${pct}%`;
+        }
+    };
     
     try {
         let html = '';
@@ -2593,7 +2603,7 @@ async function loadTransactionHistory() {
         // getDocument() trên RPC công cộng có thể trả state cũ/lỗi ngay sau tx.wait()
         const revokedIds = new Set();
         try {
-            const revokedEvents = await web3.queryRevokedHistory();
+            const revokedEvents = await web3.queryRevokedHistory(scanPct);
             for (const ev of revokedEvents) revokedIds.add(ev.args[0]);
         } catch (e) {}
 
@@ -2663,7 +2673,7 @@ async function loadTransactionHistory() {
         const hasLineage = (docId) => verOf(docId) > 1 || !!succOf[docId];
 
         // 1. Quét file On-chain
-        const events = await web3.queryHistory();
+        const events = await web3.queryHistory(scanPct);
         if (events && events.length > 0) {
             for (let ev of [...events].reverse()) {
                 const docId = ev.args[0];
@@ -2875,6 +2885,13 @@ async function loadRevokedHistory() {
     if (!tbody) return;
     
     tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-err"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang truy xuất Kho lưu trữ thu hồi...</td></tr>';
+    const scanTd = tbody.querySelector('td');
+    const scanPct = (to, latest) => {
+        if (scanTd && latest > 0) {
+            const pct = Math.min(99, Math.round((to / latest) * 100));
+            scanTd.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang quét mạng lưới... ${pct}%`;
+        }
+    };
     
     try {
         let html = ''; 
@@ -2884,7 +2901,7 @@ async function loadRevokedHistory() {
         const localBatches = await ApiService.getBatchesFromDatabase();
 
         // 1. Quét On-chain
-        const events = await web3.queryRevokedHistory();
+        const events = await web3.queryRevokedHistory(scanPct);
         if (events && events.length > 0) {
             for (let ev of [...events].reverse()) {
                 const docId = ev.args[0]; const revokedBy = ev.args[1]; const reason = ev.args[2];
