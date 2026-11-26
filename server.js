@@ -1004,7 +1004,9 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             chunkHashes: Array.isArray(f && f.chunkHashes)
                 ? f.chunkHashes.filter(h => typeof h === 'string' && /^[a-f0-9]{64}$/i.test(h)).slice(0, 5000)
                 : undefined,
-            // AES key do user nhập — bọc bằng MASTER_KEY trước khi ghi DB
+            // AES key do user nhập — bọc bằng MASTER_KEY trước khi ghi DB.
+            // selfCustody=true → client chủ động KHÔNG gửi encKey (server không escrow)
+            selfCustody: !!(f && f.selfCustody),
             encKey: f && f.encKey ? wrapKey(f.encKey) : undefined
         })) : [];
         // Liên kết phiên bản: docId bị thay thế phải tồn tại VÀ do chính ví này upload
@@ -1030,7 +1032,7 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             for (const nf of safeFiles) {
                 const ef = existing.files.find(x => x.docId === nf.docId);
                 if (!ef) { existing.files.push(nf); changed = true; continue; }
-                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes', 'replacesDocId']) {
+                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes', 'replacesDocId', 'selfCustody']) {
                     if (!ef[k] && nf[k]) { ef[k] = nf[k]; changed = true; }
                 }
             }
@@ -1391,6 +1393,10 @@ app.get('/api/documents/:docId/key', requireAuth, async (req, res) => {
             return res.status(403).json({ success: false, message: 'Tài liệu riêng tư — chỉ người tải lên được mở' });
         }
         if (!file.encKey) {
+            // selfCustody: server cố tình không giữ khóa — client phải hỏi mật khẩu
+            if (file.selfCustody) {
+                return res.status(403).json({ success: false, code: 'SELF_CUSTODY', message: 'Tài liệu tự giữ khóa — server không lưu mật khẩu giải mã' });
+            }
             return res.status(404).json({ success: false, message: 'Tài liệu không có khóa lưu trữ (upload trước khi có tính năng này)' });
         }
         const key = unwrapKey(file.encKey);
@@ -1692,6 +1698,14 @@ app.post('/api/v1/documents', requireApiKey, uploadSingle('document'), async (re
     try {
         if (!req.file) return res.status(400).json({ success: false, message: 'Thiếu file (field "document")' });
 
+        // Self-custody: đối tác tự cung cấp encryptionKey → server mã hóa bằng
+        // key đó nhưng KHÔNG escrow (không lưu encKey). Độ dài 8-256 ký tự.
+        const selfKey = typeof req.body.encryptionKey === 'string' && req.body.encryptionKey.trim()
+            ? req.body.encryptionKey.trim() : null;
+        if (selfKey && (selfKey.length < 8 || selfKey.length > 256)) {
+            return res.status(400).json({ success: false, message: 'encryptionKey phải dài 8-256 ký tự' });
+        }
+
         const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
         const safeFileName = (req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file').substring(0, 100);
         const documentId = `${safeFileName}_${Date.now()}`;
@@ -1707,6 +1721,13 @@ app.post('/api/v1/documents', requireApiKey, uploadSingle('document'), async (re
                 if (dupDocId) {
                     const od = await getChainContract().getDocument(dupDocId);
                     if (!od.isRevoked) {
+                        // Self-custody không áp dụng cho bản ghi dùng chung: ciphertext
+                        // gốc đã mã hóa bằng khóa khác — key mới của đối tác không giải
+                        // được. Từ chối rõ ràng thay vì âm thầm hạ xuống escrow.
+                        if (selfKey) {
+                            return res.status(409).json({ success: false, code: 'DUP_SHARED_REF',
+                                message: 'Nội dung này đã được đóng dấu trên hệ thống — self-custody không áp dụng cho bản ghi dùng chung. Tải về qua escrow như thường, hoặc thay đổi nội dung file.' });
+                        }
                         // Lấy CID + khóa bọc từ bản ghi gốc (file trùng byte →
                         // giải mã được bằng khóa gốc; không tốn IPFS, không tốn gas)
                         const srcPartner = await PartnerDocument.findOne({ docId: dupDocId }).lean();
@@ -1731,7 +1752,8 @@ app.post('/api/v1/documents', requireApiKey, uploadSingle('document'), async (re
         }
 
         // Mã hóa AES giống luồng web: CryptoJS.AES.encrypt(base64(bytes), passphrase)
-        const secretKey = crypto.randomBytes(24).toString('hex');
+        // self-custody: dùng encryptionKey đối tác cung cấp, KHÔNG lưu esckey
+        const secretKey = selfKey || crypto.randomBytes(24).toString('hex');
         const encryptedText = CryptoJS.AES.encrypt(req.file.buffer.toString('base64'), secretKey).toString();
 
         // File đối tác cũng nằm trên cùng tài khoản Pinata → trừ vào quota chung 1GB
@@ -1768,10 +1790,11 @@ app.post('/api/v1/documents', requireApiKey, uploadSingle('document'), async (re
         await PartnerDocument.create({
             docId: documentId, apiKeyId: req.apiKey._id, orgName: req.apiKey.name,
             fileName: req.file.originalname, fileHash, fileSize: req.file.size,
-            ipfsCID, encKey: wrapKey(secretKey), txHash
+            ipfsCID, encKey: selfKey ? undefined : wrapKey(secretKey), txHash,
+            selfCustody: !!selfKey
         });
 
-        res.json({ success: true, documentId, fileHash, ipfsCID, txHash });
+        res.json({ success: true, documentId, fileHash, ipfsCID, txHash, selfCustody: !!selfKey });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi upload đối tác', error: error.message });
     }
@@ -1816,7 +1839,7 @@ app.post('/api/v1/verify', requireApiKey, uploadSingle('document'), async (req, 
 app.get('/api/v1/documents', requireApiKey, async (req, res) => {
     try {
         const docs = await PartnerDocument.find({ apiKeyId: req.apiKey._id })
-            .select('docId fileName fileHash fileSize ipfsCID txHash isRevoked refDocId isSharedRef createdAt')
+            .select('docId fileName fileHash fileSize ipfsCID txHash isRevoked refDocId isSharedRef selfCustody createdAt')
             .sort({ createdAt: -1 }).lean();
         res.json({ success: true, documents: docs });
     } catch (e) {
@@ -1831,8 +1854,18 @@ app.get('/api/v1/documents/:docId/download', requireApiKey, async (req, res) => 
         if (!/^[\w.\-]{1,300}$/.test(docId)) return res.status(400).json({ success: false, message: 'docId không hợp lệ' });
         const doc = await PartnerDocument.findOne({ docId, apiKeyId: req.apiKey._id });
         if (!doc) return res.status(404).json({ success: false, message: 'Không tìm thấy tài liệu của đối tác này' });
-        const secretKey = doc.encKey ? unwrapKey(doc.encKey) : null;
-        if (!secretKey) return res.status(500).json({ success: false, message: 'Không giải được khóa lưu trữ' });
+
+        // Self-custody: server không giữ khóa — bắt buộc ?key= do đối tác cung cấp
+        let secretKey;
+        if (doc.selfCustody) {
+            const k = typeof req.query.key === 'string' ? req.query.key : '';
+            if (!k) return res.status(400).json({ success: false, code: 'SELF_CUSTODY', message: 'Tài liệu self-custody — cần tham số ?key=<encryptionKey>' });
+            if (k.length > 256) return res.status(400).json({ success: false, message: 'key không hợp lệ' });
+            secretKey = k;
+        } else {
+            secretKey = doc.encKey ? unwrapKey(doc.encKey) : null;
+            if (!secretKey) return res.status(500).json({ success: false, message: 'Không giải được khóa lưu trữ' });
+        }
 
         const cid = doc.ipfsCID;
         let text = null;
@@ -1852,6 +1885,10 @@ app.get('/api/v1/documents/:docId/download', requireApiKey, async (req, res) => 
 
         const decrypted = CryptoJS.AES.decrypt(text, secretKey).toString(CryptoJS.enc.Utf8); // base64 gốc
         const buf = Buffer.from(decrypted, 'base64');
+        // Tự giữ khóa: sai key vẫn "giải mã" ra rác — bắt buộc đối chiếu hash gốc
+        if (doc.fileHash && crypto.createHash('sha256').update(buf).digest('hex') !== doc.fileHash) {
+            return res.status(403).json({ success: false, message: 'Sai encryptionKey — không giải mã được tài liệu' });
+        }
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.fileName || docId)}"`);
         res.setHeader('Content-Type', 'application/octet-stream');
         res.send(buf);

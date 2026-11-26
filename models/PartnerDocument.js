@@ -11,6 +11,7 @@ const partnerDocSchema = new mongoose.Schema({
     fileSize: Number,
     ipfsCID: String,
     encKey: String, // AES key bọc MASTER_KEY — giống cơ chế escrow của luồng web
+    selfCustody: Boolean, // true = không lưu encKey; download phải kèm ?key= mật khẩu tự giữ
     txHash: String,
     refDocId: { type: String, default: '' },      // docId on-chain gốc khi bản ghi là tham chiếu dùng chung
     isSharedRef: { type: Boolean, default: false }, // true = nội dung trùng bản đã đóng dấu → dùng chung bằng chứng on-chain

@@ -102,6 +102,7 @@ tailwind.config = { theme: { extend: {
                     <p class="text-[10px] text-faint mt-2 font-mono">Hỗ trợ: PDF, DOCX, PNG, JPG, TXT (Max 50MB/file)</p>
                 </div>
             </div>
+            <input id="up-selfkey" type="password" placeholder="Mật khẩu tự giữ khóa (tùy chọn — server không lưu, tải về phải nhập lại)" class="w-full px-3 py-2 rounded-lg border border-line-strong text-xs mb-2 focus:border-accent focus:outline-none">
             <button onclick="uploadDoc()" id="btn-upload" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-white w-full transition">
                 <i class="fa-solid fa-stamp mr-1"></i>Mã hóa → IPFS → Ghi blockchain
             </button>
@@ -234,6 +235,7 @@ async function uploadDoc() {
     btn.disabled = true;
     box.innerHTML = '';
     let ok = 0, fail = 0;
+    const selfKey = document.getElementById('up-selfkey').value.trim();
     for (let i = 0; i < files.length; i++) {
         const f = files[i];
         btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Đang xử lý ${i + 1}/${files.length}…`;
@@ -242,12 +244,13 @@ async function uploadDoc() {
         try {
             const fd = new FormData();
             fd.append('document', f);
+            if (selfKey) fd.append('encryptionKey', selfKey);
             const res = await api('/api/v1/documents', { method: 'POST', body: fd });
             const d = await res.json();
             if (!res.ok || !d.success) throw new Error(d.message || 'Upload thất bại');
             ok++;
             row.remove();
-            toast('success', d.shared ? `${f.name} — gắn vào bản ghi dùng chung (nội dung đã đóng dấu trước)` : `${f.name} — đóng dấu thành công`);
+            toast('success', d.shared ? `${f.name} — gắn vào bản ghi dùng chung (nội dung đã đóng dấu trước)` : `${f.name} — đóng dấu thành công${d.selfCustody ? ' · tự giữ khóa' : ''}`);
             if (i === 0) document.getElementById('vf-docid').value = d.documentId;
         } catch (e) {
             fail++;
@@ -308,7 +311,7 @@ function renderDocs(docs) {
         <tr class="border-b border-line hover:bg-hover">
             <td class="py-2 pr-3 text-faint">${i + 1}</td>
             <td class="py-2 pr-3">
-                <div class="font-bold text-soft">${esc(d.fileName || d.docId)}${d.isSharedRef ? ' <span class="bg-info-soft text-info px-1.5 py-0.5 rounded text-[9px] font-bold" title="Nội dung trùng bản đã đóng dấu trước — bản ghi này dùng chung bằng chứng on-chain">DÙNG CHUNG</span>' : ''}</div>
+                <div class="font-bold text-soft">${esc(d.fileName || d.docId)}${d.isSharedRef ? ' <span class="bg-info-soft text-info px-1.5 py-0.5 rounded text-[9px] font-bold" title="Nội dung trùng bản đã đóng dấu trước — bản ghi này dùng chung bằng chứng on-chain">DÙNG CHUNG</span>' : ''}${d.selfCustody ? ' <span class="bg-warn-soft text-warn px-1.5 py-0.5 rounded text-[9px] font-bold" title="Server không lưu khóa — tải về phải nhập encryptionKey">TỰ GIỮ KHÓA</span>' : ''}</div>
                 <div class="font-mono text-[10px] text-accent truncate max-w-[180px]" title="${esc(d.docId)}${d.refDocId ? ' → on-chain: ' + esc(d.refDocId) : ''}">${esc(d.docId)}</div>
                 <div class="text-[10px] text-faint">${fmtSize(d.fileSize)}</div>
             </td>
@@ -322,7 +325,7 @@ function renderDocs(docs) {
                 ? '<span class="bg-err-soft text-err px-2 py-0.5 rounded text-[10px] font-bold">THU HỒI</span>'
                 : '<span class="bg-ok-soft text-ok px-2 py-0.5 rounded text-[10px] font-bold">HIỆU LỰC</span>'}</td>
             <td class="py-2 whitespace-nowrap">
-                <button onclick="downloadDoc('${esc(d.docId)}','${esc(d.fileName||'file')}')" class="text-accent hover:text-accent font-bold mr-2"><i class="fa-solid fa-download mr-1"></i>Tải</button>
+                <button onclick="downloadDoc('${esc(d.docId)}','${esc(d.fileName||'file')}',${d.selfCustody ? 'true' : 'false'})" class="text-accent hover:text-accent font-bold mr-2"><i class="fa-solid fa-download mr-1"></i>Tải</button>
                 ${(!d.isRevoked && !d.isSharedRef) ? `<button onclick="revokeDoc('${esc(d.docId)}')" class="text-err hover:text-err font-bold"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
             </td>
         </tr>`).join('');
@@ -343,9 +346,16 @@ async function revokeDoc(docId) {
         loadDocs();
     } catch (e) { toast('error', e.message); }
 }
-async function downloadDoc(docId, fileName) {
+async function downloadDoc(docId, fileName, selfCustody) {
     try {
-        const res = await api(`/api/v1/documents/${encodeURIComponent(docId)}/download`);
+        let url = `/api/v1/documents/${encodeURIComponent(docId)}/download`;
+        if (selfCustody) {
+            const k = prompt('Tài liệu tự giữ khóa — nhập encryptionKey đã dùng khi upload:');
+            if (k === null) return;
+            if (!k) return toast('warning', 'Cần nhập encryptionKey');
+            url += `?key=${encodeURIComponent(k)}`;
+        }
+        const res = await api(url);
         if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || 'Tải thất bại'); }
         const blob = await res.blob();
         const a = document.createElement('a');

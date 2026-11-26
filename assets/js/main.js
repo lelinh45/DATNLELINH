@@ -1801,6 +1801,15 @@ async function promptPasswordAndUpload() {
             <option value="private" selected>🔒 Riêng tư — chỉ mình tôi xem được</option>
             <option value="public">🌐 Công khai — mọi người dùng đều xem được</option>
         </select>
+        <div class="text-left text-sm text-soft mt-3 mb-1 flex items-center gap-2">
+            <input type="checkbox" id="swal-selfcustody" class="accent-accent w-4 h-4">
+            <span>Tự giữ khóa — <b>server không lưu mật khẩu</b> (tài liệu tối mật)</span>
+        </div>
+        <div id="swal-selfcustody-fields" style="display:none">
+            <input id="swal-selfpass" type="password" placeholder="Mật khẩu riêng (tối thiểu 8 ký tự)..." class="swal2-input" style="width:88%;margin-top:6px">
+            <input id="swal-selfpass2" type="password" placeholder="Nhập lại mật khẩu..." class="swal2-input" style="width:88%;margin-top:6px">
+            <div class="text-[11px] text-warn mt-1 text-left">⚠ Chế độ này áp cho TOÀN BỘ tệp trong lô. Quên mật khẩu = không thể giải mã file, kể cả admin.</div>
+        </div>
         <div class="text-left text-sm text-soft mt-3 mb-1">Tùy chỉnh từng tệp:</div>
         <div style="max-height:11rem;overflow-y:auto;padding-right:4px">${rowsHtml}</div>`;
 
@@ -1812,6 +1821,11 @@ async function promptPasswordAndUpload() {
         background: 'var(--panel)', color: 'var(--ink)',
         confirmButtonColor: 'var(--accent)', showCancelButton: true, cancelButtonText: 'Hủy',
         didOpen: () => {
+            const selfCb = document.getElementById('swal-selfcustody');
+            const selfFields = document.getElementById('swal-selfcustody-fields');
+            const toggleSelf = () => { selfFields.style.display = selfCb.checked ? 'block' : 'none'; };
+            selfCb.addEventListener('change', toggleSelf);
+            toggleSelf();
             document.querySelectorAll('.bdi-ownkey').forEach(cb => {
                 cb.addEventListener('change', () => {
                     const inp = cb.closest('.bdi-file-row').querySelector('.bdi-key');
@@ -1821,8 +1835,16 @@ async function promptPasswordAndUpload() {
             });
         },
         preConfirm: () => {
+            const selfOn = document.getElementById('swal-selfcustody').checked;
+            let selfPass = null;
+            if (selfOn) {
+                selfPass = document.getElementById('swal-selfpass').value;
+                const selfPass2 = document.getElementById('swal-selfpass2').value;
+                if (!selfPass || selfPass.length < 8) { Swal.showValidationMessage('Mật khẩu tự giữ khóa phải có ít nhất 8 ký tự'); return false; }
+                if (selfPass !== selfPass2) { Swal.showValidationMessage('Hai lần nhập mật khẩu không khớp'); return false; }
+            }
             const key = document.getElementById('swal-key').value;
-            if (!key) { Swal.showValidationMessage('Vui lòng nhập khóa chung'); return false; }
+            if (!key && !selfOn) { Swal.showValidationMessage('Vui lòng nhập khóa chung'); return false; }
             const vis = document.getElementById('swal-vis').value;
             const perFile = [];
             let missingName = null;
@@ -1835,12 +1857,13 @@ async function promptPasswordAndUpload() {
                 perFile[i] = { key: own ? k : null, vis: row.querySelector('.bdi-vis').value, replaces: rep ? (rep.value || null) : null };
             });
             if (missingName) { Swal.showValidationMessage(`Tệp "${esc(missingName)}" đã chọn khóa riêng nhưng chưa nhập`); return false; }
-            return { key, vis, perFile };
+            return { key, vis, perFile, selfCustody: selfOn ? { enabled: true, pass: selfPass } : null };
         }
     });
 
     // Nếu bấm Hủy hoặc không nhập khóa -> Bắt buộc mở khóa hệ thống
-    if (!formValues || !formValues.key) {
+    // (self-custody không cần khóa chung — mật khẩu riêng đã đủ)
+    if (!formValues || (!formValues.key && !(formValues.selfCustody && formValues.selfCustody.enabled))) {
         isProcessing = false;
         return;
     }
@@ -1858,7 +1881,7 @@ async function promptPasswordAndUpload() {
     isProcessing = true;
 
     //await ÉP HỆ THỐNG CHỜ CHẠY XONG MỚI TIẾP
-    await executeUploadCore(finalFiles, formValues.key, formValues.vis);
+    await executeUploadCore(finalFiles, formValues.key, formValues.vis, formValues.selfCustody);
 }
 
 // Drain các batch "mồ côi" (ghi chain xong nhưng lưu DB lỗi) — tự chạy lại
@@ -1880,7 +1903,8 @@ async function drainOrphanedBatches() {
 }
 
 // LUỒNG MÃ HÓA, IPFS VÀ BLOCKCHAIN 
-async function executeUploadCore(fileDataArray, secretKey, visibility = 'private') {
+async function executeUploadCore(fileDataArray, secretKey, visibility = 'private', selfCustody = null) {
+    const isSelfCustody = !!(selfCustody && selfCustody.enabled);
     isProcessing = true;
     try {
         // Token JWT hết hạn/đổi ví giữa chừng → xin challenge và ký lại trước khi ghi dữ liệu
@@ -1917,7 +1941,7 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
                 if (p !== lastEncPct) { lastEncPct = p; UI.updateProgress(p, `Đang mã hóa file ${i + 1}/${N}:${file.name}...`, "ENCRYPTING"); }
             }
 
-            const fileKey = fileItem._key || secretKey; // khóa riêng nếu có, không thì khóa chung
+            const fileKey = isSelfCustody ? selfCustody.pass : (fileItem._key || secretKey); // self-custody: mật khẩu riêng cho mọi file, server không escrow
             const encryptedData = CryptoJS.AES.encrypt(btoa(binaryString), fileKey).toString();
             const encryptedBlob = new Blob([encryptedData], { type: 'text/plain' });
             const encryptedFile = new File([encryptedBlob], file.name + '.enc', { type: 'text/plain' });
@@ -1945,7 +1969,8 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
                 fileName: file.name,
                 fileSize: fileItem.size,
                 qrCode: qrCodeBase64,
-                encKey: fileKey, // khóa AES — chỉ gửi lên server bọc trong MongoDB, TUYỆT ĐỐI không đưa vào manifest IPFS
+                encKey: isSelfCustody ? undefined : fileKey, // self-custody: KHÔNG gửi khóa — server không giữ
+                selfCustody: isSelfCustody || undefined,
                 visibility: fileItem._vis || visibility,
                 // Liên kết dòng đời: docId phiên bản cũ mà file này thay thế (nếu có)
                 replacesDocId: fileItem._replacesDocId || undefined
