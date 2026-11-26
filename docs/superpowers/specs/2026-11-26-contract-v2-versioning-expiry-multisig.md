@@ -83,6 +83,24 @@ verify.html/lookup hiển thị:
 - Deploy: `PRIVATE_KEY` server ví (đã có gas Sepolia) → ghi địa chỉ mới vào
   `config.js` + Render env.
 
+## Ràng buộc bổ sung (user chốt)
+
+1. **Chống trùng chữ ký trong `sealDocument()`**: mỗi địa chỉ trong
+   `requiredSigners` chỉ được đếm tối đa 1 lần — **revert** nếu phát hiện
+   signer trùng lặp hoặc chữ ký thuộc địa chỉ không nằm trong
+   `requiredSigners`. Dùng OpenZeppelin `ECDSA.recover` (không tự viết ecrecover).
+2. **Quyền versioning**: chỉ **uploader bản cũ** hoặc **QUẢN LÝ/ADMIN** được
+   trỏ `previousDocId` (tài liệu do ADMIN upload thì chỉ ADMIN được kế thừa).
+   Chặn phân nhánh: revert nếu `previousDocId` đã có `successorOf`.
+   Nếu bản mới là multi-sig PENDING → chỉ gán `successorOf` **sau khi**
+   `sealDocument()` thành công (sealed=true).
+3. **Hủy PENDING**: cho phép `revokeDocument` (hoặc hàm riêng) trên doc đang
+   PENDING bởi uploader hoặc QUẢN LÝ/ADMIN — tránh treo vĩnh viễn khi một
+   bên không ký.
+4. **Verify phân biệt rõ**: hash khớp + hết hạn / có bản kế thừa hiển thị
+   trạng thái riêng (kèm ID bản mới), **tách biệt hoàn toàn** khỏi trạng
+   thái giả mạo (hash lệch).
+
 ## Edge cases
 
 - `previousDocId` trỏ doc không tồn tại hoặc khác uploader → revert.
