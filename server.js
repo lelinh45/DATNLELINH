@@ -1340,14 +1340,16 @@ app.post('/api/notifications/read', requireAuth, async (req, res) => {
 // Danh sách thiết bị đang giữ phiên đăng nhập của ví này (gồm cả pending chờ duyệt)
 app.get('/api/sessions', requireAuth, async (req, res) => {
     try {
-        // Chỉ trả phiên "còn sống": lastSeen trong 24h (= JWT TTL) hoặc đang pending
-        // chờ duyệt. Phiên cũ hơn 24h thực tế đã chết (JWT hết hạn) — không đếm,
-        // tránh số liệu phình mãi theo thời gian.
+        // Chỉ trả phiên "còn sống": lastSeen trong 24h (= JWT TTL). Phiên cũ
+        // hơn 24h thực tế đã chết — không đếm, tránh số liệu phình mãi.
+        // Phiên pending cũng phải fresh: thiết bị bỏ chờ quá 24h (không
+        // lastSeen lại) tự ẩn khỏi badge/danh sách duyệt — nếu nó đăng nhập
+        // lại, lastSeen được gia hạn và phiên pending hiện trở lại.
         const FRESH_MS = 24 * 60 * 60 * 1000;
         const sessions = await DeviceSession.find({
             address: req.user.address,
             revoked: { $ne: true }, status: { $ne: 'revoked' },
-            $or: [{ lastSeen: { $gte: Date.now() - FRESH_MS } }, { status: 'pending' }]
+            lastSeen: { $gte: Date.now() - FRESH_MS }
         }).sort({ lastSeen: -1 }).lean();
         res.json({
             success: true,
