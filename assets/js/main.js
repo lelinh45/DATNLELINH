@@ -2749,7 +2749,6 @@ async function loadTransactionHistory() {
                         </td>
                     <td class="px-3 py-2 text-xs text-soft">
                         <div class="flex items-center gap-1.5 min-w-0">
-                            ${wl.isAdmin ? '<i class="fa-solid fa-crown text-warn text-[10px] shrink-0" title="Ví ADMIN"></i>' : ''}
                             <span class="truncate max-w-[110px]" title="${esc(wl.name !== wl.short ? wl.name + ' (' + wl.full + ')' : wl.full)}">${esc(wl.name)}</span>
                             ${wl.name !== wl.short ? `<span class="text-[9px] text-faint font-mono shrink-0">${esc(wl.short)}</span>` : ''}
                         </div>
@@ -2819,7 +2818,6 @@ async function loadTransactionHistory() {
                         </td>
                         <td class="px-3 py-2 text-xs text-soft">
                             <div class="flex items-center gap-1.5 min-w-0">
-                                ${wl.isAdmin ? '<i class="fa-solid fa-crown text-warn text-[10px] shrink-0" title="Ví ADMIN"></i>' : ''}
                                 <span class="truncate max-w-[110px]" title="${esc(wl.name !== wl.short ? wl.name + ' (' + wl.full + ')' : wl.full)}">${esc(wl.name)}</span>
                                 ${wl.name !== wl.short ? `<span class="text-[9px] text-faint font-mono shrink-0">${esc(wl.short)}</span>` : ''}
                             </div>
