@@ -59,11 +59,13 @@ test('deployer là owner và ROLE_ADMIN', async () => {
     assert.equal(await contract.userRoles(deployerAddr), 3n);
 });
 
-test('addDocuments: ghi nhiều doc trong 1 tx, getDocument đọc được', async () => {
+test('addDocumentsV2: ghi nhiều doc trong 1 tx, getDocument đọc được', async () => {
     const ids = [DOC.id, 'doc_test_2', 'doc_test_3'];
     const hashes = [DOC.hash, 'b'.repeat(64), 'c'.repeat(64)];
     const uris = [DOC.uri, 'ipfs://Qm2', 'ipfs://Qm3'];
-    await sendAndWait(() => contract.addDocuments(ids, hashes, uris));
+    const prevs = ['', '', ''];
+    const exp = [0, 0, 0];
+    await sendAndWait(() => contract.addDocumentsV2(ids, hashes, uris, prevs, exp));
 
     const doc = await contract.getDocument(DOC.id);
     assert.equal(doc[0], DOC.hash);   // fileHash
@@ -73,19 +75,19 @@ test('addDocuments: ghi nhiều doc trong 1 tx, getDocument đọc được', as
     assert.equal(await contract.getDocIdByHash(deployerAddr, DOC.hash), DOC.id);
 });
 
-test('addDocuments từ chối mảng lệch độ dài / mảng rỗng', async () => {
-    await assert.rejects(contract.addDocuments(['x'], ['a'.repeat(64), 'b'.repeat(64)], ['ipfs://x']));
-    await assert.rejects(contract.addDocuments([], [], []));
+test('addDocumentsV2 từ chối mảng lệch độ dài / mảng rỗng', async () => {
+    await assert.rejects(contract.addDocumentsV2(['x'], ['a'.repeat(64), 'b'.repeat(64)], ['ipfs://x'], [''], [0]));
+    await assert.rejects(contract.addDocumentsV2([], [], [], [], []));
 });
 
-test('addDocuments từ chối hash trùng lặp CỦA CHÍNH MÌNH', async () => {
-    await assert.rejects(contract.addDocuments(['doc_khac'], [DOC.hash], ['ipfs://x']));
+test('addDocumentsV2 từ chối hash trùng lặp CỦA CHÍNH MÌNH', async () => {
+    await assert.rejects(contract.addDocumentsV2(['doc_khac'], [DOC.hash], ['ipfs://x'], [''], [0]));
 });
 
 test('multi-tenant: ví KHÁC được đóng dấu cùng nội dung', async () => {
     // deployer đã đăng ký DOC.hash — user (có role) vẫn ghi được bản riêng
     await sendAndWait(() => contract.assignRole(userAddr, 2));
-    await sendAndWait(() => contractAsUser.addDocuments(['doc_user_same_hash'], [DOC.hash], ['ipfs://QmUserCopy']));
+    await sendAndWait(() => contractAsUser.addDocumentsV2(['doc_user_same_hash'], [DOC.hash], ['ipfs://QmUserCopy'], [''], [0]));
     const d = await contract.getDocument('doc_user_same_hash');
     assert.equal(d[0], DOC.hash);
     assert.equal(d[3], userAddr);
@@ -93,19 +95,19 @@ test('multi-tenant: ví KHÁC được đóng dấu cùng nội dung', async () 
     assert.equal(await contract.getDocIdByHash(deployerAddr, DOC.hash), DOC.id);
     assert.equal(await contract.getDocIdByHash(userAddr, DOC.hash), 'doc_user_same_hash');
     // ví user giờ cũng bị chặn ghi lại chính hash đó
-    await assert.rejects(contractAsUser.addDocuments(['doc_user_dup2'], [DOC.hash], ['ipfs://x']));
+    await assert.rejects(contractAsUser.addDocumentsV2(['doc_user_dup2'], [DOC.hash], ['ipfs://x'], [''], [0]));
 });
 
 test('chưa cấp quyền (ROLE_NONE) không được upload', async () => {
     const asUser2 = contract.connect(user2);
-    await assert.rejects(asUser2.addDocuments(['x'], ['f'.repeat(64)], ['ipfs://x']));
+    await assert.rejects(asUser2.addDocumentsV2(['x'], ['f'.repeat(64)], ['ipfs://x'], [''], [0]));
 });
 
 test('revokeDocument xóa uploaderHashToDocId → re-upload cùng nội dung được', async () => {
     // cấp quyền MANAGER cho user, user tự upload doc rồi revoke (uploader ≠ admin nên được phép)
     await sendAndWait(() => contract.assignRole(userAddr, 2));
     const mgrHash = 'd'.repeat(64);
-    await sendAndWait(() => contractAsUser.addDocuments(['doc_mgr'], [mgrHash], [DOC.uri]));
+    await sendAndWait(() => contractAsUser.addDocumentsV2(['doc_mgr'], [mgrHash], [DOC.uri], [''], [0]));
     await sendAndWait(() => contractAsUser.revokeDocument('doc_mgr', 'sai pham test'));
 
     const doc = await contract.getDocument('doc_mgr');
@@ -113,7 +115,7 @@ test('revokeDocument xóa uploaderHashToDocId → re-upload cùng nội dung đ�
     assert.equal(await contract.getDocIdByHash(userAddr, mgrHash), ''); // đã xóa khỏi sổ chống trùng CỦA USER
 
     // chính user re-upload cùng hash với docId mới phải thành công
-    await sendAndWait(() => contractAsUser.addDocuments(['doc_reupload'], [mgrHash], [DOC.uri]));
+    await sendAndWait(() => contractAsUser.addDocumentsV2(['doc_reupload'], [mgrHash], [DOC.uri], [''], [0]));
     const reDoc = await contract.getDocument('doc_reupload');
     assert.equal(reDoc[0], mgrHash);
 });
@@ -145,16 +147,18 @@ test('getMerkleBatch đọc lại batch đã ghi', async () => {
     assert.equal(b[3], deployerAddr); // uploader
 });
 
-test('addDocuments từ chối >100 doc/lô (gas guard)', async () => {
+test('addDocumentsV2 từ chối >100 doc/lô (gas guard)', async () => {
     const ids = Array.from({ length: 101 }, (_, i) => `over_${i}`);
     const hashes = Array.from({ length: 101 }, () => '0'.repeat(64));
     const uris = Array.from({ length: 101 }, () => 'ipfs://x');
-    await assert.rejects(contract.addDocuments(ids, hashes, uris));
+    const prevs = Array.from({ length: 101 }, () => '');
+    const exp = Array.from({ length: 101 }, () => 0);
+    await assert.rejects(contract.addDocumentsV2(ids, hashes, uris, prevs, exp));
 });
 
-test('addDocuments từ chối hash trùng trong CÙNG một lô (atomic revert)', async () => {
+test('addDocumentsV2 từ chối hash trùng trong CÙNG một lô (atomic revert)', async () => {
     // 2 phần tử cùng hash trong 1 mảng → phải revert toàn bộ, không ghi gì
-    await assert.rejects(contract.addDocuments(['dA', 'dB'], ['9'.repeat(64), '9'.repeat(64)], ['ipfs://a', 'ipfs://b']));
+    await assert.rejects(contract.addDocumentsV2(['dA', 'dB'], ['9'.repeat(64), '9'.repeat(64)], ['ipfs://a', 'ipfs://b'], ['', ''], [0, 0]));
     await assert.rejects(contract.getDocument('dA')); // dA không được ghi dù đứng trước
 });
 
