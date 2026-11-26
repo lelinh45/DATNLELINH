@@ -28,6 +28,7 @@ import Notification from './models/Notification.js';
 import DeviceSession from './models/DeviceSession.js';
 import ApiKey from './models/ApiKey.js';
 import PartnerDocument from './models/PartnerDocument.js';
+import TamperEvent from './models/TamperEvent.js';
 import { createAuth } from './auth.js';
 import { buildVersionChain } from './lineage.js';
 
@@ -176,7 +177,8 @@ const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 const abi = [
     "function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason)",
     "function getDocIdByHash(address _uploader, string _fileHash) view returns (string)",
-    "function userRoles(address) view returns (uint8)"
+    "function userRoles(address) view returns (uint8)",
+    "event DocumentAdded(string documentId, string fileHash, string ipfsURI, address uploader)"
 ];
 
 // Contract khởi tạo lười — server vẫn boot được nếu chưa có CONTRACT_ADDRESS
@@ -366,6 +368,56 @@ function refineWordDiff(parts) {
 // API 2: VERIFY (XÁC THỰC & TẢI FILE TỪ IPFS ĐỂ VẼ BẢN ĐỒ NHIỆT)
 // =====================================================================
 // Gắn verifyLimiter vào API này
+// Ghi nhận lần verify phát hiện file giả mạo: lưu TamperEvent (pháp y),
+// thông báo chủ tài liệu (nếu doc thuộc PartnerDocument), và bắn webhook
+// HMAC-SHA256 tới API key đối tác nếu doc do họ upload.
+async function logTamperAttempt(docId, submittedHash, onChainHash, uploader, req) {
+    const ev = await TamperEvent.create({
+        docId, submittedHash, onChainHash,
+        ownerAddress: String(uploader || '').toLowerCase(),
+        ip: req.ip, userAgent: String(req.headers['user-agent'] || '').slice(0, 300)
+    });
+
+    // Webhook B2B: docId → PartnerDocument → apiKeyId → webhookUrl
+    try {
+        const pd = await PartnerDocument.findOne({ docId }).select('apiKeyId orgName').lean();
+        if (pd && pd.apiKeyId) {
+            const key = await ApiKey.findById(pd.apiKeyId).select('webhookUrl').lean();
+            if (key && key.webhookUrl) {
+                const payload = JSON.stringify({
+                    event: 'tamper_attempt', docId,
+                    orgName: pd.orgName || '', ownerAddress: ev.ownerAddress,
+                    submittedHash, onChainHash,
+                    detectedAt: ev.createdAt.toISOString(), ip: ev.ip
+                });
+                const sig = crypto.createHmac('sha256',
+                    String(process.env.MASTER_KEY || process.env.JWT_SECRET || 'dev-master-key')
+                ).update(payload).digest('hex');
+                await axios.post(key.webhookUrl, payload, {
+                    headers: { 'Content-Type': 'application/json', 'X-Signature': 'sha256=' + sig },
+                    timeout: 8000
+                });
+                ev.webhookSent = true;
+            }
+        }
+    } catch (e) {
+        console.warn('[WEBHOOK] gửi cảnh báo tamper thất bại:', e.message);
+    }
+    await ev.save();
+
+    // Thông báo chủ tài liệu (đối tác có thể không có ví — chỉ notify khi uploader là ví user)
+    try {
+        if (ev.ownerAddress && /^0x[0-9a-fA-F]{40}$/.test(ev.ownerAddress)) {
+            await Notification.create({
+                address: ev.ownerAddress, type: 'tamper_attempt',
+                title: 'Cảnh báo: tài liệu bị giả mạo',
+                message: `Có file nộp verify khớp docId ${docId.slice(0, 18)}… nhưng hash khác bản gốc on-chain — dấu hiệu tài liệu bị chỉnh sửa.`,
+                meta: { docId }
+            });
+        }
+    } catch (e) {}
+}
+
 app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res) => {
     try {
         if (!req.file || !req.body.documentId) return res.status(400).json({ success: false, message: 'Thiếu dữ liệu!' });
@@ -389,6 +441,8 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
 
         // NẾU PHÁT HIỆN GIẢ MẠO, HỆ THỐNG BẮT ĐẦU ĐIỀU TRA
         if (!isMatch) {
+            // Nhật ký pháp y + webhook B2B — fire-and-forget, không chặn verify
+            logTamperAttempt(documentId, currentFileHash, originalHash, uploader, req).catch(() => {});
             const ipfsCID = ipfsURI.replace('ipfs://', ''); 
             let originalBuffer = null;
 
@@ -1164,6 +1218,144 @@ app.get('/api/documents/:docId/lineage', async (req, res) => {
     }
 });
 
+// =====================================================================
+// AUDIT ĐỐI SOÁT on-chain ↔ MongoDB (ADMIN) — phát hiện DB bị sửa/xóa
+// =====================================================================
+const AUDIT_CHECK_CAP = 300;  // giới hạn getDocument calls mỗi lần reconcile
+const AUDIT_REINDEX_CAP = 100;
+
+// Quét event DocumentAdded — chunk lớn, dừng êm khi RPC lỗi (trả complete=false)
+async function scanChainAddedEvents() {
+    const contract = getChainContract();
+    const latest = await provider.getBlockNumber();
+    const START = 11740000, CHUNK = 45000;
+    const events = [];
+    let complete = true;
+    for (let from = START; from <= latest; from += CHUNK) {
+        const to = Math.min(from + CHUNK - 1, latest);
+        try {
+            const chunk = await contract.queryFilter(contract.filters.DocumentAdded(), from, to);
+            for (const ev of chunk) {
+                events.push({
+                    docId: ev.args[0], fileHash: String(ev.args[1] || '').toLowerCase(),
+                    ipfsURI: String(ev.args[2] || ''), uploader: String(ev.args[3] || '').toLowerCase(),
+                    txHash: ev.transactionHash
+                });
+            }
+        } catch (e) {
+            complete = false;
+            console.warn('[AUDIT] Dừng quét event tại block', from, '-', to, e.message);
+            break;
+        }
+    }
+    return { events, complete, latest };
+}
+
+app.get('/api/audit/reconcile', requireAuth, requireRole('ADMIN'), async (req, res) => {
+    try {
+        // 1. Gom toàn bộ bản ghi Mongo (batch files + partner docs)
+        const mongoDocs = new Map(); // docId -> {fileHash, isRevoked, source}
+        const batches = await Batch.find({}).select('uploader files').lean();
+        for (const b of batches) for (const f of (b.files || [])) {
+            if (f.docId) mongoDocs.set(f.docId, { fileHash: (f.fileHash || '').toLowerCase(), isRevoked: !!f.isRevoked, source: 'batch' });
+        }
+        const partners = await PartnerDocument.find({}).select('docId fileHash isRevoked').lean();
+        for (const p of partners) {
+            mongoDocs.set(p.docId, { fileHash: (p.fileHash || '').toLowerCase(), isRevoked: !!p.isRevoked, source: 'partner' });
+        }
+
+        // 2. Đối chiếu Mongo → chain (cap RPC calls)
+        const contract = getChainContract();
+        const mismatches = [], missingOnChain = [], checkErrors = [];
+        const ids = [...mongoDocs.keys()];
+        for (const docId of ids.slice(0, AUDIT_CHECK_CAP)) {
+            const m = mongoDocs.get(docId);
+            try {
+                const d = await contract.getDocument(docId);
+                const chainHash = String(d[0] || '').toLowerCase();
+                const chainRevoked = !!d[4];
+                if (!chainHash) { missingOnChain.push(docId); continue; }
+                if (chainHash !== m.fileHash) mismatches.push({ docId, field: 'fileHash', mongo: m.fileHash, chain: chainHash });
+                if (chainRevoked !== m.isRevoked) mismatches.push({ docId, field: 'isRevoked', mongo: m.isRevoked, chain: chainRevoked });
+            } catch (e) { checkErrors.push(docId); }
+        }
+
+        // 3. Quét event → doc trên chain mà Mongo không có (orphan)
+        let orphansOnChain = [], chainScan = { complete: false };
+        try {
+            const scan = await scanChainAddedEvents();
+            chainScan = { complete: scan.complete, latest: scan.latest };
+            orphansOnChain = scan.events.filter(e => !mongoDocs.has(e.docId))
+                .map(e => ({ docId: e.docId, fileHash: e.fileHash, uploader: e.uploader, txHash: e.txHash }));
+        } catch (e) {
+            console.warn('[AUDIT] chain scan lỗi:', e.message);
+        }
+
+        res.json({
+            success: true,
+            stats: {
+                mongoDocs: mongoDocs.size, checked: Math.min(ids.length, AUDIT_CHECK_CAP),
+                unchecked: Math.max(0, ids.length - AUDIT_CHECK_CAP),
+                mismatches: mismatches.length, missingOnChain: missingOnChain.length,
+                checkErrors: checkErrors.length, orphansOnChain: orphansOnChain.length,
+                chainScanComplete: chainScan.complete
+            },
+            mismatches: mismatches.slice(0, 200),
+            missingOnChain: missingOnChain.slice(0, 200),
+            checkErrors: checkErrors.slice(0, 50),
+            orphansOnChain: orphansOnChain.slice(0, 200),
+            chainScan
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Lỗi đối soát: ' + e.message });
+    }
+});
+
+// Re-index: khôi phục bản ghi Mongo tối thiểu cho doc có trên chain nhưng
+// thiếu trong DB (bị xóa/sửa). Chỉ metadata — fileName suy ra từ docId,
+// visibility private (an toàn: không lộ nội dung file người khác).
+app.post('/api/audit/reindex', requireAuth, requireRole('ADMIN'), async (req, res) => {
+    try {
+        const docIds = (Array.isArray(req.body && req.body.docIds) ? req.body.docIds : [])
+            .filter(id => typeof id === 'string' && /^[\w.\-]{1,300}$/.test(id))
+            .slice(0, AUDIT_REINDEX_CAP);
+        if (!docIds.length) return res.status(400).json({ success: false, message: 'Thiếu docIds hợp lệ' });
+
+        // Bỏ qua docId đã có trong Mongo — tránh nhân bản
+        const existBatch = await Batch.find({ 'files.docId': { $in: docIds } }).select('files.docId').lean();
+        const existPartner = await PartnerDocument.find({ docId: { $in: docIds } }).select('docId').lean();
+        const existing = new Set([...existBatch.flatMap(b => b.files.map(f => f.docId)), ...existPartner.map(p => p.docId)]);
+        const todo = docIds.filter(id => !existing.has(id));
+
+        const contract = getChainContract();
+        const valid = new Map();
+        for (const id of todo) {
+            try {
+                const d = await contract.getDocument(id);
+                if (d[0]) valid.set(id, {
+                    fileHash: String(d[0]).toLowerCase(), ipfsURI: String(d[1] || ''),
+                    uploader: String(d[3] || '').toLowerCase()
+                });
+            } catch (e) {}
+        }
+        if (!valid.size) return res.json({ success: true, reindexed: 0, message: 'Không docId nào tồn tại trên chain' });
+
+        const files = [...valid.entries()].map(([docId, d]) => ({
+            docId, fileName: docId.replace(/_\d+$/, '').replace(/\.enc$/, ''),
+            fileHash: d.fileHash, ipfsCID: d.ipfsURI.replace('ipfs://', ''),
+            visibility: 'private', reindexed: true
+        }));
+        const batchId = `reindex_${Date.now()}`;
+        const uploader = req.user.address;
+        await Batch.findOneAndUpdate({ batchId }, {
+            $set: { batchId, merkleRoot: 'reindexed', ipfsCID: 'reindexed', txHash: 'reindexed', uploader, files, timestamp: Date.now() }
+        }, { upsert: true });
+        res.json({ success: true, reindexed: files.length, skipped: todo.length - files.length, batchId });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Lỗi re-index: ' + e.message });
+    }
+});
+
 // Map docId -> orgName của tài liệu đối tác (upload qua /api/v1 bằng API key,
 // server ký on-chain hộ bằng ví ADMIN). Sổ cái dùng map này để hiện badge
 // "ĐỐI TÁC" thay vì hiểu nhầm là tài liệu do ADMIN tự upload.
@@ -1726,7 +1918,7 @@ app.post('/api/apikeys', requireAuth, requireRole('ADMIN'), async (req, res) => 
 
 app.get('/api/apikeys', requireAuth, requireRole('ADMIN'), async (req, res) => {
     try {
-        const keys = await ApiKey.find().select('name prefix revoked lastUsedAt createdAt').sort({ createdAt: -1 }).lean();
+        const keys = await ApiKey.find().select('name prefix revoked lastUsedAt webhookUrl createdAt').sort({ createdAt: -1 }).lean();
         res.json({ success: true, keys });
     } catch (e) {
         res.status(500).json({ success: false, message: 'Lỗi lấy danh sách API key' });
@@ -1740,6 +1932,22 @@ app.post('/api/apikeys/:id/revoke', requireAuth, requireRole('ADMIN'), async (re
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, message: 'Lỗi thu hồi API key' });
+    }
+});
+
+// Cấu hình webhook nhận cảnh báo tamper_attempt — rỗng = tắt. Chỉ http(s).
+app.patch('/api/apikeys/:id/webhook', requireAuth, requireRole('ADMIN'), async (req, res) => {
+    try {
+        const url = String(req.body?.webhookUrl || '').trim();
+        if (url && !/^https?:\/\//i.test(url)) {
+            return res.status(400).json({ success: false, message: 'Webhook URL phải bắt đầu bằng http:// hoặc https://' });
+        }
+        if (url.length > 500) return res.status(400).json({ success: false, message: 'Webhook URL quá dài' });
+        const r = await ApiKey.findByIdAndUpdate(req.params.id, { $set: { webhookUrl: url } });
+        if (!r) return res.status(404).json({ success: false, message: 'Không tìm thấy API key' });
+        res.json({ success: true, webhookUrl: url });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Lỗi lưu webhook' });
     }
 });
 

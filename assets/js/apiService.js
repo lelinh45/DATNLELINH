@@ -318,6 +318,34 @@ export const ApiService = {
         return data;
     },
 
+    // ---- Audit đối soát on-chain ↔ MongoDB (ADMIN) ----
+    async getAuditReconcile() {
+        const res = await fetch(`${CONFIG.API_BASE}/audit/reconcile`, { headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Đối soát thất bại');
+        return data;
+    },
+    async reindexAudit(docIds) {
+        const res = await fetch(`${CONFIG.API_BASE}/audit/reindex`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ docIds })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Re-index thất bại');
+        return data;
+    },
+    async setApiKeyWebhook(id, webhookUrl) {
+        const res = await fetch(`${CONFIG.API_BASE}/apikeys/${id}/webhook`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ webhookUrl })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Lưu webhook thất bại');
+        return data;
+    },
+
     // ---- Thiết bị pending: poll trạng thái + OTP email (không cần JWT) ----
     async checkPendingStatus(address, deviceId) {
         try {

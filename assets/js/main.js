@@ -41,6 +41,7 @@ document.addEventListener('click', (e) => {
         case 'kick-session':    if (d.v) window.kickDeviceSession(d.v); break;
         case 'approve-session': if (d.v) window.approveDeviceSession(d.v); break;
         case 'revoke-key':      if (d.v) window.revokeApiKey(d.v); break;
+        case 'webhook-key':     if (d.v) window.editApiKeyWebhook(d.v, d.url || ''); break;
         case 'expand': {
             // Bảng lịch sử: mở/đóng dòng chi tiết ngay sau dòng tài liệu
             const tr = el.closest('tr');
@@ -910,6 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-execute-verify')?.addEventListener('click', handleVerify);
     document.getElementById('btn-refresh-history')?.addEventListener('click', loadTransactionHistory);
     document.getElementById('btn-refresh-revoked')?.addEventListener('click', loadRevokedHistory);
+    document.getElementById('btn-audit')?.addEventListener('click', runAuditReconcile);
     document.getElementById('btn-save-rpc')?.addEventListener('click', saveRpcConfig);
     document.getElementById('btn-save-settings')?.addEventListener('click', saveSystemSettings);
     document.getElementById('btn-login-wallet')?.addEventListener('click', connectWallet);
@@ -2575,9 +2577,56 @@ ${rows}
     });
 };
 
+// Audit đối soát on-chain ↔ MongoDB — chỉ ADMIN (server cũng chặn).
+// Hiện stats + danh sách lệch + nút khôi phục bản ghi thiếu từ chain.
+window.runAuditReconcile = async function() {
+    const btn = document.getElementById('btn-audit');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang đối soát…'; }
+    try {
+        const d = await ApiService.getAuditReconcile();
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-scale-balanced me-1"></i> Đối soát'; }
+        if (!d.success) throw new Error(d.message || 'Lỗi đối soát');
+        const s = d.stats || {};
+        const row = (label, val, cls) => `<div class="flex justify-between text-xs py-1 border-b border-line"><span class="text-muted">${label}</span><b class="${cls || 'text-ink'}">${val}</b></div>`;
+        const list = (title, arr, render) => arr && arr.length
+            ? `<p class="text-[10px] font-bold uppercase text-faint mt-3 mb-1">${title} (${arr.length})</p>
+               <div class="max-h-36 overflow-y-auto custom-scrollbar bg-sunken rounded p-2 space-y-1">${arr.slice(0, 50).map(render).join('')}</div>` : '';
+        const orphanIds = (d.orphansOnChain || []).map(o => o.docId);
+        const html = `
+            <div class="text-left">
+                ${row('Bản ghi MongoDB', s.mongoDocs ?? '—')}
+                ${row('Đã đối chiếu trên chain', `${s.checked ?? 0}${s.unchecked ? ' (+' + s.unchecked + ' chưa kiểm)' : ''}`)}
+                ${row('Lệch dữ liệu', s.mismatches ?? 0, (s.mismatches ? 'text-err' : 'text-ok'))}
+                ${row('Mongo có nhưng chain không', s.missingOnChain ?? 0, (s.missingOnChain ? 'text-warn' : 'text-ok'))}
+                ${row('Chain có nhưng Mongo thiếu', s.orphansOnChain ?? 0, (s.orphansOnChain ? 'text-warn' : 'text-ok'))}
+                ${s.chainScanComplete === false ? '<p class="text-[10px] text-warn mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Quét event chain chưa hết do RPC giới hạn — danh sách orphan có thể thiếu.</p>' : ''}
+                ${list('Lệch field', d.mismatches, m => `<div class="font-mono text-[10px] text-soft break-all">${esc(m.docId)} <span class="text-faint">${esc(m.field)}: mongo=${esc(String(m.mongo))} ≠ chain=${esc(String(m.chain))}</span></div>`)}
+                ${list('Thiếu trên chain', d.missingOnChain, id => `<div class="font-mono text-[10px] text-soft break-all">${esc(id)}</div>`)}
+                ${list('Orphan trên chain', d.orphansOnChain, o => `<div class="font-mono text-[10px] text-soft break-all">${esc(o.docId)} <span class="text-faint">· ${esc(o.uploader)}</span></div>`)}
+            </div>`;
+        const r = await Swal.fire({
+            title: 'ĐỐI SOÁT ON-CHAIN ↔ MONGODB', html, width: 720,
+            background: 'var(--panel)', color: 'var(--ink)',
+            showCancelButton: orphanIds.length > 0, confirmButtonText: 'Đóng',
+            cancelButtonText: `<i class="fa-solid fa-database mr-1"></i> Khôi phục ${Math.min(orphanIds.length, 100)} bản ghi thiếu`,
+            cancelButtonColor: '#d97706', showConfirmButton: true
+        });
+        if (r.dismiss === Swal.DismissReason.cancel && orphanIds.length) {
+            const rr = await ApiService.reindexAudit(orphanIds);
+            Swal.fire({ title: 'Re-index xong', html: `<p class="text-sm">Đã khôi phục <b>${rr.reindexed ?? 0}</b> bản ghi vào batch <span class="font-mono text-xs">${esc(rr.batchId || '')}</span></p><p class="text-[11px] text-faint mt-1">Metadata tối thiểu — bấm "Làm mới" để thấy trong sổ cái.</p>`, icon: 'success', background: 'var(--panel)', color: 'var(--ink)' });
+            loadTransactionHistory();
+        }
+    } catch (e) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-scale-balanced me-1"></i> Đối soát'; }
+        Swal.fire({ title: 'Đối soát lỗi', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
+    }
+};
+
 async function loadTransactionHistory() {
     const tbody = document.getElementById('history-table-body');
     if (!tbody) return;
+    const auditBtn = document.getElementById('btn-audit');
+    if (auditBtn) auditBtn.classList.toggle('hidden', !window.__isAdminWallet);
     
     tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-accent"><i class="fa-solid fa-circle-notch fa-spin me-2"></i> Đang quét sổ cái Blockchain...</td></tr>';
     // Tiến độ quét block thật từ getEventsInChunks — lần đầu vào origin
@@ -3035,7 +3084,11 @@ async function loadAPIKeys() {
     }
     if (keys.length === 0) return tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-10 text-center text-faint">Chưa có API Key nào được khởi tạo.</td></tr>';
 
-    tbody.innerHTML = keys.map(k => `
+    tbody.innerHTML = keys.map(k => {
+        const whOn = !!k.webhookUrl;
+        const whTitle = whOn ? 'Webhook cảnh báo giả mạo (đã đặt)' : 'Webhook cảnh báo giả mạo';
+        const whCls = whOn ? 'text-ok' : 'text-faint hover:text-accent';
+        return `
         <tr class="border-b border-line hover:bg-hover transition-colors">
             <td class="px-3 py-2 text-soft text-sm font-medium">${esc(k.name)}</td>
             <td class="px-3 py-2 font-mono text-accent text-xs">${esc(k.prefix)}…</td>
@@ -3044,10 +3097,12 @@ async function loadAPIKeys() {
                 ${k.revoked
                     ? '<span class="bg-err-soft text-err border border-err px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Revoked</span>'
                     : `<span class="bg-ok-soft text-ok border border-ok px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Active</span>
-                       <button data-act="revoke-key" data-v="${esc(k._id)}" title="Thu hồi key này" class="ml-2 text-err hover:text-err text-[10px] font-bold uppercase transition"><i class="fa-solid fa-ban"></i></button>`}
+                       <button data-act="revoke-key" data-v="${esc(k._id)}" title="Thu hồi key này" class="ml-2 text-err hover:text-err text-[10px] font-bold uppercase transition"><i class="fa-solid fa-ban"></i></button>
+                       <button data-act="webhook-key" data-v="${esc(k._id)}" data-url="${esc(k.webhookUrl || '')}" title="${esc(whTitle)}" class="ml-1 ${esc(whCls)} text-[10px] font-bold uppercase transition"><i class="fa-solid fa-bolt"></i></button>`}
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
     paginateTbody(tbody);
 }
 
@@ -3082,6 +3137,25 @@ async function generateNewApiKey() {
         Swal.fire({ icon: 'error', title: 'Lỗi', text: e.message, background: 'var(--panel)', color: 'var(--ink)' });
     }
 }
+
+// Đặt/xóa webhook nhận cảnh báo tamper_attempt (ký HMAC-SHA256 trong header X-Signature)
+window.editApiKeyWebhook = async function (id, currentUrl) {
+    const { value: url, isConfirmed } = await Swal.fire({
+        title: 'Webhook cảnh báo giả mạo',
+        html: `<p class="text-xs text-muted text-left mb-2">Khi có file nộp verify bị sửa so với bản gốc on-chain của tài liệu thuộc API key này, hệ thống POST sự kiện <code>tamper_attempt</code> kèm chữ ký <code>X-Signature: sha256=…</code> (HMAC theo MASTER_KEY). Để trống để tắt.</p>`,
+        input: 'url', inputValue: currentUrl || '', inputPlaceholder: 'https://partner.example.com/webhook',
+        showCancelButton: true, confirmButtonText: 'Lưu', cancelButtonText: 'Hủy',
+        background: 'var(--panel)', color: 'var(--ink)'
+    });
+    if (!isConfirmed) return;
+    try {
+        await ApiService.setApiKeyWebhook(id, (url || '').trim());
+        Swal.fire({ title: 'Đã lưu webhook', icon: 'success', timer: 1200, showConfirmButton: false, background: 'var(--panel)', color: 'var(--ink)' });
+        loadAPIKeys();
+    } catch (e) {
+        Swal.fire({ title: 'Lỗi', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
+    }
+};
 
 window.revokeApiKey = async function (id) {
     const ok = await Swal.fire({

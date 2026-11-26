@@ -7,7 +7,8 @@ const apiKeySchema = new mongoose.Schema({
     prefix: { type: String, required: true }, // "sk_live_ab12cd" — chỉ để hiển thị
     createdBy: { type: String, required: true, lowercase: true },
     revoked: { type: Boolean, default: false },
-    lastUsedAt: { type: Date }
+    lastUsedAt: { type: Date },
+    webhookUrl: { type: String, default: '' } // nhận cảnh báo tamper_attempt (ký HMAC-SHA256)
 }, { timestamps: true });
 
 export default mongoose.model('ApiKey', apiKeySchema);
