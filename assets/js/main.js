@@ -2729,9 +2729,9 @@ async function loadTransactionHistory() {
                             </div>
                         </td>
                         <td class="px-3 py-2 text-center">
-                            ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
+                            ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold whitespace-nowrap"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
                         </td>
-                        <td class="px-3 py-2 text-center"><span class="bg-warn-soft text-warn px-2 py-1 rounded text-[10px] font-bold uppercase">ĐỐI TÁC</span></td>
+                        <td class="px-3 py-2 text-center"><span class="bg-warn-soft text-warn px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">ĐỐI TÁC</span></td>
                     </tr>`;
                     continue;
                 }
@@ -2758,9 +2758,9 @@ async function loadTransactionHistory() {
                         <div class="text-muted truncate max-w-[150px]" title="${esc(hash)}">${esc(hash)}</div>
                     </td>
                     <td class="px-3 py-2 text-center">
-                        ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
+                        ${txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold whitespace-nowrap"><span data-txfee="${esc(txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
                     </td>
-                    <td class="px-3 py-2 text-center"><span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span></td>
+                    <td class="px-3 py-2 text-center"><span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">ON-CHAIN</span></td>
                     <td class="px-2 py-2 text-center w-10">
                         <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-circle-info text-[12px]"></i></button>
                     </td>
@@ -2828,10 +2828,10 @@ async function loadTransactionHistory() {
                             <div class="text-muted truncate max-w-[150px]" title="${esc(fileDoc.fileHash)}">${esc(fileDoc.fileHash)}</div>
                         </td>
                         <td class="px-3 py-2 text-center">
-                            ${batch.txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(batch.txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold"><span data-txfee="${esc(batch.txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
+                            ${batch.txHash ? `<a href="https://sepolia.etherscan.io/tx/${esc(batch.txHash)}" target="_blank" rel="noopener noreferrer" title="Xem giao dịch trên Etherscan" class="text-violet hover:text-violet text-[10px] font-mono font-bold whitespace-nowrap"><span data-txfee="${esc(batch.txHash)}">…</span></a>` : '<span class="text-faint text-[10px]">—</span>'}
                         </td>
                         <td class="px-3 py-2 text-center">
-                            <span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase">ON-CHAIN</span>
+                            <span class="bg-accent-soft text-accent px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">ON-CHAIN</span>
                         </td>
                         <td class="px-2 py-2 text-center w-10">
                             <button data-act="expand" title="Xem chi tiết tài liệu" class="text-faint hover:text-accent transition"><i class="fa-solid fa-circle-info text-[12px]"></i></button>
