@@ -12,6 +12,7 @@
 (function(){try{var t=localStorage.getItem('bdi_theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}})();
 </script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
 <script>
 tailwind.config = { theme: { extend: {
   colors: {
@@ -130,9 +131,16 @@ function docCard(f, tampered) {
           <button onclick="loadLineage('${esc(f.docId)}', this)" class="block ml-auto mt-2 text-[11px] text-accent hover:text-accent underline">
             <i class="fa-solid fa-code-branch mr-1"></i>Dòng đời phiên bản
           </button>
+          <button onclick="verifyOnChainCard('${esc(f.docId)}', '${esc(f._localHash || '')}', this)" class="block ml-auto mt-1.5 text-[11px] text-violet hover:text-violet underline">
+            <i class="fa-solid fa-link mr-1"></i>Kiểm chứng on-chain
+          </button>
+          <button onclick="downloadProof('${esc(f.docId)}', this)" data-localhash="${esc(f._localHash || '')}" class="hidden block ml-auto mt-1.5 text-[11px] text-ok hover:text-ok underline">
+            <i class="fa-solid fa-file-arrow-down mr-1"></i>Tải Proof Bundle
+          </button>
         </div>
       </div>
       <div class="lineage hidden mt-3 pt-3 border-t border-line text-xs text-muted"></div>
+      <div class="chain-result hidden mt-3 pt-3 border-t border-line text-xs"></div>
     </div>`;
 }
 
@@ -161,6 +169,11 @@ async function lookup({ hash, name }) {
     const r = await fetch('/api/documents/lookup?' + qs);
     const data = await r.json();
     if (!data.success) { resultBox.innerHTML = card('red', '', `<p class="text-sm text-err">${esc(data.message)}</p>`); return; }
+
+    // Gắn hash cục bộ vào từng bản ghi — nút "Kiểm chứng on-chain" dùng để
+    // đối chiếu hash file người dùng vừa gửi với hash ghi trên chuỗi.
+    const localHashTag = hash || null;
+    [...data.byHash, ...data.byName, ...data.bySimilar].forEach(f => { f._localHash = localHashTag; });
 
     let html = '';
     if (data.byHash.length) {
@@ -199,6 +212,51 @@ async function loadLineage(docId, btn) {
       </div>`).join('');
   } catch { box.innerHTML = 'Lỗi tải dòng đời.'; }
 }
+
+// Đọc bản ghi TRỰC TIẾP từ smart contract qua public RPC — không qua backend,
+// chứng minh được kể cả khi server/MongoDB bị can thiệp.
+async function verifyOnChainCard(docId, localHash, btn) {
+  const card = btn.closest('.doc-card');
+  const box = card.querySelector('.chain-result');
+  const proofBtn = card.querySelector('[onclick^="downloadProof"]');
+  box.classList.remove('hidden');
+  box.innerHTML = '<span class="text-faint"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang đọc bản ghi trực tiếp từ blockchain…</span>';
+  try {
+    const d = await window.VerifyChain.verifyOnChain(docId);
+    card.dataset.chainDoc = JSON.stringify(d);
+    const match = localHash ? (localHash.toLowerCase() === d.fileHash) : null;
+    box.innerHTML = `
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] font-bold uppercase ${match === true ? 'text-ok' : match === false ? 'text-err' : 'text-muted'}">
+          <i class="fa-solid ${match === true ? 'fa-circle-check' : match === false ? 'fa-triangle-exclamation' : 'fa-link'} mr-1"></i>${match === true ? 'ON-CHAIN: KHỚP HASH' : match === false ? 'ON-CHAIN: LỆCH HASH' : 'ON-CHAIN: đã đọc bản ghi'}
+        </span>
+        <span class="text-[9px] text-faint font-mono">${esc(d.contractAddress.slice(0, 10))}… · Sepolia · ${esc(d.rpcUsed.replace('https://', ''))}</span>
+      </div>
+      <div class="mt-1.5 space-y-0.5 text-[11px] text-muted">
+        <div><i class="fa-solid fa-fingerprint mr-1 text-faint"></i>Hash trên chuỗi: <span class="font-mono break-all">${esc(d.fileHash || '—')}</span></div>
+        ${localHash ? `<div><i class="fa-laptop mr-1 text-faint"></i>Hash file của bạn: <span class="font-mono break-all">${esc(localHash)}</span></div>` : ''}
+        <div><i class="fa-regular fa-clock mr-1 text-faint"></i>Đóng dấu: ${esc(d.timestampISO)} · <i class="fa-solid fa-user mr-1"></i>${esc(d.uploader)}</div>
+        <div><i class="fa-solid fa-cloud mr-1 text-faint"></i>IPFS: <span class="font-mono break-all">${esc(d.ipfsURI)}</span></div>
+        ${d.isRevoked ? `<div class="text-err"><i class="fa-solid fa-ban mr-1"></i>ĐÃ THU HỒI${d.revocationReason ? ' — ' + esc(d.revocationReason) : ''}</div>` : ''}
+      </div>`;
+    if (proofBtn) proofBtn.classList.remove('hidden');
+  } catch (e) {
+    console.warn('[verifyChain]', e);
+    box.innerHTML = '<span class="text-err"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Không đọc được RPC công cộng lúc này — thử lại sau hoặc kiểm tra bằng máy chủ.</span>';
+  }
+}
+
+function downloadProof(docId, btn) {
+  const card = btn.closest('.doc-card');
+  let d = null;
+  try { d = JSON.parse(card.dataset.chainDoc || 'null'); } catch (e) {}
+  if (!d || !window.VerifyChain) return;
+  window.VerifyChain.downloadProofBundle(docId, btn.dataset.localhash || null, d);
+}
+</script>
+<script type="module">
+  import * as VC from './assets/js/verifyChain.js';
+  window.VerifyChain = VC;
 </script>
 </body>
 </html>
