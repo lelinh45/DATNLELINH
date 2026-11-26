@@ -2593,7 +2593,7 @@ window.runAuditReconcile = async function() {
                <div class="max-h-36 overflow-y-auto custom-scrollbar bg-sunken rounded p-2 space-y-1">${arr.slice(0, 50).map(render).join('')}</div>` : '';
         const orphanIds = (d.orphansOnChain || []).map(o => o.docId);
         const html = `
-            <div class="text-left">
+            <div class="text-left max-h-[55vh] overflow-y-auto custom-scrollbar pr-1">
                 ${row('Bản ghi MongoDB', s.mongoDocs ?? '—')}
                 ${row('Đã đối chiếu trên chain', `${s.checked ?? 0}${s.unchecked ? ' (+' + s.unchecked + ' chưa kiểm)' : ''}`)}
                 ${row('Lệch dữ liệu', s.mismatches ?? 0, (s.mismatches ? 'text-err' : 'text-ok'))}
@@ -2605,7 +2605,7 @@ window.runAuditReconcile = async function() {
                 ${list('Orphan trên chain', d.orphansOnChain, o => `<div class="font-mono text-[10px] text-soft break-all">${esc(o.docId)} <span class="text-faint">· ${esc(o.uploader)}</span></div>`)}
             </div>`;
         const r = await Swal.fire({
-            title: 'ĐỐI SOÁT ON-CHAIN ↔ MONGODB', html, width: 720,
+            title: 'ĐỐI SOÁT ON-CHAIN ↔ MONGODB', html, width: 'min(720px, 92vw)',
             background: 'var(--panel)', color: 'var(--ink)',
             showCancelButton: orphanIds.length > 0, confirmButtonText: 'Đóng',
             cancelButtonText: `<i class="fa-solid fa-database mr-1"></i> Khôi phục ${Math.min(orphanIds.length, 100)} bản ghi thiếu`,
