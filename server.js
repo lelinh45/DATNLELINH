@@ -1049,6 +1049,27 @@ app.get('/api/documents/lookup', async (req, res) => {
                 }
             }
         }
+        // Bổ sung thông tin "đã có bản mới" — bản kế nhiệm có thể nằm ở batch
+        // KHÁC (mỗi lần upload tạo batch mới) nên phải truy replacesDocId
+        // theo chuỗi, giới hạn 10 bước chống vòng lặp dữ liệu xấu.
+        const allDocs = [...byHash, ...byName, ...bySimilar];
+        const uniqIds = [...new Set(allDocs.map(f => f.docId).filter(Boolean))];
+        const latestMap = {};
+        for (const id of uniqIds) {
+            let cur = id; const seen = new Set([id]);
+            for (let hop = 0; hop < 10; hop++) {
+                const nb = await Batch.findOne({ 'files.replacesDocId': cur }).select('files').lean();
+                const nxt = nb && (nb.files || []).find(f => f.replacesDocId === cur);
+                if (!nxt || !nxt.docId || seen.has(nxt.docId)) break;
+                seen.add(nxt.docId); cur = nxt.docId;
+            }
+            latestMap[id] = cur;
+        }
+        for (const f of allDocs) {
+            f.hasNewer = latestMap[f.docId] && latestMap[f.docId] !== f.docId;
+            f.latestDocId = latestMap[f.docId] || f.docId;
+        }
+
         res.json({ success: true, byHash, byName, bySimilar });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi tra cứu tài liệu' });

@@ -125,6 +125,14 @@ function docCard(f, tampered) {
           <p class="font-mono text-xs text-accent break-all">${esc(f.docId)}</p>
           <p class="text-sm text-soft mt-1"><i class="fa-solid fa-file mr-1 text-faint"></i>${esc(f.fileName)}</p>
           <p class="text-[11px] text-faint font-mono mt-1">Ví tạo: ${esc(f.uploader)}</p>
+          ${f.hasNewer ? `<div class="mt-2">
+            <span class="text-[9px] font-bold text-warn bg-warn-soft px-1.5 py-0.5 rounded border border-warn" title="Tài liệu này đã được thay thế bởi một phiên bản mới hơn">
+              <i class="fa-solid fa-code-branch mr-1"></i>CÓ BẢN MỚI HƠN — NỘI DUNG NGUYÊN VẸN NHƯNG LỖI THỜI
+            </span>
+            <button onclick="lookup({name: '${esc(f.latestDocId)}'}); window.scrollTo({top:0,behavior:'smooth'})" class="block mt-1 text-[11px] text-warn hover:text-warn underline">
+              <i class="fa-solid fa-arrow-right mr-1"></i>Xem bản mới nhất
+            </button>
+          </div>` : ''}
         </div>
         <div class="text-right shrink-0">
           ${st}${reason}
