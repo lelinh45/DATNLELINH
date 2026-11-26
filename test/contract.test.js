@@ -174,6 +174,135 @@ test('getMerkleBatch revert với batchId không tồn tại', async () => {
     await assert.rejects(contract.getMerkleBatch('BATCH_KHONG_CO'));
 });
 
+// ===== Contract v2: multi-sig EIP-712 + versioning + revoke-PENDING =====
+// State tại điểm này: deployer=owner/ADMIN, user=MANAGER(2), user2=ENTRY(1)
+
+const SEAL_TYPES = {
+    DocumentSeal: [
+        { name: 'docHash', type: 'bytes32' },
+        { name: 'documentId', type: 'string' },
+        { name: 'fileHash', type: 'string' },
+        { name: 'ipfsURI', type: 'string' },
+        { name: 'expiresAt', type: 'uint256' },
+        { name: 'previousDocId', type: 'string' }
+    ]
+};
+
+// Ký EIP-712 giống hệt recipe contract: docHash = keccak256(abi.encode(5 fields))
+async function signSeal(wallet, docId, fileHash, ipfsURI, expiresAt, previousDocId) {
+    const contractAddr = await contract.getAddress();
+    const docHash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(
+        ['string', 'string', 'string', 'uint256', 'string'],
+        [docId, fileHash, ipfsURI, expiresAt, previousDocId]
+    ));
+    const domain = { name: 'DataIntegrity', version: '2', chainId: 31337n, verifyingContract: contractAddr };
+    return wallet.signTypedData(domain, SEAL_TYPES, {
+        docHash, documentId: docId, fileHash, ipfsURI, expiresAt, previousDocId
+    });
+}
+
+test('sealDocument: happy path 2/2 signer → sealed + successorOf gán sau seal', async () => {
+    // v1 sealed ngay (threshold=0)
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_v1', 'e'.repeat(64), 'ipfs://v1', '', 0, [], 0));
+    // bản mới PENDING 2/3 signer, trỏ previousDocId=doc_v1
+    const signers = [userAddr, user2Addr, deployerAddr];
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_pend', 'f'.repeat(64), 'ipfs://pend', 'doc_v1', 0, signers, 2));
+
+    let d = await contract.getDocument('doc_pend');
+    assert.equal(d[10], false); // isSealed = false → PENDING
+    assert.equal(d[6], 'doc_v1'); // previousDocId
+    assert.equal(await contract.getSuccessor('doc_v1'), ''); // chưa gán successor
+
+    const sigU = await signSeal(user, 'doc_pend', 'f'.repeat(64), 'ipfs://pend', 0, 'doc_v1');
+    const sigU2 = await signSeal(user2, 'doc_pend', 'f'.repeat(64), 'ipfs://pend', 0, 'doc_v1');
+    // ai cũng gọi được — dùng deployer submit chữ ký gộp
+    await sendAndWait(() => contract.sealDocument('doc_pend', [sigU, sigU2]));
+
+    d = await contract.getDocument('doc_pend');
+    assert.equal(d[10], true); // sealed
+    assert.equal(await contract.getSuccessor('doc_v1'), 'doc_pend'); // successorOf gán sau seal
+});
+
+test('sealDocument: thiếu chữ ký so với threshold → revert toàn bộ', async () => {
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_pend_less', '1'.repeat(64), 'ipfs://pl', '', 0, [userAddr, user2Addr], 2));
+    const sigU = await signSeal(user, 'doc_pend_less', '1'.repeat(64), 'ipfs://pl', 0, '');
+    await assert.rejects(contract.sealDocument('doc_pend_less', [sigU]));
+    const d = await contract.getDocument('doc_pend_less');
+    assert.equal(d[10], false); // vẫn PENDING — revert không tích lũy state
+});
+
+test('sealDocument: chữ ký của địa chỉ NGOÀI requiredSigners → revert', async () => {
+    // requiredSigners chỉ có user2; deployer ký → recover ra deployerAddr ∉ list
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_pend_out', '2'.repeat(64), 'ipfs://po', '', 0, [user2Addr], 1));
+    const sigDeployer = await signSeal(deployer, 'doc_pend_out', '2'.repeat(64), 'ipfs://po', 0, '');
+    await assert.rejects(contract.sealDocument('doc_pend_out', [sigDeployer]));
+});
+
+test('sealDocument: cùng một chữ ký nộp 2 lần → revert (chống đếm trùng)', async () => {
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_pend_dup', '3'.repeat(64), 'ipfs://pd', '', 0, [userAddr, user2Addr], 2));
+    const sigU = await signSeal(user, 'doc_pend_dup', '3'.repeat(64), 'ipfs://pd', 0, '');
+    await assert.rejects(contract.sealDocument('doc_pend_dup', [sigU, sigU]));
+});
+
+test('sealDocument: doc đã bị thu hồi (PENDING) → revert', async () => {
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_pend_rev', '4'.repeat(64), 'ipfs://pr', '', 0, [userAddr], 1));
+    // user là MANAGER → được revoke doc PENDING của chính mình theo nhánh uploader/manager
+    await sendAndWait(() => contractAsUser.revokeDocument('doc_pend_rev', 'huy cho ky'));
+    const sigU = await signSeal(user, 'doc_pend_rev', '4'.repeat(64), 'ipfs://pr', 0, '');
+    await assert.rejects(contract.sealDocument('doc_pend_rev', [sigU]));
+});
+
+test('versioning: chỉ uploader cũ / MANAGER mới được trỏ previousDocId; chặn ADMIN-inheritance sai quyền', async () => {
+    // user2 (ENTRY, không phải uploader doc_v1 của user) không được version
+    await assert.rejects(contract.connect(user2).addDocumentV2('doc_bad_ver', '5'.repeat(64), 'ipfs://bv', 'doc_v1', 0, [], 0));
+    // uploader bản cũ (user) tự version doc của mình → OK
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_perm_base', '6'.repeat(64), 'ipfs://pb', '', 0, [], 0));
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_perm_v2', '7'.repeat(64), 'ipfs://pv2', 'doc_perm_base', 0, [], 0));
+    assert.equal(await contract.getSuccessor('doc_perm_base'), 'doc_perm_v2');
+    // MANAGER (user) version doc của user2 (không phải uploader nhưng role>=MANAGER) → OK
+    await sendAndWait(() => contract.connect(user2).addDocumentV2('doc_u2_base', '8'.repeat(64), 'ipfs://u2b', '', 0, [], 0));
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_u2_v2', '9'.repeat(64), 'ipfs://u2v2', 'doc_u2_base', 0, [], 0));
+    assert.equal(await contract.getSuccessor('doc_u2_base'), 'doc_u2_v2');
+    // doc do deployer (ADMIN) upload → MANAGER không được kế thừa
+    await sendAndWait(() => contract.addDocumentV2('doc_admin_v1', 'a'.repeat(63) + '7', 'ipfs://av1', '', 0, [], 0));
+    await assert.rejects(contractAsUser.addDocumentV2('doc_bad_admin', 'b'.repeat(63) + '8', 'ipfs://ba', 'doc_admin_v1', 0, [], 0));
+    // ADMIN được kế thừa
+    await sendAndWait(() => contract.addDocumentV2('doc_admin_v2', 'c'.repeat(63) + '9', 'ipfs://av2', 'doc_admin_v1', 0, [], 0));
+    assert.equal(await contract.getSuccessor('doc_admin_v1'), 'doc_admin_v2');
+});
+
+test('versioning: chặn phân nhánh — prev đã có successor thì reject cả add lẫn seal', async () => {
+    // doc_base do user upload
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_base', 'a'.repeat(63) + '1', 'ipfs://base', '', 0, [], 0));
+    // PENDING successor chiếm "slot" trước (chưa gán successorOf)
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_pend_race', 'b'.repeat(63) + '2', 'ipfs://prace', 'doc_base', 0, [userAddr], 1));
+    // Trong lúc PENDING, một successor KHÁC sealed-ngay chiếm successorOf[doc_base]
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_race_win', 'c'.repeat(63) + '3', 'ipfs://rwin', 'doc_base', 0, [], 0));
+    assert.equal(await contract.getSuccessor('doc_base'), 'doc_race_win');
+    // Giờ seal doc_pend_race → phải revert vì successorOf[doc_base] đã bị chiếm
+    const sigU = await signSeal(user, 'doc_pend_race', 'b'.repeat(63) + '2', 'ipfs://prace', 0, 'doc_base');
+    await assert.rejects(contract.sealDocument('doc_pend_race', [sigU]));
+    // Và add mới với cùng prev cũng reject ngay từ _checkPreviousDoc
+    await assert.rejects(contractAsUser.addDocumentV2('doc_branch', 'd'.repeat(63) + '4', 'ipfs://br', 'doc_base', 0, [], 0));
+});
+
+test('revoke-PENDING: uploader được tự hủy; ví ENTRY không phải uploader thì không', async () => {
+    // doc do user (MANAGER) upload PENDING → user2 (ENTRY, không phải uploader) không được hủy
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_pend_huy', 'e'.repeat(63) + '5', 'ipfs://ph', '', 0, [user2Addr], 1));
+    await assert.rejects(contract.connect(user2).revokeDocument('doc_pend_huy', 'x'));
+    // uploader (user) tự hủy được
+    await sendAndWait(() => contractAsUser.revokeDocument('doc_pend_huy', 'tu huy'));
+    const d = await contract.getDocument('doc_pend_huy');
+    assert.equal(d[4], true); // isRevoked
+});
+
+test('expiresAt: lưu đúng giá trị, expiresAt=0 = không hạn', async () => {
+    await sendAndWait(() => contractAsUser.addDocumentV2('doc_exp', 'f'.repeat(63) + '6', 'ipfs://exp', '', 1893456000, [], 0));
+    const d = await contract.getDocument('doc_exp');
+    assert.equal(d[7], 1893456000n); // expiresAt
+    assert.equal(d[10], true); // sealed ngay vì threshold=0
+});
+
 test('transferOwnership chuyển quyền root, owner cũ vẫn ADMIN nhưng mất bảo vệ', async () => {
     await sendAndWait(() => contract.transferOwnership(userAddr));
     assert.equal(await contract.owner(), userAddr);

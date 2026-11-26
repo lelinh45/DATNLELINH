@@ -164,6 +164,7 @@ contract DataIntegrity is EIP712 {
             _requiredSigners = new address[](0);
         } else {
             require(_requiredSigners.length >= _requiredThreshold, "Loi: So signer it hon nguong chu ky!");
+            require(_requiredSigners.length <= 20, "Loi: Toi da 20 signer!"); // gas guard
             // Dedupe + loại địa chỉ 0: mỗi signer chỉ được đếm 1 lần khi seal.
             for (uint256 i = 0; i < _requiredSigners.length; i++) {
                 require(_requiredSigners[i] != address(0), "Loi: Dia chi signer khong hop le!");
@@ -265,6 +266,7 @@ contract DataIntegrity is EIP712 {
     function sealDocument(string memory _documentId, bytes[] memory _signatures) public {
         Document storage doc = documents[_documentId];
         require(doc.timestamp != 0, "Loi: Tai lieu khong ton tai!");
+        require(!doc.isRevoked, "Loi: Tai lieu da bi thu hoi, khong the dong dau!");
         require(!doc.isSealed, "Loi: Tai lieu da duoc dong dau!");
         require(doc.requiredThreshold > 0, "Loi: Tai lieu khong yeu cau chu ky!");
         require(_signatures.length <= doc.requiredSigners.length, "Loi: Qua nhieu chu ky!");
@@ -302,7 +304,13 @@ contract DataIntegrity is EIP712 {
 
         doc.isSealed = true;
         // Bản PENDING có previousDocId → chỉ giờ mới gán successorOf (chống phân nhánh ảo).
+        // Re-check successorOf: trong lúc doc còn PENDING, một successor khác có thể
+        // đã chiếm successorOf[prev] → revert để giữ invariant "mỗi prev tối đa 1 successor".
         if (bytes(doc.previousDocId).length > 0) {
+            require(
+                bytes(successorOf[doc.previousDocId]).length == 0,
+                "Loi: previousDocId da co successor khac trong luc cho ky!"
+            );
             successorOf[doc.previousDocId] = _documentId;
         }
 
