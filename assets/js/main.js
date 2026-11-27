@@ -3,6 +3,7 @@ import { Web3Service } from './web3Service.js?v=20261122';
 import { ApiService } from './apiService.js?v=20261122';
 import { initDashboard } from './dashboard.js?v=20261122';
 import { esc } from './sanitize.js?v=20261122';
+import { CONFIG } from './config.js?v=20261122';
 
 const web3 = new Web3Service();
 let isProcessing = false;
@@ -3437,8 +3438,8 @@ window.revokeApiKey = async function (id) {
 function loadRpcConfig() {
     const rpcInput = document.getElementById('rpc-url-input');
     const chainInput = document.getElementById('chain-id-input');
-    if (rpcInput) rpcInput.value = localStorage.getItem('custom_rpc_url') || 'http://127.0.0.1:8545';
-    if (chainInput) chainInput.value = localStorage.getItem('custom_chain_id') || '31337';
+    if (rpcInput) rpcInput.value = localStorage.getItem('custom_rpc_url') || CONFIG.RPC_URL;
+    if (chainInput) chainInput.value = localStorage.getItem('custom_chain_id') || '11155111';
 }
 
 function saveRpcConfig() {
@@ -3748,11 +3749,11 @@ window.loadWalletRoles = async function() {
         let displayNameHTML = '';
 
         if (isThisRowAdmin) {
-            displayNameHTML = `<span class="font-bold text-warn text-[13px] mb-1 uppercase tracking-wider"><i class="fa-solid fa-user-shield mr-1"></i> ADMIN HỆ THỐNG</span>`;
+            displayNameHTML = `<span class="font-bold text-warn text-[13px] mb-1 uppercase tracking-wider whitespace-nowrap"><i class="fa-solid fa-user-shield mr-1"></i> ADMIN HỆ THỐNG</span>`;
         } else {
             const aliasName = w.alias || '';
             displayNameHTML = aliasName
-                ? `<span class="font-bold text-ink text-[13px] mb-1">${esc(aliasName)}</span>`
+                ? `<span class="font-bold text-ink text-[13px] mb-1 whitespace-nowrap">${esc(aliasName)}</span>`
                 : `<span class="italic text-faint text-[11px] mb-1">(Chưa đặt tên)</span>`;
         }
 

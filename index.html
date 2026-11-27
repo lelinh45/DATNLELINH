@@ -189,14 +189,14 @@ tailwind.config = { theme: { extend: {
         <!-- CỘT PHẢI: KHU VỰC THAO TÁC CHÍNH -->
         <main class="flex-1 flex flex-col h-full overflow-hidden relative">
             
-            <header class="h-16 flex items-center justify-between px-6 bg-panel border-b border-line shrink-0">
+            <header class="h-16 flex items-center justify-between px-3 sm:px-6 bg-panel border-b border-line shrink-0">
                 <div class="flex items-center gap-2 min-w-0">
                     <button id="btn-nav-toggle" type="button" class="btn-ghost btn-sm lg:hidden shrink-0" title="Mở menu">
                         <i class="fa-solid fa-bars"></i>
                     </button>
                     <h2 id="page-title" class="text-lg font-bold text-ink truncate">Mã Hóa & Lưu Trữ Phi Tập Trung</h2>
                 </div>
-                <div id="wallet-section" class="flex items-center gap-3">
+                <div id="wallet-section" class="flex items-center gap-2 sm:gap-3">
                     <!-- THEME TOGGLE -->
                     <button id="btn-theme-toggle" type="button" class="btn-ghost btn-sm" title="Giao diện sáng / tối">
                         <i class="fa-solid fa-sun"></i>
@@ -235,7 +235,7 @@ tailwind.config = { theme: { extend: {
                         </div>
                     </div>
                     <!-- KHỐI ĐỒNG HỒ (Đã chỉnh kích thước và giao diện đồng bộ với System Online) -->
-                    <span class="bg-sunken text-soft border border-line-strong text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-sm tracking-wide">
+                    <span class="hidden sm:flex bg-sunken text-soft border border-line-strong text-xs px-4 py-1.5 rounded-full font-bold items-center shadow-sm tracking-wide">
                         <i class="fa-regular fa-clock mr-2 text-accent"></i> <span id="real-time-clock">--:--:--</span>
                     </span>
                     
@@ -259,7 +259,7 @@ tailwind.config = { theme: { extend: {
                         </p>
                     </div>
                 </div>
-                <div id="workspace-grid" class="grid grid-cols-1 lg:grid-cols-12 lg:auto-rows-[minmax(0,1fr)] gap-6 items-stretch flex-1 min-h-0">
+                <div id="workspace-grid" class="grid grid-cols-1 lg:grid-cols-12 lg:auto-rows-[minmax(0,1fr)] gap-6 items-stretch lg:flex-1 lg:min-h-0">
                     <!-- ============================================== -->
                     <!-- CỘT TRÁI (Khu vực làm việc - Chiếm 7/12 màn hình)-->
                     <!-- ============================================== -->
@@ -434,15 +434,15 @@ tailwind.config = { theme: { extend: {
                             <div id="ledger-pane-wallet" class="flex-1 flex flex-col min-h-0">
                                 <div class="bg-sunken border border-line rounded-md overflow-hidden flex flex-col relative flex-1 min-h-0">
                                     <div class="overflow-x-auto flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-2">
-                                        <table class="w-full table-fixed min-w-[820px] text-sm text-left text-muted">
+                                        <table class="w-full table-fixed min-w-[660px] text-sm text-left text-muted">
                                             <thead class="text-xs text-faint uppercase bg-sunken border-b border-line sticky top-0 z-10">
                                                 <tr>
                                                     <th class="px-3 py-2 font-semibold text-center w-12">STT</th>
-                                                    <th class="px-3 py-2 font-semibold w-[22%]">ID TÀI LIỆU</th>
-                                                    <th class="px-3 py-2 font-semibold w-[24%]">NGUỒN GỐC (VÍ TẠO)</th>
-                                                    <th class="px-3 py-2 font-semibold w-[28%]">MÃ BĂM</th>
-                                                    <th class="px-3 py-2 font-semibold text-center w-[11%]">PHÍ (ETH)</th>
-                                                    <th class="px-3 py-2 font-semibold text-center w-[12%]">TRẠNG THÁI</th>
+                                                    <th class="px-3 py-2 font-semibold w-[19%]">ID TÀI LIỆU</th>
+                                                    <th class="px-3 py-2 font-semibold w-[21%]">NGUỒN GỐC (VÍ TẠO)</th>
+                                                    <th class="px-3 py-2 font-semibold w-[25%]">MÃ BĂM</th>
+                                                    <th class="px-3 py-2 font-semibold text-center w-[9%]">PHÍ (ETH)</th>
+                                                    <th class="px-3 py-2 font-semibold text-center w-[11%]">TRẠNG THÁI</th>
                                                     <th class="px-2 py-2 font-semibold text-center w-10"></th>
                                                 </tr>
                                             </thead>
@@ -461,15 +461,15 @@ tailwind.config = { theme: { extend: {
                                 <div id="partner-org-chips" class="flex flex-wrap items-center gap-2 mb-3 shrink-0"></div>
                                 <div class="bg-sunken border border-warn rounded-md overflow-hidden flex flex-col flex-1 min-h-0">
                                     <div class="overflow-x-auto overflow-y-auto custom-scrollbar flex-1 min-h-0 pb-2">
-                                        <table class="w-full table-fixed min-w-[820px] text-sm text-left text-muted">
+                                        <table class="w-full table-fixed min-w-[660px] text-sm text-left text-muted">
                                             <thead class="text-xs text-warn uppercase bg-sunken border-b border-warn sticky top-0 z-10">
                                                 <tr>
                                                     <th class="px-3 py-2 font-semibold text-center w-12">STT</th>
-                                                    <th class="px-3 py-2 font-semibold w-[27%]">ID TÀI LIỆU</th>
-                                                    <th class="px-3 py-2 font-semibold w-[23%]">TỔ CHỨC</th>
+                                                    <th class="px-3 py-2 font-semibold w-[20%]">ID TÀI LIỆU</th>
+                                                    <th class="px-3 py-2 font-semibold w-[18%]">TỔ CHỨC</th>
                                                     <th class="px-3 py-2 font-semibold w-[30%]">MÃ BĂM & IPFS</th>
-                                                    <th class="px-3 py-2 font-semibold text-center w-[12%]">PHÍ (ETH)</th>
-                                                    <th class="px-3 py-2 font-semibold text-center w-[13%]">TRẠNG THÁI</th>
+                                                    <th class="px-3 py-2 font-semibold text-center w-[10%]">PHÍ (ETH)</th>
+                                                    <th class="px-3 py-2 font-semibold text-center w-[14%]">TRẠNG THÁI</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="partner-docs-body"></tbody>
@@ -492,14 +492,14 @@ tailwind.config = { theme: { extend: {
                             </div>
                            <div class="bg-sunken border border-err rounded-md overflow-hidden flex flex-col relative flex-1 min-h-0">
                                 <div class="overflow-x-auto flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-2">
-                                    <table class="w-full table-fixed min-w-[820px] text-sm text-left text-muted">
+                                    <table class="w-full table-fixed min-w-[640px] text-sm text-left text-muted">
                                         <thead class="text-xs text-err uppercase bg-sunken border-b border-err sticky top-0">
                                             <tr>
                                                 <th scope="col" class="px-3 py-2 font-semibold text-center w-12">STT</th>
-                                                <th scope="col" class="px-3 py-2 font-semibold">ID Tài Liệu</th>
-                                                <th scope="col" class="px-3 py-2 font-semibold">Nguồn Gốc (Người Tạo)</th>
-                                                <th scope="col" class="px-3 py-2 font-semibold">Thông Tin Thu Hồi (Lý Do & Người Hủy)</th>
-                                                <th scope="col" class="px-3 py-2 font-semibold text-center">Trạng Thái</th>
+                                                <th scope="col" class="px-3 py-2 font-semibold w-[20%]">ID Tài Liệu</th>
+                                                <th scope="col" class="px-3 py-2 font-semibold w-[18%]">Nguồn Gốc (Người Tạo)</th>
+                                                <th scope="col" class="px-3 py-2 font-semibold w-[30%]">Thông Tin Thu Hồi (Lý Do & Người Hủy)</th>
+                                                <th scope="col" class="px-3 py-2 font-semibold text-center w-[18%]">Trạng Thái</th>
                                                 <th scope="col" class="px-2 py-2 font-semibold text-center w-10"></th>
                                             </tr>
                                         </thead>
@@ -568,12 +568,12 @@ tailwind.config = { theme: { extend: {
                                     </div>
                                    <!-- Khoảng đệm pb-24 -->
                                     <div class="flex-1 min-h-0 overflow-y-auto overflow-x-auto custom-scrollbar pb-24">
-                                        <table class="w-full min-w-[720px] text-sm text-left text-muted relative">
+                                        <table class="w-full min-w-[660px] text-sm text-left text-muted relative">
                                             <thead class="text-xs text-faint uppercase bg-sunken border-b border-line sticky top-0 z-10">
                                                 <tr>
                                                     <th class="px-3 py-2 w-[5%] text-center"><input type="checkbox" id="selectAll" onclick="toggleAllCheckboxes(this)" class="rounded bg-panel border-line-strong text-accent cursor-pointer"></th>
-                                                    <th class="px-3 py-2 font-semibold w-[20%]">Tài khoản Ví</th>
-                                                    <th class="px-3 py-2 font-semibold cursor-pointer hover:text-accent transition group w-[40%] whitespace-nowrap" onclick="sortWalletTable('storageUsed')">
+                                                    <th class="px-3 py-2 font-semibold w-[24%]">Tài khoản Ví</th>
+                                                    <th class="px-3 py-2 font-semibold cursor-pointer hover:text-accent transition group w-[36%] whitespace-nowrap" onclick="sortWalletTable('storageUsed')">
                                                         Dung lượng & File <i class="fa-solid fa-sort ml-1 opacity-50 group-hover:opacity-100"></i>
                                                     </th>
                                                     <th class="px-3 py-2 font-semibold cursor-pointer hover:text-accent transition group w-[25%] whitespace-nowrap" onclick="sortWalletTable('lastActive')">
@@ -632,16 +632,16 @@ tailwind.config = { theme: { extend: {
                         </div>
 
                         <!-- TAB 7: RPC NODE -->
-                        <div id="tab-rpc" class="flex-1 flex flex-col min-h-0 hidden">
+                        <div id="tab-rpc" class="flex-1 flex flex-col min-h-0 hidden overflow-y-auto">
                             <label class="block text-xs font-bold text-muted mb-3 uppercase tracking-wider">Kết nối mạng lưới chuỗi khối (Blockchain Node)</label>
-                            <div class="space-y-4 flex-1 min-h-0 overflow-y-auto">
+                            <div class="space-y-4">
                                 <div>
                                     <label class="block text-sm text-soft mb-2">RPC Endpoint URL</label>
-                                    <input type="text" id="rpc-url-input" class="w-full bg-sunken border border-line rounded-lg p-3 text-accent font-mono text-sm focus:outline-none focus:border-accent" value="http://127.0.0.1:8545">
+                                    <input type="text" id="rpc-url-input" class="w-full bg-sunken border border-line rounded-lg p-3 text-accent font-mono text-sm focus:outline-none focus:border-accent" value="https://ethereum-sepolia-rpc.publicnode.com">
                                 </div>
                                 <div>
                                     <label class="block text-sm text-soft mb-2">Chain ID</label>
-                                    <input type="text" id="chain-id-input" class="w-full bg-sunken border border-line rounded-lg p-3 text-soft font-mono text-sm focus:outline-none focus:border-accent" value="31337">
+                                    <input type="text" id="chain-id-input" class="w-full bg-sunken border border-line rounded-lg p-3 text-soft font-mono text-sm focus:outline-none focus:border-accent" value="11155111">
                                 </div>
                             </div>
                             <button id="btn-save-rpc" class="w-full mt-5 bg-accent hover:brightness-110 text-white py-3 rounded-lg font-bold text-sm shadow-sm transition">
@@ -652,7 +652,7 @@ tailwind.config = { theme: { extend: {
                         <!-- TAB 8: TEMPLATE CHỨNG NHẬN -->
                         <div id="tab-template" class="flex-1 flex flex-col min-h-0 hidden">
                             <label class="block text-xs font-bold text-muted mb-4 uppercase tracking-wider">Tùy chọn hiển thị phôi PDF</label>
-                            <div class="grid grid-cols-2 gap-4 flex-1 min-h-0 overflow-y-auto">
+                            <div class="grid grid-cols-2 gap-4 flex-1 min-h-0 overflow-y-auto content-start">
                                 <div id="tpl-standard" onclick="selectTemplate('standard')" class="border-2 border-accent bg-accent-soft rounded-md p-4 cursor-pointer relative transition duration-200">
                                     <div id="icon-standard" class="absolute top-2 right-2 text-accent"><i class="fa-solid fa-circle-check"></i></div>
                                     <h6 class="text-ink font-bold mb-2">Mẫu Tiêu Chuẩn (Standard)</h6>
@@ -667,9 +667,9 @@ tailwind.config = { theme: { extend: {
                         </div>
 
                         <!-- TAB 9: SETTINGS -->
-                        <div id="tab-settings" class="flex-1 flex flex-col min-h-0 hidden">
+                        <div id="tab-settings" class="flex-1 flex flex-col min-h-0 hidden overflow-y-auto">
                             <label class="block text-xs font-bold text-muted mb-4 uppercase tracking-wider">Thiết lập bảo mật & Cảnh báo</label>
-                            <div class="space-y-4 flex-1 min-h-0 overflow-y-auto">
+                            <div class="space-y-4">
                                 <div class="flex items-center justify-between bg-sunken p-4 rounded-lg border border-line">
                                     <div>
                                         <h6 class="text-soft font-bold text-sm">Chế độ tự động đồng bộ (Auto-Sync)</h6>
