@@ -371,6 +371,16 @@ async function verifyOnChainCard(docId, localHash, btn) {
     const d = await window.VerifyChain.verifyOnChain(docId);
     card.dataset.chainDoc = JSON.stringify(d);
     const match = localHash ? (localHash.toLowerCase() === d.fileHash) : null;
+    // Doc PENDING: chữ ký EIP-712 nằm off-chain (PendingSignature/Mongo) —
+    // hasSigned on-chain chưa ghi gì trước seal. Lấy count qua API public.
+    let sealStatus = null;
+    if (!d.sealed && Number(d.requiredThreshold) > 0) {
+      try {
+        const r = await fetch('/api/documents/' + encodeURIComponent(docId) + '/seal-status');
+        const j = await r.json();
+        if (j && j.success) sealStatus = j;
+      } catch (e) {}
+    }
     box.innerHTML = `
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[10px] font-bold uppercase ${match === true ? 'text-ok' : match === false ? 'text-err' : 'text-muted'}">
@@ -384,7 +394,7 @@ async function verifyOnChainCard(docId, localHash, btn) {
         <div><i class="fa-regular fa-clock mr-1 text-faint"></i>Đóng dấu: ${esc(d.timestampISO)} · <i class="fa-solid fa-user mr-1"></i>${esc(d.uploader)}</div>
         <div><i class="fa-solid fa-cloud mr-1 text-faint"></i>IPFS: <span class="font-mono break-all">${esc(d.ipfsURI)}</span></div>
         ${d.expiresAtISO ? `<div class="${d.isExpired ? 'text-warn' : ''}"><i class="fa-regular fa-calendar mr-1 text-faint"></i>Hết hạn: ${esc(d.expiresAtISO)}${d.isExpired ? ' — <b>ĐÃ QUÁ HẠN</b>' : ''}</div>` : ''}
-        ${!d.sealed && Number(d.requiredThreshold) > 0 ? `<div class="text-warn"><i class="fa-solid fa-hourglass-half mr-1"></i>ĐA CHỮ KÝ — CHỜ KÝ${d.signedCount != null ? ` ${d.signedCount}/${d.requiredThreshold}` : ''} (chưa đóng dấu)</div>` : ''}
+        ${!d.sealed && Number(d.requiredThreshold) > 0 ? `<div class="text-warn"><i class="fa-solid fa-hourglass-half mr-1"></i>ĐA CHỮ KÝ — CHƯA SEAL ON-CHAIN${sealStatus ? ` · đã nộp ${esc(sealStatus.pendingCount)}/${esc(d.requiredThreshold)} chữ ký (off-chain)` : ' · chữ ký đang gom off-chain'}</div>` : ''}
         ${d.isRevoked ? `<div class="text-err"><i class="fa-solid fa-ban mr-1"></i>ĐÃ THU HỒI${d.revocationReason ? ' — ' + esc(d.revocationReason) : ''}</div>` : ''}
         ${d.successor ? `<div class="text-warn"><i class="fa-solid fa-code-branch mr-1"></i>ĐÃ CÓ BẢN MỚI KẾ THỪA: <span class="font-mono break-all">${esc(d.successor)}</span>
           <button onclick="lookup({name: '${esc(d.successor)}'}); window.scrollTo({top:0,behavior:'smooth'})" class="block mt-0.5 text-warn hover:text-warn underline"><i class="fa-solid fa-arrow-right mr-1"></i>Tra cứu bản mới</button></div>` : ''}

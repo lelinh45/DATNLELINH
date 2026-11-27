@@ -15,8 +15,7 @@ const RPC_FALLBACKS = [
 //  previousDocId, expiresAt, requiredSigners, requiredThreshold, isSealed)
 const ABI = [
     'function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason, string previousDocId, uint256 expiresAt, address[] requiredSigners, uint8 requiredThreshold, bool isSealed)',
-    'function getSuccessor(string _documentId) view returns (string)',
-    'function hasSigned(string _documentId, address _signer) view returns (bool)'
+    'function getSuccessor(string _documentId) view returns (string)'
 ];
 
 let cached = null; // { provider, contract, rpcUrl }
@@ -44,15 +43,10 @@ export async function verifyOnChain(docId) {
     const requiredSigners = Array.isArray(d[8]) ? d[8].map(String) : [];
     const sealed = !!d[10];
     const requiredThreshold = Number(d[9] || 0);
-    // Doc PENDING (threshold>0, chưa sealed): đếm hasSigned trên từng signer
-    // để hiển thị "đã ký x/y" — tối đa 20 signer nên ≤20 RPC call song song.
-    let signedCount = null;
-    if (!sealed && requiredThreshold > 0 && requiredSigners.length) {
-        const flags = await Promise.all(
-            requiredSigners.map(a => contract.hasSigned(docId, a).catch(() => false))
-        );
-        signedCount = flags.filter(Boolean).length;
-    }
+    // LƯU Ý: hasSigned on-chain CHỈ được ghi bên trong sealDocument → trước khi
+    // seal luôn = false với mọi signer. Chữ ký EIP-712 đang gom off-chain trong
+    // MongoDB (PendingSignature) — số "đã nộp x/y" lấy qua API public
+    // /api/documents/:docId/seal-status, KHÔNG suy ra từ chain.
     // successorOf: docId bản mới kế thừa ("" = chưa có) — nguồn on-chain độc lập
     // với hasNewer off-chain (Mongo replacesDocId).
     const successor = await contract.getSuccessor(docId).catch(() => '');
@@ -70,7 +64,6 @@ export async function verifyOnChain(docId) {
         isExpired: expiresAtNum > 0 && Date.now() / 1000 > expiresAtNum,
         requiredSigners,
         requiredThreshold,
-        signedCount,
         sealed,
         successor: String(successor || ''),
         rpcUsed: rpcUrl,
@@ -100,7 +93,6 @@ export function buildProofBundle(docId, localHash, chainDoc) {
             expiresAtISO: chainDoc.expiresAtISO,
             isExpired: chainDoc.isExpired,
             requiredThreshold: chainDoc.requiredThreshold,
-            signedCount: chainDoc.signedCount,
             sealed: chainDoc.sealed,
             successor: chainDoc.successor
         },

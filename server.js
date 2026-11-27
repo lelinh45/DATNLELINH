@@ -1379,6 +1379,30 @@ app.get('/api/documents/:docId/signatures', sigLimiter, requireAuth, async (req,
     }
 });
 
+// Trạng thái seal RÚT GỌN cho trang verify công khai — KHÔNG cần đăng nhập.
+// Chỉ trả count, không trả chữ ký/địa chỉ signer. pendingCount đọc từ
+// PendingSignature (off-chain — chữ ký chưa lên chain); threshold/sealed
+// đọc on-chain. hasSigned on-chain luôn false trước seal nên KHÔNG dùng.
+app.get('/api/documents/:docId/seal-status', sigLimiter, async (req, res) => {
+    try {
+        const docId = String(req.params.docId || '');
+        if (!DOC_ID_RE.test(docId)) {
+            return res.status(400).json({ success: false, message: 'docId không hợp lệ' });
+        }
+        const pendingCount = await PendingSignature.countDocuments({ docId });
+        let threshold = null, sealed = null, chainOk = false;
+        try {
+            const doc = await getSealDocOnChain(docId);
+            threshold = doc.requiredThreshold;
+            sealed = doc.isSealed;
+            chainOk = true;
+        } catch (e) {}
+        res.json({ success: true, docId, pendingCount, threshold, sealed, chainOk });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi truy vấn trạng thái seal' });
+    }
+});
+
 // Truy vết dòng đời phiên bản — public: chuỗi v1 → v2 → v3 của một tài liệu,
 // ai được thay thế bởi ai. Liên kết replacesDocId lưu ở MongoDB (truy vấn);
 // khi bản cũ bị thu hồi, con trỏ ngược "Thay thế bởi <docId>" nằm bất biến
