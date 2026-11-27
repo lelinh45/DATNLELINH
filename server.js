@@ -1086,7 +1086,12 @@ app.get('/api/documents/lookup', async (req, res) => {
 
         const pick = (f, uploader) => ({
             docId: f.docId, fileName: f.fileName || '', uploader: uploader || '',
-            isRevoked: !!f.isRevoked, revocationReason: f.revocationReason || ''
+            isRevoked: !!f.isRevoked, revocationReason: f.revocationReason || '',
+            // Contract v2 metadata (snapshot lúc upload — trạng thái sealed thật
+            // chỉ đọc on-chain qua nút "Kiểm chứng on-chain")
+            expiresAt: Number(f.expiresAt) || 0,
+            requiredThreshold: Number(f.requiredThreshold) || 0,
+            signerCount: Array.isArray(f.requiredSigners) ? f.requiredSigners.length : 0
         });
         const byHash = [], byName = [];
 

@@ -147,11 +147,18 @@ function card(color, icon, title, body) {
 }
 
 function docCard(f, tampered) {
+  const expired = Number(f.expiresAt) > 0 && Date.now() / 1000 > Number(f.expiresAt);
   const st = f.isRevoked
     ? `<span class="text-err font-bold"><i class="fa-solid fa-ban mr-1"></i>ĐÃ THU HỒI</span>`
-    : `<span class="text-ok font-bold"><i class="fa-solid fa-circle-check mr-1"></i>CÒN HIỆU LỰC</span>`;
+    : expired
+      ? `<span class="text-warn font-bold"><i class="fa-regular fa-calendar-xmark mr-1"></i>HẾT HẠN</span>`
+      : Number(f.requiredThreshold) > 0
+        ? `<span class="text-warn font-bold"><i class="fa-solid fa-hourglass-half mr-1"></i>ĐA CHỮ KÝ</span>`
+        : `<span class="text-ok font-bold"><i class="fa-solid fa-circle-check mr-1"></i>CÒN HIỆU LỰC</span>`;
   const reason = f.isRevoked && f.revocationReason
     ? `<p class="text-xs text-err mt-1"><i class="fa-solid fa-quote-left mr-1"></i>Lý do: ${esc(f.revocationReason)}</p>` : '';
+  const expiry = Number(f.expiresAt) > 0
+    ? `<p class="text-[11px] mt-1 ${expired ? 'text-warn font-bold' : 'text-faint'}"><i class="fa-regular fa-calendar mr-1"></i>Hiệu lực đến: ${esc(new Date(Number(f.expiresAt) * 1000).toLocaleString('vi-VN'))}</p>` : '';
   return `<div class="doc-card bg-sunken border border-line rounded-md p-4">
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div class="min-w-0">
@@ -168,7 +175,7 @@ function docCard(f, tampered) {
           </div>` : ''}
         </div>
         <div class="text-right shrink-0">
-          ${st}${reason}
+          ${st}${reason}${expiry}
           <button onclick="loadLineage('${esc(f.docId)}', this)" class="block ml-auto mt-2 text-[11px] text-accent hover:text-accent underline">
             <i class="fa-solid fa-code-branch mr-1"></i>Dòng đời phiên bản
           </button>
@@ -367,7 +374,7 @@ async function verifyOnChainCard(docId, localHash, btn) {
     box.innerHTML = `
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[10px] font-bold uppercase ${match === true ? 'text-ok' : match === false ? 'text-err' : 'text-muted'}">
-          <i class="fa-solid ${match === true ? 'fa-circle-check' : match === false ? 'fa-triangle-exclamation' : 'fa-link'} mr-1"></i>${match === true ? 'ON-CHAIN: KHỚP HASH' : match === false ? 'ON-CHAIN: LỆCH HASH' : 'ON-CHAIN: đã đọc bản ghi'}
+          <i class="fa-solid ${match === true ? 'fa-circle-check' : match === false ? 'fa-triangle-exclamation' : 'fa-link'} mr-1"></i>${match === true ? 'ON-CHAIN: KHỚP HASH' : match === false ? 'ON-CHAIN: LỆCH HASH' : 'ON-CHAIN: đã đọc bản ghi'}${match === true && !d.sealed && Number(d.requiredThreshold) > 0 ? ' · CHỜ CHỮ KÝ' : ''}${match === true && d.isExpired ? ' · HẾT HẠN' : ''}${match === true && d.successor ? ' · CÓ BẢN MỚI' : ''}
         </span>
         <span class="text-[9px] text-faint font-mono">${esc(d.contractAddress.slice(0, 10))}… · Sepolia · ${esc(d.rpcUsed.replace('https://', ''))}</span>
       </div>
@@ -376,7 +383,11 @@ async function verifyOnChainCard(docId, localHash, btn) {
         ${localHash ? `<div><i class="fa-laptop mr-1 text-faint"></i>Hash file của bạn: <span class="font-mono break-all">${esc(localHash)}</span></div>` : ''}
         <div><i class="fa-regular fa-clock mr-1 text-faint"></i>Đóng dấu: ${esc(d.timestampISO)} · <i class="fa-solid fa-user mr-1"></i>${esc(d.uploader)}</div>
         <div><i class="fa-solid fa-cloud mr-1 text-faint"></i>IPFS: <span class="font-mono break-all">${esc(d.ipfsURI)}</span></div>
+        ${d.expiresAtISO ? `<div class="${d.isExpired ? 'text-warn' : ''}"><i class="fa-regular fa-calendar mr-1 text-faint"></i>Hết hạn: ${esc(d.expiresAtISO)}${d.isExpired ? ' — <b>ĐÃ QUÁ HẠN</b>' : ''}</div>` : ''}
+        ${!d.sealed && Number(d.requiredThreshold) > 0 ? `<div class="text-warn"><i class="fa-solid fa-hourglass-half mr-1"></i>ĐA CHỮ KÝ — CHỜ KÝ${d.signedCount != null ? ` ${d.signedCount}/${d.requiredThreshold}` : ''} (chưa đóng dấu)</div>` : ''}
         ${d.isRevoked ? `<div class="text-err"><i class="fa-solid fa-ban mr-1"></i>ĐÃ THU HỒI${d.revocationReason ? ' — ' + esc(d.revocationReason) : ''}</div>` : ''}
+        ${d.successor ? `<div class="text-warn"><i class="fa-solid fa-code-branch mr-1"></i>ĐÃ CÓ BẢN MỚI KẾ THỪA: <span class="font-mono break-all">${esc(d.successor)}</span>
+          <button onclick="lookup({name: '${esc(d.successor)}'}); window.scrollTo({top:0,behavior:'smooth'})" class="block mt-0.5 text-warn hover:text-warn underline"><i class="fa-solid fa-arrow-right mr-1"></i>Tra cứu bản mới</button></div>` : ''}
       </div>`;
     if (proofBtn) proofBtn.classList.remove('hidden');
   } catch (e) {
