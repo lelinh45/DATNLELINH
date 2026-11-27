@@ -104,7 +104,31 @@ export class Web3Service {
         this.contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONFIG.CONTRACT_ABI, this.signer);
         const adminAddress = await this.contract.owner();
         const isAdmin = this.currentAccount.toLowerCase() === adminAddress.toLowerCase();
+        this._bindWalletListeners(injected);
         return { account: this.currentAccount, isAdmin };
+    }
+
+    // Lắng nghe MetaMask — gắn đúng 1 lần dù connectWallet được gọi nhiều lần.
+    // Đổi ví/ngắt kết nối → xóa JWT rồi reload để buộc đăng nhập lại bằng ví
+    // mới (JWT gắn địa chỉ ví — ví mới tuyệt đối không được dùng token ví cũ).
+    // Đổi mạng → reload khi về đúng Sepolia; sai mạng thì cảnh báo rõ.
+    _bindWalletListeners(injected) {
+        if (this._listenersBound || !injected || typeof injected.on !== 'function') return;
+        this._listenersBound = true;
+        injected.on('accountsChanged', async (accounts) => {
+            const next = accounts && accounts[0] ? String(accounts[0]).toLowerCase() : '';
+            const cur = String(this.currentAccount || '').toLowerCase();
+            if (next === cur) return;
+            try { const { ApiService } = await import('./apiService.js'); ApiService.logout(); } catch (e) {}
+            window.location.reload();
+        });
+        injected.on('chainChanged', (chainId) => {
+            const want = String(CONFIG.HARDHAT_CHAIN_ID).toLowerCase();
+            if (String(chainId).toLowerCase() === want) { window.location.reload(); return; }
+            try {
+                if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: `Ví đang ở mạng khác — hệ thống chỉ chạy trên ${CONFIG.HARDHAT_CHAIN_NAME}`, timer: 6000, showConfirmButton: false, background: 'var(--panel)', color: 'var(--ink)' });
+            } catch (e) {}
+        });
     }
 
     // ==========================================
@@ -133,6 +157,7 @@ export class Web3Service {
         // contract cũ không bị trộn vào danh sách (tránh docId trùng lặp ảo)
         const scopedKey = `bdi_cache_v2_${CONFIG.CONTRACT_ADDRESS}_${cacheKeyName}`;
 
+        const START_BLOCK = CONFIG.START_BLOCK || 0;
         let cacheData = JSON.parse(localStorage.getItem(scopedKey)) || { lastScanned: START_BLOCK, events: [] };
         let fromBlock = cacheData.lastScanned + 1;
         let newEvents = [];

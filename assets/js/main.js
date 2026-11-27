@@ -2257,6 +2257,35 @@ async function handleVerify() {
             }
         } catch (e) {}
 
+        // Contract v2: trạng thái pháp lý on-chain — HẾT HẠN / CHỜ CHỮ KÝ /
+        // CÓ BẢN MỚI. Tách biệt hoàn toàn với giả mạo (sai hash): hash khớp
+        // nhưng tài liệu hết hạn/chưa seal/vừa bị thay thế vẫn phải cảnh báo.
+        // Chữ ký pending nằm off-chain (Mongo) → đếm qua API có auth.
+        let chainStateHtml = '';
+        try {
+            const expiresAtNum = Number(docData[7] || 0);
+            const isSealed = !!docData[10];
+            const thresholdNum = Number(docData[9] || 0);
+            const expired = expiresAtNum > 0 && Date.now() / 1000 > expiresAtNum;
+            const successorId = await web3.getSuccessor(docId).catch(() => '');
+            const parts = [];
+            if (expired) {
+                parts.push(`<div class="bg-warn-soft border border-warn p-2.5 rounded text-warn text-xs text-left"><i class="fa-regular fa-calendar-xmark mr-1"></i><b>HẾT HẠN</b> — tài liệu nguyên vẹn nhưng đã quá hạn hiệu lực (${esc(new Date(expiresAtNum * 1000).toLocaleString('vi-VN'))})</div>`);
+            }
+            if (!isSealed && thresholdNum > 0) {
+                let sigInfo = '';
+                try {
+                    const ss = await ApiService.getSealStatus(docId);
+                    if (ss && ss.pendingCount != null) sigInfo = ` — đã nộp ${esc(ss.pendingCount)}/${esc(thresholdNum)} chữ ký`;
+                } catch (e) {}
+                parts.push(`<div class="bg-warn-soft border border-warn p-2.5 rounded text-warn text-xs text-left"><i class="fa-solid fa-hourglass-half mr-1"></i><b>ĐA CHỮ KÝ — CHƯA SEAL ON-CHAIN</b>${sigInfo}</div>`);
+            }
+            if (successorId) {
+                parts.push(`<div class="bg-info-soft border border-info p-2.5 rounded text-info text-xs text-left"><i class="fa-solid fa-code-branch mr-1"></i><b>ĐÃ CÓ BẢN MỚI KẾ THỪA</b> trên chuỗi: <span class="font-mono break-all">${esc(successorId)}</span></div>`);
+            }
+            if (parts.length) chainStateHtml = `<div class="mt-3 space-y-1.5 text-left">${parts.join('')}</div>`;
+        } catch (e) { console.warn('[verify] đọc trạng thái v2 lỗi:', e); }
+
         if (currentHash.toLowerCase() === originalHash.toLowerCase()) {
             let isRevoked = docData[4];
             let revocationReason = docData[5];
@@ -2281,6 +2310,7 @@ async function handleVerify() {
                             <div class="bg-err-soft border border-err p-3 rounded text-err"><b>Lý do thu hồi:</b> ${esc(revocationReason)}</div>
                         </div>
                         ${supersededHtml}
+                        ${chainStateHtml}
                         ${traceHTML}`,
                     confirmButtonText: 'Đóng', confirmButtonColor: 'var(--err)'
                 }).then(() => UI.updateProgress(0, "Hệ thống đang rảnh", "STANDBY"));
@@ -2297,6 +2327,7 @@ async function handleVerify() {
                     html: `
                         <p class="text-soft text-sm mb-4">Mã băm hoàn toàn trùng khớp với bản gốc trên Blockchain.</p>
                         ${supersededHtml}
+                        ${chainStateHtml}
                         ${traceHTML}
                         <button data-act="pdf" class="w-full mt-4 bg-ok hover:brightness-110 text-white py-2 rounded-lg text-sm font-bold shadow-sm transition">
                             <i class="fa-solid fa-file-pdf mr-2"></i> Tải Báo Cáo Chứng Thực (PDF)
@@ -2378,7 +2409,7 @@ async function handleVerify() {
                         </div>
                     </div>`;
             }
-            html += supersededHtml + traceHTML;
+            html += supersededHtml + chainStateHtml + traceHTML;
 
             Swal.fire({
                 icon: 'error', title: 'PHÁT HIỆN GIẢ MẠO!',
@@ -2566,6 +2597,7 @@ window.signPendingSeal = async (docId) => {
     if (!web3.currentAccount || !web3.signer) {
         return Swal.fire({ title: 'Chưa kết nối ví', text: 'Kết nối MetaMask bằng ví nằm trong danh sách người ký của tài liệu.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
     }
+    isProcessing = true;
     try {
         await ApiService.ensureAuth(web3.signer, web3.currentAccount);
         const doc = await web3.getDocumentV2(docId);
@@ -2596,6 +2628,8 @@ window.signPendingSeal = async (docId) => {
         loadTransactionHistory();
     } catch (e) {
         Swal.fire({ title: 'Ký thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
+    } finally {
+        isProcessing = false;
     }
 };
 
@@ -2604,6 +2638,7 @@ window.sealPendingSeal = async (docId) => {
     if (!web3.currentAccount) {
         return Swal.fire({ title: 'Chưa kết nối ví', text: 'Cần kết nối MetaMask để gửi giao dịch sealDocument lên chuỗi.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
     }
+    isProcessing = true;
     try {
         await ApiService.ensureAuth(web3.signer, web3.currentAccount);
         const data = await ApiService.getDocumentSignatures(docId);
@@ -2631,6 +2666,8 @@ window.sealPendingSeal = async (docId) => {
         loadTransactionHistory();
     } catch (e) {
         Swal.fire({ title: 'Seal thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
+    } finally {
+        isProcessing = false;
     }
 };
 

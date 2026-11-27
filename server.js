@@ -601,11 +601,15 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
 
                 const prompt = `Bạn là một Điều tra viên An ninh số. Dưới đây là phần văn bản bị thay đổi trái phép trong một tài liệu pháp lý: [${diffSummary}]. Hãy viết một Báo cáo Pháp y (Forensic Report) cực kỳ ngắn gọn (dưới 80 chữ) bằng tiếng Việt. Báo cáo cần chỉ rõ nội dung nào bị thay đổi và cảnh báo rủi ro lừa đảo. Không dùng markdown, không có lời chào hỏi.`;
 
-                const aiResponse = await ai.models.generateContent({
-                    model: 'gemini-flash-lite-latest',
-                    contents: prompt,
-                });
-                
+                // Timeout 10s — Gemini chậm/treo không được giữ request verify vô hạn
+                const aiResponse = await Promise.race([
+                    ai.models.generateContent({
+                        model: 'gemini-flash-lite-latest',
+                        contents: prompt,
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini timeout 10s')), 10000))
+                ]);
+
                 aiForensicReport = aiResponse.text;
                 console.log("[AI Forensic] Báo cáo hoàn tất:", aiForensicReport);
             } catch (aiError) {
@@ -1201,7 +1205,7 @@ app.post('/api/documents/lookup-similar', async (req, res) => {
 
 // Trạng thái thu hồi theo MongoDB — public (thông tin này đã public trên chain)
 // để verify đối chiếu 2 nguồn, bắt được cả bản ghi thu hồi off-chain cũ.
-app.get('/api/documents/:docId/status', async (req, res) => {
+app.get('/api/documents/:docId/status', requireAuth, async (req, res) => {
     try {
         const docId = req.params.docId;
         if (!/^[\w.\-]{1,300}$/.test(docId)) {
@@ -1583,7 +1587,7 @@ app.get('/api/partner-docs', requireAuth, requireViewer, async (req, res) => {
 // Trả khóa giải mã cho người được phép. public: mọi ví đăng nhập; private:
 // CHỈ uploader — quyền riêng tư là cá nhân tuyệt đối, kể cả ADMIN cũng
 // không mở được tài liệu private của ví khác.
-app.get('/api/documents/:docId/key', requireAuth, async (req, res) => {
+app.get('/api/documents/:docId/key', requireAuth, requireViewer, async (req, res) => {
     try {
         const docId = req.params.docId;
         if (!/^[\w.\-]{1,300}$/.test(docId)) {

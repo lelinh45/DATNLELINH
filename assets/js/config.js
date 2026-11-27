@@ -4,10 +4,13 @@ export const CONFIG = {
     API_BASE: (typeof location !== 'undefined' && !['5500', '5501'].includes(location.port))
         ? `${location.origin}/api`
         : "http://localhost:3000/api", 
-    CONTRACT_ADDRESS: "0x86F521B177Fc701F2ec3cdE274759C376c92522F", 
+    CONTRACT_ADDRESS: "0x86F521B177Fc701F2ec3cdE274759C376c92522F",
+    // Block deploy contract v2 trên Sepolia — mốc bắt đầu quét event.
+    // Cập nhật mỗi lần deploy contract mới, nếu không scan sẽ quét từ block 0.
+    START_BLOCK: 12222212,
     HARDHAT_CHAIN_ID: "0xaa36a7", 
     HARDHAT_CHAIN_NAME: "Sepolia Testnet", 
-    RPC_URL: "https://rpc.sepolia.org", 
+    RPC_URL: "https://ethereum-sepolia-rpc.publicnode.com", 
     CURRENCY: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
     
     // ABI contract v2 — sinh từ artifacts/contracts/DataIntegrity.sol/DataIntegrity.json

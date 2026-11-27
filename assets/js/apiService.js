@@ -265,6 +265,15 @@ export const ApiService = {
         return data; // { count, threshold, reachedThreshold }
     },
 
+    // Trạng thái seal rút gọn (public, không lộ chữ ký) — { pendingCount, threshold, sealed }
+    async getSealStatus(docId) {
+        try {
+            const res = await fetch(`${CONFIG.API_BASE}/documents/${encodeURIComponent(docId)}/seal-status`);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch { return null; }
+    },
+
     // Danh sách chữ ký đang chờ của doc — { count, threshold, signers, signatures }
     async getDocumentSignatures(docId) {
         try {
