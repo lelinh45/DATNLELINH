@@ -1803,6 +1803,9 @@ async function promptPasswordAndUpload() {
             <option value="private" selected>🔒 Riêng tư — chỉ mình tôi xem được</option>
             <option value="public">🌐 Công khai — mọi người dùng đều xem được</option>
         </select>
+        <div class="text-left text-sm text-soft mt-3 mb-1">Hạn hiệu lực (tùy chọn — áp cho toàn bộ tệp trong lô):</div>
+        <input id="swal-expires" type="datetime-local" class="swal2-input" style="width:88%;margin-top:4px;color-scheme:dark">
+        <div class="text-[11px] text-faint mt-1 text-left">Để trống = không hết hạn. Quá hạn, tài liệu vẫn nguyên vẹn nhưng bị đánh dấu "hết hạn" khi tra cứu.</div>
         <div class="text-left text-sm text-soft mt-3 mb-1 flex items-center gap-2">
             <input type="checkbox" id="swal-selfcustody" class="accent-accent w-4 h-4">
             <span>Tự giữ khóa — <b>server không lưu mật khẩu</b> (tài liệu tối mật)</span>
@@ -1859,7 +1862,15 @@ async function promptPasswordAndUpload() {
                 perFile[i] = { key: own ? k : null, vis: row.querySelector('.bdi-vis').value, replaces: rep ? (rep.value || null) : null };
             });
             if (missingName) { Swal.showValidationMessage(`Tệp "${esc(missingName)}" đã chọn khóa riêng nhưng chưa nhập`); return false; }
-            return { key, vis, perFile, selfCustody: selfOn ? { enabled: true, pass: selfPass } : null };
+            // Hạn hiệu lực: datetime-local → epoch giây; trống = 0 = không hết hạn
+            const expRaw = document.getElementById('swal-expires').value;
+            let expiresAt = 0;
+            if (expRaw) {
+                const t = Math.floor(new Date(expRaw).getTime() / 1000);
+                if (!Number.isFinite(t) || t <= 0) { Swal.showValidationMessage('Hạn hiệu lực không hợp lệ'); return false; }
+                expiresAt = t;
+            }
+            return { key, vis, perFile, expiresAt, selfCustody: selfOn ? { enabled: true, pass: selfPass } : null };
         }
     });
 
@@ -1876,6 +1887,10 @@ async function promptPasswordAndUpload() {
             finalFiles[i]._key = pf.key;
             finalFiles[i]._vis = pf.vis;
             finalFiles[i]._replacesDocId = pf.replaces || null;
+            // Hạn hiệu lực batch-level: cùng 1 giá trị cho mọi file trong lô
+            // (0 = không hết hạn). previousDocId on-chain suy ra từ _replacesDocId
+            // sau khi qua validatePreviousDocIds trong executeUploadCore.
+            finalFiles[i]._expiresAt = Number(formValues.expiresAt) || 0;
         }
     });
 
@@ -1975,7 +1990,11 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
                 selfCustody: isSelfCustody || undefined,
                 visibility: fileItem._vis || visibility,
                 // Liên kết dòng đời: docId phiên bản cũ mà file này thay thế (nếu có)
-                replacesDocId: fileItem._replacesDocId || undefined
+                replacesDocId: fileItem._replacesDocId || undefined,
+                // Contract v2: hạn hiệu lực (epoch giây, 0 = không) + previousDocId
+                // on-chain (điền sau validatePreviousDocIds — chỉ giữ prevId hợp lệ)
+                expiresAt: Number(fileItem._expiresAt) || 0,
+                previousDocId: ''
             });
         }
 
@@ -1991,17 +2010,24 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
             UI.updateProgress(Math.round(65 + Math.min(100, Math.max(0, pct)) / 100 * 10), "Đang lưu manifest lên IPFS...", "MERKLE TREE");
         });
 
+        UI.updateProgress(80, "Đang kiểm tra quyền versioning on-chain...", "VERIFYING");
+        // Contract _checkPreviousDoc revert TOÀN BỘ batch nếu 1 prevId sai —
+        // lọc trước: chỉ gửi prevId mà doc tồn tại on-chain, chưa có successor,
+        // và ví hiện tại có quyền kế thừa. Lỗi → gửi '' cho file đó (lineage
+        // off-chain replacesDocId vẫn giữ trong MongoDB).
+        const prevCandidates = uploadedDocs.map(d => d.replacesDocId || '');
+        const validatedPrevIds = await web3.validatePreviousDocIds(prevCandidates);
+        uploadedDocs.forEach((d, i) => { d.previousDocId = validatedPrevIds[i] || ''; });
+
         UI.updateProgress(85, "Đang chờ chữ ký MetaMask (Ký 1 lần duy nhất cho toàn bộ tệp)...", "SIGNING");
         // Ghi từng docId + fileHash + ipfsURI lên chain trong 1 giao dịch — để verify từng tài liệu hoạt động
         // Contract v2: addDocumentsV2(ids, hashes, uris, prevIds, expiresAts).
-        // prevIds = docId phiên bản cũ file này thay thế ("" = bản gốc);
-        // expiresAts = 0 (chưa có UI hạn hiệu lực — field dành cho versioning sau).
         const txHash = await web3.addDocumentsOnChain(
             uploadedDocs.map(d => d.docId),
             uploadedDocs.map(d => d.fileHash),
             uploadedDocs.map(d => `ipfs://${d.ipfsCID}`),
-            uploadedDocs.map(d => d.replacesDocId || d._prevDocId || ''),
-            uploadedDocs.map(() => 0)
+            uploadedDocs.map(d => d.previousDocId || ''),
+            uploadedDocs.map(d => Number(d.expiresAt) || 0)
         );
         
         // LƯU DB MONGODB

@@ -1004,6 +1004,10 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             fileName: f && f.fileName, fileSize: f && f.fileSize, qrCode: f && f.qrCode,
             // liên kết dòng đời: chỉ nhận docId hợp lệ, quyền sở hữu kiểm tra bên dưới
             replacesDocId: (f && typeof f.replacesDocId === 'string' && /^[\w.\-]{1,300}$/.test(f.replacesDocId)) ? f.replacesDocId : undefined,
+            // Contract v2: previousDocId on-chain (đã qua validate phía client + contract tự chặn sai)
+            previousDocId: (f && typeof f.previousDocId === 'string' && /^[\w.\-]{1,300}$/.test(f.previousDocId)) ? f.previousDocId : undefined,
+            // Contract v2: hạn hiệu lực epoch giây — chỉ nhận số nguyên >= 0
+            expiresAt: (f && Number.isFinite(Number(f.expiresAt)) && Number(f.expiresAt) >= 0) ? Math.floor(Number(f.expiresAt)) : undefined,
             visibility: ['public', 'private'].includes(f && f.visibility) ? f.visibility : 'private',
             // fuzzy hash theo đoạn — chỉ nhận mảng hex 64 ký tự, chặn payload rác
             chunkHashes: Array.isArray(f && f.chunkHashes)
@@ -1037,7 +1041,7 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             for (const nf of safeFiles) {
                 const ef = existing.files.find(x => x.docId === nf.docId);
                 if (!ef) { existing.files.push(nf); changed = true; continue; }
-                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes', 'replacesDocId', 'selfCustody']) {
+                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes', 'replacesDocId', 'previousDocId', 'expiresAt', 'selfCustody']) {
                     if (!ef[k] && nf[k]) { ef[k] = nf[k]; changed = true; }
                 }
             }

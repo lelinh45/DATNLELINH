@@ -18,7 +18,9 @@ const batchSchema = new mongoose.Schema({
         visibility: { type: String, enum: ['private', 'public'], default: 'private' },
         chunkHashes: [String], // fuzzy hash theo đoạn (CTPH) — phục vụ tìm file nội dung tương tự
         isRevoked: { type: Boolean, default: false },
-        replacesDocId: String, // docId của phiên bản cũ mà file này thay thế — truy vết dòng đời
+        replacesDocId: String, // docId của phiên bản cũ mà file này thay thế — truy vết dòng đời (off-chain)
+        previousDocId: String, // previousDocId đã ghi on-chain (contract v2) — ""/undefined = bản gốc
+        expiresAt: Number,     // hạn hiệu lực epoch giây (contract v2) — 0/undefined = không hết hạn
         reindexed: Boolean, // true = bản ghi khôi phục từ chain qua audit (thiếu metadata gốc)
         revocationReason: String,
         revokedBy: String,

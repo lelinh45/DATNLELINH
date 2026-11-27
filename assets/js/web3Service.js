@@ -252,6 +252,68 @@ export class Web3Service {
         return await this.contract.getSuccessor(docId);
     }
 
+    // Kiểm tra trước previousDocIds cho batch addDocumentsV2 — contract
+    // _checkPreviousDoc revert TOÀN BỘ tx nếu 1 prevId sai (doc không tồn tại,
+    // caller thiếu quyền versioning, hoặc prev đã có successor). Hàm này lọc
+    // trước: trả mảng CÙNG ĐỘ DÀI input, phần tử hợp lệ giữ nguyên docId,
+    // phần tử không hợp lệ → "" (KHÔNG bao giờ để lineage làm hỏng batch).
+    // Quyền xấp xỉ contract: prev.uploader là ADMIN(3) → caller phải ADMIN;
+    // ngược lại caller == prev.uploader HOẶC callerRole >= MANAGER(2).
+    async validatePreviousDocIds(docIds) {
+        const n = (docIds || []).length;
+        const result = new Array(n).fill('');
+        const items = (docIds || [])
+            .map((id, i) => ({ i, id: String(id || '') }))
+            .filter(x => x.id);
+        if (!items.length || !this.contract) return result;
+
+        const self = this;
+        const myAddr = String(this.currentAccount || '').toLowerCase();
+        // Role của caller đọc 1 lần — lỗi RPC → null → mọi prevId bị bỏ qua
+        // (an toàn: gửi '' thay vì để cả batch revert vì thiếu quyền).
+        let callerRole = null;
+        try { callerRole = await this.getUserRole(this.currentAccount); } catch (e) {}
+
+        let cursor = 0;
+        const CONCURRENCY = 5; // cap số RPC song song
+        async function worker() {
+            while (cursor < items.length) {
+                const { i, id } = items[cursor++];
+                try {
+                    const [doc, succ] = await Promise.all([
+                        self.getDocumentV2(id),
+                        self.getSuccessor(id)
+                    ]);
+                    if (!doc || !doc.uploader || !Number(doc.timestamp)) {
+                        throw new Error('docId không tồn tại on-chain');
+                    }
+                    if (String(succ || '')) {
+                        throw new Error('docId đã có bản mới (successor)');
+                    }
+                    if (callerRole == null) {
+                        throw new Error('không đọc được role của ví caller');
+                    }
+                    const upRole = Number(await self.contract.userRoles(doc.uploader));
+                    const callerIsUploader = String(doc.uploader).toLowerCase() === myAddr;
+                    const allowed = upRole >= 3
+                        ? Number(callerRole) >= 3
+                        : (callerIsUploader || Number(callerRole) >= 2);
+                    if (!allowed) {
+                        throw new Error('ví hiện tại không có quyền versioning doc này');
+                    }
+                    result[i] = id;
+                } catch (e) {
+                    console.warn(`[versioning] Bỏ qua previousDocId "${id}": ${e.message || e}`);
+                }
+            }
+        }
+        await Promise.all(Array.from(
+            { length: Math.min(CONCURRENCY, items.length) },
+            () => worker()
+        ));
+        return result;
+    }
+
     // Ký EIP-712 DocumentSeal — khớp 100% recipe trong contract:
     // domain {name:'DataIntegrity', version:'2', chainId, verifyingContract}
     // docHash = keccak256(abi.encode(documentId, fileHash, ipfsURI, expiresAt, previousDocId))
