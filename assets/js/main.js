@@ -1746,7 +1746,7 @@ async function promptPasswordAndUpload() {
             const res = await Swal.fire({
                 title: 'Phát hiện tài liệu trùng nội dung',
                 html: dupHtml,
-                icon: 'warning', showCancelButton: remaining > 0, width: '28rem',
+                icon: 'warning', showCancelButton: remaining > 0, width: 'min(28rem, 92vw)',
                 confirmButtonText: remaining > 0 ? 'Bỏ qua & tiếp tục' : 'Đã hiểu', cancelButtonText: 'Hủy',
                 background: 'var(--panel)', color: 'var(--ink)'
             });
@@ -1835,7 +1835,7 @@ async function promptPasswordAndUpload() {
     const { value: formValues } = await Swal.fire({
         title: 'BẢO MẬT AES-256',
         html: aesHtml,
-        width: '32rem',
+        width: 'min(32rem, 92vw)',
         focusConfirm: false,
         background: 'var(--panel)', color: 'var(--ink)',
         confirmButtonColor: 'var(--accent)', showCancelButton: true, cancelButtonText: 'Hủy',
@@ -2389,7 +2389,7 @@ async function handleVerify() {
             }
 
             if (backendResult.differences && backendResult.differences.length > 0) {
-                html += '<div class="bg-sunken text-soft p-4 rounded-lg text-left font-mono max-h-[300px] overflow-y-auto text-xs mt-3 border border-line leading-relaxed">';
+                html += '<div class="bg-sunken text-soft p-4 rounded-lg text-left font-mono max-h-[300px] overflow-auto text-xs mt-3 border border-line leading-relaxed break-words">';
                 backendResult.differences.forEach(p => {
                     // Class tĩnh thay style inline — không còn giá trị nào chui vào attribute
                     const cls = p.added ? 'bg-ok-soft text-ok' : p.removed ? 'bg-err-soft text-err line-through' : 'text-muted';
@@ -2422,7 +2422,7 @@ async function handleVerify() {
                 if (res.isConfirmed) {
                     Swal.fire({ 
                         title: 'BÁO CÁO GIÁM ĐỊNH', html: html, 
-                        background: 'var(--panel)', color: 'var(--ink)', width: '700px', confirmButtonColor: 'var(--faint)' 
+                        background: 'var(--panel)', color: 'var(--ink)', width: 'min(700px, 94vw)', confirmButtonColor: 'var(--faint)' 
                     }).then(() => {
                         if (fileInput) fileInput.value = '';
                         UI.updateFileName('verifyFile');
@@ -2821,7 +2821,7 @@ window.showLineage = async (docId) => {
 ${rows}
             </div>
             ${r.supersededBy ? `<div class="mt-3 p-2.5 bg-warn-soft border border-warn rounded text-warn text-xs text-left">Tài liệu đang xem là <b>bản cũ</b> — bản mới nhất: <span class="font-mono">${esc(r.latest.docId)}</span></div>` : ''}`,
-        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--faint)', confirmButtonText: 'Đóng', width: '34rem'
+        background: 'var(--panel)', color: 'var(--ink)', confirmButtonColor: 'var(--faint)', confirmButtonText: 'Đóng', width: 'min(34rem, 92vw)'
     });
 };
 

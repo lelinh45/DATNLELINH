@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blockchain Data Integrity - Enterprise SaaS</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%234f46e5' d='M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -408,8 +409,8 @@ tailwind.config = { theme: { extend: {
                         <div id="tab-history" class="flex-1 flex flex-col min-h-0 hidden">
                             <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3 shrink-0">
                                 <label class="block text-xs font-bold text-muted uppercase tracking-wider">Sổ Cái Blockchain</label>
-                                <div class="flex items-center gap-2">
-                                    <input type="text" id="search-history-input" onkeyup="filterHistoryTable()" title="Gõ chuỗi thường: tìm mờ theo ID/tên file/hash. Dán nguyên địa chỉ 0x...: lọc chính xác theo ví." placeholder="🔍 Tìm kiếm mờ, hoặc dán ví 0x... để lọc chặt" class="bg-sunken border border-line rounded-md px-3 py-1 text-xs text-soft focus:outline-none focus:border-accent w-64">
+                                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                                    <input type="text" id="search-history-input" onkeyup="filterHistoryTable()" title="Gõ chuỗi thường: tìm mờ theo ID/tên file/hash. Dán nguyên địa chỉ 0x...: lọc chính xác theo ví." placeholder="🔍 Tìm kiếm mờ, hoặc dán ví 0x... để lọc chặt" class="bg-sunken border border-line rounded-md px-3 py-1 text-xs text-soft focus:outline-none focus:border-accent w-full sm:w-64 min-w-0">
                                     <button id="btn-refresh-history" class="text-accent hover:text-accent text-sm font-bold transition bg-accent-soft px-3 py-1 rounded-md whitespace-nowrap">
                                         <i class="fa-solid fa-arrows-rotate me-1"></i> Làm mới
                                     </button>
@@ -482,8 +483,8 @@ tailwind.config = { theme: { extend: {
                         <div id="tab-revoked" class="flex-1 flex flex-col min-h-0 hidden">
                             <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
                                 <label class="block text-xs font-bold text-muted uppercase tracking-wider">Hồ Sơ Tài Liệu Vô Hiệu Hóa & Truy Xuất Gốc</label>
-                                <div class="flex items-center gap-2">
-                                    <input type="text" id="search-revoked-input" onkeyup="filterRevokedTable()" title="Gõ chuỗi thường: tìm mờ theo ID/tên file/hash. Dán nguyên địa chỉ 0x...: lọc chính xác theo ví." placeholder="🔍 Tìm kiếm mờ, hoặc dán ví 0x... để lọc chặt" class="bg-sunken border border-line rounded-md px-3 py-1 text-xs text-soft focus:outline-none focus:border-err w-64">
+                                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                                    <input type="text" id="search-revoked-input" onkeyup="filterRevokedTable()" title="Gõ chuỗi thường: tìm mờ theo ID/tên file/hash. Dán nguyên địa chỉ 0x...: lọc chính xác theo ví." placeholder="🔍 Tìm kiếm mờ, hoặc dán ví 0x... để lọc chặt" class="bg-sunken border border-line rounded-md px-3 py-1 text-xs text-soft focus:outline-none focus:border-err w-full sm:w-64 min-w-0">
                                     <button id="btn-refresh-revoked" class="text-err hover:text-err text-sm font-bold transition bg-err-soft px-3 py-1 rounded-md whitespace-nowrap">
                                         <i class="fa-solid fa-arrows-rotate me-1"></i> Làm mới
                                     </button>

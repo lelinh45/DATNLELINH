@@ -46,3 +46,7 @@ __pycache__/
 /_report_work/
 /_build_*.py
 /_generate_all.py
+# Screenshot sweep UI (giu local, khong commit anh)
+/_ui_shots/
+/_ui_sweep.mjs
+/_probe*.mjs
