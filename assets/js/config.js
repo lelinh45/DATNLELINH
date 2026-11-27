@@ -4,7 +4,7 @@ export const CONFIG = {
     API_BASE: (typeof location !== 'undefined' && !['5500', '5501'].includes(location.port))
         ? `${location.origin}/api`
         : "http://localhost:3000/api", 
-    CONTRACT_ADDRESS: "0x33c43687C0e2438A6BA7F1E7E7332D304B80a1f9", 
+    CONTRACT_ADDRESS: "0x86F521B177Fc701F2ec3cdE274759C376c92522F", 
     HARDHAT_CHAIN_ID: "0xaa36a7", 
     HARDHAT_CHAIN_NAME: "Sepolia Testnet", 
     RPC_URL: "https://rpc.sepolia.org", 

@@ -62,6 +62,14 @@ nghĩa nếu không có khóa AES.
 - **Thu hồi** — QUẢN LÝ/ADMIN gọi revokeDocument trên contract, lý do ghi công khai
   và bất biến; MongoDB đồng bộ cờ để UI cập nhật ngay. Riêng tài liệu do ví
   ADMIN upload thì chỉ ADMIN được thu hồi — contract tự revert nếu QUẢN LÝ gọi.
+- **Contract v2 — versioning + hạn hiệu lực + đa chữ ký** — mỗi tài liệu có thể
+  trỏ `previousDocId` (bản mới kế thừa bản cũ, `successorOf` tra O(1) on-chain,
+  chặn phân nhánh), `expiresAt` (quá hạn vẫn nguyên vẹn nhưng bị đánh dấu), và
+  `requiredSigners`/`requiredThreshold` cho tài liệu đơn: doc ở trạng thái
+  PENDING, mỗi signer xác nhận EIP-712 `DocumentSeal` qua app (server verify
+  ecrecover trước khi lưu `PendingSignature`), đủ ngưỡng thì `sealDocument`
+  gộp 1 giao dịch đóng dấu. Trang verify phân biệt rõ: giả mạo / đã thu hồi /
+  hết hạn / chờ ký / có bản mới / nguyên vẹn.
 - **API cho đối tác (B2B)** — tổ chức không cần MetaMask: cấp `sk_live_...` (chỉ lưu
   hash), upload → server mã hóa + pin + ký on-chain hộ, verify/list/download qua
   REST. Dữ liệu cách ly theo từng key.
@@ -196,12 +204,17 @@ contracts/DataIntegrity.sol   — contract lưu hash + RBAC on-chain (rank 0-3:
 server.js                     — API upload/verify/batch/quota/API-key, escrow khóa
 auth.js                       — challenge → JWT, phiên thiết bị, OTP (scrypt)
 models/                       — Wallet, Batch, DeviceSession, ApiKey,
-                                PartnerDocument, Notification, AuthChallenge
+                                PartnerDocument, Notification, AuthChallenge,
+                                PendingSignature (chữ ký EIP-712 chờ seal)
+sealVerify.js                 — recipe EIP-712 DocumentSeal dùng chung
+                                client/server/contract
 assets/js/                    — frontend: web3Service (MetaMask/contract),
                                 apiService (gọi backend), dashboard (KPI/chart/feed),
                                 uiHandler, sanitize, main
-test/                         — 114 ca test tự động (node:test)
+test/                         — 123 ca test tự động (node:test)
 scripts/migrate_to_atlas.js   — copy toàn bộ collection local → MongoDB Atlas
+scripts/smoke-v2.js           — smoke test contract v2 trên Sepolia thật
+                                (versioning/expiration/multi-sig EIP-712)
 render.yaml                   — Blueprint deploy Render (build, env, plan free)
 verify.html                   — trang tra cứu công khai, không cần đăng nhập
 partner.html                  — cổng đối tác B2B (API key)

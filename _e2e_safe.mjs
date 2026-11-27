@@ -33,7 +33,7 @@ const rec = (name, msVal) => timings.push([name, msVal]);
 const provider = new JsonRpcProvider(process.env.RPC_URL);
 const contractRO = new Contract(process.env.CONTRACT_ADDRESS, [
     'function userRoles(address) view returns (uint8)',
-    'function getDocument(string) view returns (string,string,uint256,address,bool,string)'
+    'function getDocument(string) view returns (string,string,uint256,address,bool,string,string,uint256,address[],uint8,bool)'
 ], provider);
 
 console.log('== A. HEALTH & LATENCY PUBLIC ==');
