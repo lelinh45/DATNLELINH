@@ -21,6 +21,8 @@ const batchSchema = new mongoose.Schema({
         replacesDocId: String, // docId của phiên bản cũ mà file này thay thế — truy vết dòng đời (off-chain)
         previousDocId: String, // previousDocId đã ghi on-chain (contract v2) — ""/undefined = bản gốc
         expiresAt: Number,     // hạn hiệu lực epoch giây (contract v2) — 0/undefined = không hết hạn
+        requiredSigners: [String], // multi-sig (contract v2): địa chỉ ví phải ký — rỗng = không yêu cầu
+        requiredThreshold: Number, // multi-sig: số chữ ký tối thiểu — 0/undefined = doc sealed ngay
         reindexed: Boolean, // true = bản ghi khôi phục từ chain qua audit (thiếu metadata gốc)
         revocationReason: String,
         revokedBy: String,

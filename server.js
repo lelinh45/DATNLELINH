@@ -29,6 +29,8 @@ import DeviceSession from './models/DeviceSession.js';
 import ApiKey from './models/ApiKey.js';
 import PartnerDocument from './models/PartnerDocument.js';
 import TamperEvent from './models/TamperEvent.js';
+import PendingSignature from './models/PendingSignature.js';
+import { sealDomain, sealMessage, isValidSealSignature, recoverSealSigner } from './sealVerify.js';
 import { createAuth } from './auth.js';
 import { buildVersionChain } from './lineage.js';
 
@@ -172,6 +174,8 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeade
 app.use('/api/auth', authLimiter);
 
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const DOC_ID_RE = /^[\w.\-]{1,300}$/;
+const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 // Khai báo trực tiếp ABI để Server độc lập hoàn toàn, không phụ thuộc vào Hardhat
 // Contract v2: getDocument trả 11 fields; event DocumentAdded → DocumentAddedV2
@@ -1008,6 +1012,12 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             previousDocId: (f && typeof f.previousDocId === 'string' && /^[\w.\-]{1,300}$/.test(f.previousDocId)) ? f.previousDocId : undefined,
             // Contract v2: hạn hiệu lực epoch giây — chỉ nhận số nguyên >= 0
             expiresAt: (f && Number.isFinite(Number(f.expiresAt)) && Number(f.expiresAt) >= 0) ? Math.floor(Number(f.expiresAt)) : undefined,
+            // Multi-sig (contract v2): chỉ metadata — chữ ký thật vẫn verify on-chain,
+            // các field này chỉ để UI biết doc nào đang CHỜ KÝ. Cap 20 khớp contract.
+            requiredSigners: Array.isArray(f && f.requiredSigners)
+                ? f.requiredSigners.filter(a => typeof a === 'string' && ADDR_RE.test(a)).slice(0, 20).map(a => a.toLowerCase())
+                : undefined,
+            requiredThreshold: (f && Number.isInteger(Number(f.requiredThreshold)) && Number(f.requiredThreshold) >= 0 && Number(f.requiredThreshold) <= 20) ? Number(f.requiredThreshold) : undefined,
             visibility: ['public', 'private'].includes(f && f.visibility) ? f.visibility : 'private',
             // fuzzy hash theo đoạn — chỉ nhận mảng hex 64 ký tự, chặn payload rác
             chunkHashes: Array.isArray(f && f.chunkHashes)
@@ -1041,7 +1051,7 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
             for (const nf of safeFiles) {
                 const ef = existing.files.find(x => x.docId === nf.docId);
                 if (!ef) { existing.files.push(nf); changed = true; continue; }
-                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes', 'replacesDocId', 'previousDocId', 'expiresAt', 'selfCustody']) {
+                for (const k of ['fileHash', 'ipfsCID', 'fileName', 'fileSize', 'qrCode', 'visibility', 'encKey', 'chunkHashes', 'replacesDocId', 'previousDocId', 'expiresAt', 'selfCustody', 'requiredSigners', 'requiredThreshold']) {
                     if (!ef[k] && nf[k]) { ef[k] = nf[k]; changed = true; }
                 }
             }
@@ -1203,6 +1213,164 @@ app.get('/api/documents/:docId/status', async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi truy vấn trạng thái' });
+    }
+});
+
+// =====================================================================
+// MULTI-SIG: gom chữ ký EIP-712 "DocumentSeal" cho doc PENDING (contract v2)
+// Lưu trên MongoDB (PendingSignature); khi đủ requiredThreshold client tự
+// gọi sealDocumentOnChain — contract mới là bên quyết định sealed.
+// Contract chưa deploy → getDocument revert → endpoint trả lỗi rõ ràng,
+// phần validate format/quyền/duplicate vẫn chạy được độc lập chain.
+// =====================================================================
+const sigLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
+
+// Đọc doc on-chain dạng object — dùng chung cho POST/GET signature.
+async function getSealDocOnChain(docId) {
+    const d = await getChainContract().getDocument(docId);
+    return {
+        fileHash: String(d[0] || ''),
+        ipfsURI: String(d[1] || ''),
+        timestamp: Number(d[2] || 0),
+        uploader: String(d[3] || ''),
+        isRevoked: !!d[4],
+        previousDocId: String(d[6] || ''),
+        expiresAt: d[7],
+        requiredSigners: Array.isArray(d[8]) ? d[8].map(String) : [],
+        requiredThreshold: Number(d[9] || 0),
+        isSealed: !!d[10]
+    };
+}
+
+// Nộp 1 chữ ký EIP-712. Người nộp phải là CHÍNH signer đó:
+// signerAddress == địa chỉ ví trong JWT, và ecrecover phải ra đúng địa chỉ đó.
+app.post('/api/documents/:docId/signature', sigLimiter, requireAuth, async (req, res) => {
+    try {
+        const docId = String(req.params.docId || '');
+        if (!DOC_ID_RE.test(docId)) {
+            return res.status(400).json({ success: false, message: 'docId không hợp lệ' });
+        }
+        const { signature, signerAddress } = req.body || {};
+        if (!ADDR_RE.test(String(signerAddress || ''))) {
+            return res.status(400).json({ success: false, message: 'signerAddress không hợp lệ' });
+        }
+        const signerLc = String(signerAddress).toLowerCase();
+        // Chỉ được nộp chữ ký của chính ví đang đăng nhập — không nhận chữ ký hộ người khác
+        if (signerLc !== String(req.user.address || '').toLowerCase()) {
+            return res.status(403).json({ success: false, message: 'Chỉ được nộp chữ ký của ví đang đăng nhập' });
+        }
+        if (!isValidSealSignature(signature)) {
+            return res.status(400).json({ success: false, message: 'Chữ ký phải là ECDSA 65-byte (0x + 130 ký tự hex)' });
+        }
+
+        // Trạng thái doc phải đọc từ chain — client không được tự khai
+        let doc;
+        try {
+            doc = await getSealDocOnChain(docId);
+        } catch (e) {
+            const msg = String(e?.shortMessage || e?.message || e);
+            if (/not found|khong ton tai|NON_EXISTENT|execution reverted/i.test(msg) || /revert/i.test(msg)) {
+                return res.status(404).json({ success: false, message: 'Tài liệu không tồn tại trên chuỗi' });
+            }
+            return res.status(502).json({ success: false, message: 'Không đọc được trạng thái tài liệu trên chuỗi' });
+        }
+        if (!doc.timestamp) {
+            return res.status(404).json({ success: false, message: 'Tài liệu không tồn tại trên chuỗi' });
+        }
+        if (doc.isSealed) {
+            return res.status(409).json({ success: false, message: 'Tài liệu đã được đóng dấu (sealed)' });
+        }
+        if (doc.isRevoked) {
+            return res.status(409).json({ success: false, message: 'Tài liệu đã bị thu hồi, không thể ký' });
+        }
+        if (!(doc.requiredThreshold > 0)) {
+            return res.status(400).json({ success: false, message: 'Tài liệu không yêu cầu chữ ký đa bên' });
+        }
+        const isRequired = doc.requiredSigners.some(a => String(a).toLowerCase() === signerLc);
+        if (!isRequired) {
+            return res.status(403).json({ success: false, message: 'Địa chỉ ví không nằm trong danh sách người ký của tài liệu' });
+        }
+        const dup = await PendingSignature.findOne({ docId, signerAddress: signerLc }).select('_id').lean();
+        if (dup) {
+            return res.status(409).json({ success: false, message: 'Ví này đã nộp chữ ký cho tài liệu rồi' });
+        }
+
+        // Verify EIP-712: domain + message PHẢI khớp recipe contract
+        // (sealVerify.js dùng chung với test/contract.test.js signSeal).
+        // chainId lấy từ provider — cùng nguồn với getChainContract.
+        const chainId = (await provider.getNetwork()).chainId;
+        const domain = sealDomain(chainId, CONTRACT_ADDRESS);
+        const message = sealMessage(docId, doc.fileHash, doc.ipfsURI, doc.expiresAt, doc.previousDocId);
+        let recovered;
+        try {
+            recovered = recoverSealSigner(domain, message, signature);
+        } catch (e) {
+            return res.status(400).json({ success: false, message: 'Chữ ký không hợp lệ (không recover được)' });
+        }
+        // Chữ ký phải recover ra ĐÚNG ví đang đăng nhập — chữ ký của doc khác /
+        // metadata khác sẽ recover ra địa chỉ khác → từ chối (contract cũng revert).
+        if (String(recovered).toLowerCase() !== signerLc) {
+            return res.status(400).json({ success: false, message: 'Chữ ký không khớp với nội dung tài liệu hoặc ví người ký' });
+        }
+
+        try {
+            await PendingSignature.create({ docId, signerAddress: signerLc, signature });
+        } catch (e) {
+            if (e && e.code === 11000) {
+                return res.status(409).json({ success: false, message: 'Ví này đã nộp chữ ký cho tài liệu rồi' });
+            }
+            throw e;
+        }
+
+        const sigs = await PendingSignature.find({ docId }).select('signerAddress').lean();
+        const count = sigs.length;
+        const reached = count >= doc.requiredThreshold;
+        res.json({
+            success: true,
+            docId,
+            count,
+            threshold: doc.requiredThreshold,
+            requiredSigners: doc.requiredSigners,
+            reachedThreshold: reached,
+            message: reached
+                ? 'Đã đủ chữ ký — có thể nộp sealDocument lên chuỗi'
+                : `Đã lưu chữ ký (${count}/${doc.requiredThreshold})`
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi lưu chữ ký', error: error.message });
+    }
+});
+
+// Danh sách chữ ký đang chờ của 1 doc — phục vụ UI hiển thị "CHỜ KÝ x/y" và
+// nút "Nộp chữ ký lên chain". Chữ ký + địa chỉ signer không phải dữ liệu bí mật
+// (sẽ public trên chain sau khi seal) nhưng vẫn yêu cầu đăng nhập.
+// Chain lỗi → vẫn trả phần Mongo, kèm cờ chainOk=false để UI degrade nhẹ.
+app.get('/api/documents/:docId/signatures', sigLimiter, requireAuth, async (req, res) => {
+    try {
+        const docId = String(req.params.docId || '');
+        if (!DOC_ID_RE.test(docId)) {
+            return res.status(400).json({ success: false, message: 'docId không hợp lệ' });
+        }
+        const rows = await PendingSignature.find({ docId }).sort({ createdAt: 1 }).lean();
+        let threshold = null, sealed = null, chainOk = false;
+        try {
+            const doc = await getSealDocOnChain(docId);
+            threshold = doc.requiredThreshold;
+            sealed = doc.isSealed;
+            chainOk = true;
+        } catch (e) {}
+        res.json({
+            success: true,
+            docId,
+            chainOk,
+            sealed,
+            threshold,
+            count: rows.length,
+            signers: rows.map(r => r.signerAddress),
+            signatures: rows.map(r => ({ signerAddress: r.signerAddress, signature: r.signature, createdAt: r.createdAt }))
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi truy vấn chữ ký' });
     }
 });
 

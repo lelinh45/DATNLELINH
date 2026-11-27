@@ -22,6 +22,8 @@ document.addEventListener('click', (e) => {
         case 'revoke':          if (d.v) window.revokeDoc(d.v); break;
         case 'lineage':         if (d.v) window.showLineage(d.v); break;
         case 'vis':             if (d.v) window.toggleDocVisibility(d.v, d.vis); break;
+        case 'sign':            if (d.v) window.signPendingSeal(d.v); break;
+        case 'seal':            if (d.v) window.sealPendingSeal(d.v); break;
         case 'decrypt':         window.downloadAndDecrypt(d.v, d.name || 'document', d.id); break;
         case 'preview':         window.previewDocument(d.v, d.name || 'document', d.id); break;
         case 'locked':          Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Tài liệu riêng tư — chỉ người tải lên xem được', background: 'var(--panel)', color: 'var(--ink)', timer: 2500, showConfirmButton: false }); break;
@@ -1806,6 +1808,18 @@ async function promptPasswordAndUpload() {
         <div class="text-left text-sm text-soft mt-3 mb-1">Hạn hiệu lực (tùy chọn — áp cho toàn bộ tệp trong lô):</div>
         <input id="swal-expires" type="datetime-local" class="swal2-input" style="width:88%;margin-top:4px;color-scheme:dark">
         <div class="text-[11px] text-faint mt-1 text-left">Để trống = không hết hạn. Quá hạn, tài liệu vẫn nguyên vẹn nhưng bị đánh dấu "hết hạn" khi tra cứu.</div>
+        <div class="text-left text-sm text-soft mt-3 mb-1">
+            <label class="flex items-center gap-2 ${finalFiles.length === 1 ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}" title="${esc(finalFiles.length === 1 ? '' : 'Đa chữ ký chỉ áp dụng cho tải lên từng tài liệu')}">
+                <input type="checkbox" id="swal-multisig" class="accent-accent w-4 h-4" ${finalFiles.length === 1 ? '' : 'disabled'}>
+                <span>Đa chữ ký (multi-sig) — tài liệu chờ đủ chữ ký mới đóng dấu${finalFiles.length === 1 ? '' : ' — chỉ áp dụng cho 1 tài liệu'}</span>
+            </label>
+        </div>
+        ${finalFiles.length === 1 ? `
+        <div id="swal-multisig-fields" style="display:none">
+            <input id="swal-signers" type="text" placeholder="Địa chỉ ví người ký (0x…), cách nhau bởi dấu phẩy — tối đa 20" class="swal2-input" style="width:88%;margin-top:6px">
+            <input id="swal-threshold" type="number" min="1" max="20" placeholder="Ngưỡng chữ ký tối thiểu (K)" class="swal2-input" style="width:88%;margin-top:6px">
+            <div class="text-[11px] text-faint mt-1 text-left">Doc ở trạng thái <b>CHỜ KÝ</b>: mỗi người ký xác nhận EIP-712 trên ứng dụng, đủ K chữ ký thì nộp seal lên chuỗi.</div>
+        </div>` : ''}
         <div class="text-left text-sm text-soft mt-3 mb-1 flex items-center gap-2">
             <input type="checkbox" id="swal-selfcustody" class="accent-accent w-4 h-4">
             <span>Tự giữ khóa — <b>server không lưu mật khẩu</b> (tài liệu tối mật)</span>
@@ -1831,6 +1845,13 @@ async function promptPasswordAndUpload() {
             const toggleSelf = () => { selfFields.style.display = selfCb.checked ? 'block' : 'none'; };
             selfCb.addEventListener('change', toggleSelf);
             toggleSelf();
+            const msCb = document.getElementById('swal-multisig');
+            const msFields = document.getElementById('swal-multisig-fields');
+            if (msCb && msFields) {
+                const toggleMs = () => { msFields.style.display = msCb.checked ? 'block' : 'none'; };
+                msCb.addEventListener('change', toggleMs);
+                toggleMs();
+            }
             document.querySelectorAll('.bdi-ownkey').forEach(cb => {
                 cb.addEventListener('change', () => {
                     const inp = cb.closest('.bdi-file-row').querySelector('.bdi-key');
@@ -1870,7 +1891,23 @@ async function promptPasswordAndUpload() {
                 if (!Number.isFinite(t) || t <= 0) { Swal.showValidationMessage('Hạn hiệu lực không hợp lệ'); return false; }
                 expiresAt = t;
             }
-            return { key, vis, perFile, expiresAt, selfCustody: selfOn ? { enabled: true, pass: selfPass } : null };
+            // Multi-sig: chỉ bật được khi đúng 1 file (checkbox bị disable khi batch)
+            let multiSig = null;
+            const msCb = document.getElementById('swal-multisig');
+            if (msCb && msCb.checked && !msCb.disabled) {
+                const raw = document.getElementById('swal-signers').value || '';
+                const thr = Number(document.getElementById('swal-threshold').value);
+                const signers = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))];
+                if (signers.length === 0) { Swal.showValidationMessage('Đa chữ ký: nhập ít nhất 1 địa chỉ ví người ký'); return false; }
+                const badAddr = signers.find(a => !/^0x[0-9a-fA-F]{40}$/.test(a));
+                if (badAddr) { Swal.showValidationMessage(`Đa chữ ký: địa chỉ không hợp lệ "${badAddr}"`); return false; }
+                if (signers.length > 20) { Swal.showValidationMessage('Đa chữ ký: tối đa 20 người ký (giới hạn contract)'); return false; }
+                if (!Number.isInteger(thr) || thr < 1 || thr > signers.length) {
+                    Swal.showValidationMessage(`Đa chữ ký: ngưỡng K phải là số nguyên thỏa 1 ≤ K ≤ ${signers.length}`); return false;
+                }
+                multiSig = { signers: signers.map(a => a.toLowerCase()), threshold: thr };
+            }
+            return { key, vis, perFile, expiresAt, selfCustody: selfOn ? { enabled: true, pass: selfPass } : null, multiSig };
         }
     });
 
@@ -1898,7 +1935,7 @@ async function promptPasswordAndUpload() {
     isProcessing = true;
 
     //await ÉP HỆ THỐNG CHỜ CHẠY XONG MỚI TIẾP
-    await executeUploadCore(finalFiles, formValues.key, formValues.vis, formValues.selfCustody);
+    await executeUploadCore(finalFiles, formValues.key, formValues.vis, formValues.selfCustody, formValues.multiSig || null);
 }
 
 // Drain các batch "mồ côi" (ghi chain xong nhưng lưu DB lỗi) — tự chạy lại
@@ -1920,8 +1957,11 @@ async function drainOrphanedBatches() {
 }
 
 // LUỒNG MÃ HÓA, IPFS VÀ BLOCKCHAIN 
-async function executeUploadCore(fileDataArray, secretKey, visibility = 'private', selfCustody = null) {
+// multiSig = { signers: [addr...], threshold: K } — chỉ hợp lệ khi upload ĐÚNG 1 file
+// (UI đã disable checkbox khi batch; đây là lớp chặn thứ hai phòng caller khác).
+async function executeUploadCore(fileDataArray, secretKey, visibility = 'private', selfCustody = null, multiSig = null) {
     const isSelfCustody = !!(selfCustody && selfCustody.enabled);
+    const useMultiSig = !!(multiSig && fileDataArray.length === 1);
     isProcessing = true;
     try {
         // Token JWT hết hạn/đổi ví giữa chừng → xin challenge và ký lại trước khi ghi dữ liệu
@@ -1994,7 +2034,11 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
                 // Contract v2: hạn hiệu lực (epoch giây, 0 = không) + previousDocId
                 // on-chain (điền sau validatePreviousDocIds — chỉ giữ prevId hợp lệ)
                 expiresAt: Number(fileItem._expiresAt) || 0,
-                previousDocId: ''
+                previousDocId: '',
+                // Multi-sig metadata lưu Mongo để UI biết doc nào CHỜ KÝ
+                // (trạng thái sealed thật vẫn đọc từ chain mỗi lần hiển thị)
+                requiredSigners: useMultiSig ? multiSig.signers : undefined,
+                requiredThreshold: useMultiSig ? multiSig.threshold : undefined
             });
         }
 
@@ -2035,16 +2079,28 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
             UI.updateProgress(Math.round(75 + Math.min(100, Math.max(0, pct)) / 100 * 7), "Đang lưu manifest lên IPFS...", "MERKLE TREE");
         });
 
-        UI.updateProgress(85, "Đang chờ chữ ký MetaMask (Ký 1 lần duy nhất cho toàn bộ tệp)...", "SIGNING");
+        UI.updateProgress(85, useMultiSig ? "Đang chờ chữ ký MetaMask (Ký 1 lần cho tài liệu đa chữ ký)..." : "Đang chờ chữ ký MetaMask (Ký 1 lần duy nhất cho toàn bộ tệp)...", "SIGNING");
         // Ghi từng docId + fileHash + ipfsURI lên chain trong 1 giao dịch — để verify từng tài liệu hoạt động
-        // Contract v2: addDocumentsV2(ids, hashes, uris, prevIds, expiresAts).
-        const txHash = await web3.addDocumentsOnChain(
-            uploadedDocs.map(d => d.docId),
-            uploadedDocs.map(d => d.fileHash),
-            uploadedDocs.map(d => `ipfs://${d.ipfsCID}`),
-            uploadedDocs.map(d => d.previousDocId || ''),
-            uploadedDocs.map(d => Number(d.expiresAt) || 0)
-        );
+        // Contract v2: addDocumentsV2(ids, hashes, uris, prevIds, expiresAts) — sealed ngay.
+        // Multi-sig chỉ áp cho upload ĐƠN: addDocumentV2 với requiredSigners/threshold
+        // → doc ở trạng thái PENDING, chờ sealDocument sau khi đủ chữ ký EIP-712.
+        let txHash;
+        if (useMultiSig && uploadedDocs.length === 1) {
+            const d = uploadedDocs[0];
+            txHash = await web3.addDocumentV2OnChain(
+                d.docId, d.fileHash, `ipfs://${d.ipfsCID}`,
+                d.previousDocId || '', Number(d.expiresAt) || 0,
+                multiSig.signers, multiSig.threshold
+            );
+        } else {
+            txHash = await web3.addDocumentsOnChain(
+                uploadedDocs.map(d => d.docId),
+                uploadedDocs.map(d => d.fileHash),
+                uploadedDocs.map(d => `ipfs://${d.ipfsCID}`),
+                uploadedDocs.map(d => d.previousDocId || ''),
+                uploadedDocs.map(d => Number(d.expiresAt) || 0)
+            );
+        }
         
         // LƯU DB MONGODB
         const currentWalletAddr = web3.currentAccount ? web3.currentAccount.toLowerCase() : (window.__chainOwner || "");
@@ -2073,7 +2129,11 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         UI.updateProgress(100, "Hoàn tất bảo mật & lưu trữ hàng loạt!", "SUCCESS");
         
         // Hiển thị báo cáo thành công
-        let batchResultHtml = `<p class="text-xs text-ok mb-3 font-bold">✓ Merkle Root đã được tính và lưu trong manifest. Ký 1 giao dịch cho ${uploadedDocs.length} tệp!</p><div class="max-h-[200px] overflow-y-auto space-y-2 pr-1 custom-scrollbar mb-4">`;
+        let batchResultHtml = `<p class="text-xs text-ok mb-3 font-bold">✓ Merkle Root đã được tính và lưu trong manifest. Ký 1 giao dịch cho ${uploadedDocs.length} tệp!</p>`;
+        if (useMultiSig) {
+            batchResultHtml += `<p class="text-xs text-warn mb-3 font-bold">⏳ Tài liệu đang <b>CHỜ KÝ</b> — cần ${multiSig.threshold}/${multiSig.signers.length} chữ ký EIP-712. Mỗi người ký mở tab Lịch sử, bấm "Ký xác nhận", rồi ai cũng có thể bấm "Nộp chữ ký lên chain" khi đủ ngưỡng.</p>`;
+        }
+        batchResultHtml += `<div class="max-h-[200px] overflow-y-auto space-y-2 pr-1 custom-scrollbar mb-4">`;
         uploadedDocs.forEach((doc) => {
             batchResultHtml += `
                 <div class="bg-sunken border border-line p-2.5 rounded-lg flex justify-between items-center group">
@@ -2497,6 +2557,83 @@ window.toggleDocVisibility = async (docId, currentVis) => {
     loadTransactionHistory();
 };
 
+// ---- Multi-sig (contract v2): ký EIP-712 & nộp seal cho doc PENDING ----
+// Ký: client ký typed-data → POST /api/documents/:id/signature (server
+// ecrecover verify + kiểm tra signer/requiredSigners/duplicate trước khi lưu
+// Mongo). Seal: ai cũng gọi được — contract tự đếm chữ ký hợp lệ.
+window.signPendingSeal = async (docId) => {
+    if (isProcessing) return;
+    if (!web3.currentAccount || !web3.signer) {
+        return Swal.fire({ title: 'Chưa kết nối ví', text: 'Kết nối MetaMask bằng ví nằm trong danh sách người ký của tài liệu.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
+    }
+    try {
+        await ApiService.ensureAuth(web3.signer, web3.currentAccount);
+        const doc = await web3.getDocumentV2(docId);
+        if (doc.sealed) {
+            return Swal.fire({ title: 'Đã đóng dấu', text: 'Tài liệu này đã sealed trên chuỗi.', icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
+        }
+        if (!(Number(doc.requiredThreshold) > 0)) {
+            return Swal.fire({ title: 'Không phải đa chữ ký', text: 'Tài liệu này không yêu cầu chữ ký đa bên.', icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
+        }
+        const my = String(web3.currentAccount).toLowerCase();
+        if (!doc.requiredSigners.some(a => String(a).toLowerCase() === my)) {
+            return Swal.fire({ title: 'Không thuộc danh sách ký', text: 'Ví đang kết nối không nằm trong requiredSigners của tài liệu.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
+        }
+        const ok = await Swal.fire({
+            title: 'Ký xác nhận tài liệu?',
+            html: `Tài liệu <b class="font-mono">${esc(docId)}</b> đang chờ <b>${esc(doc.requiredThreshold)}</b> chữ ký.<br>Chữ ký EIP-712 cam kết toàn bộ metadata on-chain — không thể sửa sau khi ký.`,
+            icon: 'question', showCancelButton: true, confirmButtonText: 'Ký bằng MetaMask', cancelButtonText: 'Hủy',
+            background: 'var(--panel)', color: 'var(--ink)'
+        });
+        if (!ok.isConfirmed) return;
+        const signature = await web3.signDocumentSeal(docId, doc.fileHash, doc.ipfsURI, doc.expiresAt, doc.previousDocId);
+        const res = await ApiService.submitDocumentSignature(docId, signature, web3.currentAccount);
+        await Swal.fire({
+            title: res.reachedThreshold ? 'Đủ chữ ký!' : 'Đã lưu chữ ký',
+            html: `${esc(res.message)}<br><span class="text-xs text-muted">Tiến độ: <b>${esc(res.count)}/${esc(res.threshold)}</b></span>`,
+            icon: res.reachedThreshold ? 'success' : 'info', background: 'var(--panel)', color: 'var(--ink)'
+        });
+        loadTransactionHistory();
+    } catch (e) {
+        Swal.fire({ title: 'Ký thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
+    }
+};
+
+window.sealPendingSeal = async (docId) => {
+    if (isProcessing) return;
+    if (!web3.currentAccount) {
+        return Swal.fire({ title: 'Chưa kết nối ví', text: 'Cần kết nối MetaMask để gửi giao dịch sealDocument lên chuỗi.', icon: 'warning', background: 'var(--panel)', color: 'var(--ink)' });
+    }
+    try {
+        await ApiService.ensureAuth(web3.signer, web3.currentAccount);
+        const data = await ApiService.getDocumentSignatures(docId);
+        if (!data || !data.signatures || data.signatures.length === 0) {
+            return Swal.fire({ title: 'Chưa có chữ ký', text: 'Chưa có chữ ký EIP-712 nào được nộp cho tài liệu này.', icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
+        }
+        if (data.sealed) {
+            return Swal.fire({ title: 'Đã đóng dấu', text: 'Tài liệu này đã sealed trên chuỗi.', icon: 'info', background: 'var(--panel)', color: 'var(--ink)' });
+        }
+        const threshold = Number(data.threshold) || data.signatures.length;
+        const ok = await Swal.fire({
+            title: 'Nộp seal lên chuỗi?',
+            html: `Gộp <b>${esc(data.signatures.length)}</b> chữ ký đã lưu và gọi <b>sealDocument</b> — cần tối thiểu <b>${esc(threshold)}</b> chữ ký hợp lệ.<br><span class="text-xs text-muted">Ai cũng có thể thực hiện; contract tự xác minh từng chữ ký.</span>`,
+            icon: 'question', showCancelButton: true, confirmButtonText: 'Gửi giao dịch', cancelButtonText: 'Hủy',
+            background: 'var(--panel)', color: 'var(--ink)'
+        });
+        if (!ok.isConfirmed) return;
+        const sigs = data.signatures.map(s => s.signature);
+        const txHash = await web3.sealDocumentOnChain(docId, sigs);
+        await Swal.fire({
+            title: 'Đã đóng dấu!',
+            html: `Tài liệu <b class="font-mono">${esc(docId)}</b> đã sealed.<br><a href="https://sepolia.etherscan.io/tx/${esc(txHash)}" target="_blank" rel="noopener noreferrer" class="text-accent font-mono text-xs break-all">${esc(txHash)}</a>`,
+            icon: 'success', background: 'var(--panel)', color: 'var(--ink)'
+        });
+        loadTransactionHistory();
+    } catch (e) {
+        Swal.fire({ title: 'Seal thất bại', text: getShortError(e), icon: 'error', background: 'var(--panel)', color: 'var(--ink)' });
+    }
+};
+
 window.revokeDoc = async (docId) => {
     if (isProcessing) return;
 
@@ -2802,17 +2939,25 @@ async function loadTransactionHistory() {
                 const docId = ev.args[0];
                 const hash = ev.args[1];
                 const txHash = ev.transactionHash || '';
-                let uploader = '---'; 
-                let createTime = '---'; 
+                let uploader = '---';
+                let createTime = '---';
                 let isRevoked = false;
                 let ipfsLink = '';
-                
+                // Contract v2 multi-sig: doc PENDING (chưa sealed, threshold>0)
+                let isPendingSeal = false;
+                let myCanSign = false;
+
                 try {
                     const docData = await web3.getDocumentFromChain(docId);
                     uploader = docData[3];
                     createTime = window.formatTimeForce(Number(docData[2]) * 1000); // ÉP CHUẨN GIỜ
                     isRevoked = docData[4];
                     ipfsLink = docData[1].replace('ipfs://', ''); // Lấy chính xác chuỗi CID
+                    // [8]=requiredSigners[], [9]=requiredThreshold, [10]=isSealed
+                    const sealSigners = Array.isArray(docData[8]) ? docData[8].map(String) : [];
+                    const sealThreshold = Number(docData[9] || 0);
+                    isPendingSeal = !docData[10] && sealThreshold > 0 && sealSigners.length > 0;
+                    myCanSign = isPendingSeal && sealSigners.some(a => String(a).toLowerCase() === myAddr);
                 } catch (e) {}
                 
                 if (isRevoked || revokedIds.has(docId)) continue;
@@ -2907,6 +3052,10 @@ async function loadTransactionHistory() {
                                     </button>`}
                                 <button data-act="copy" data-v="${esc(docId)}" class="text-muted hover:text-ink transition text-[11px]"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
                                 ${hasLineage(docId) ? `<button data-act="lineage" data-v="${esc(docId)}" title="Xem chuỗi phiên bản v1→v2→…" class="text-violet hover:text-violet transition text-[11px]"><i class="fa-solid fa-code-branch mr-1"></i>Dòng đời</button>` : ''}
+                                ${isPendingSeal ? `
+                                <span class="bg-warn-soft text-warn px-2 py-0.5 rounded text-[9px] font-bold uppercase whitespace-nowrap" title="Đa chữ ký — chờ đủ chữ ký EIP-712 mới đóng dấu"><i class="fa-solid fa-hourglass-half mr-1"></i>Chờ ký</span>
+                                ${myCanSign ? `<button data-act="sign" data-v="${esc(docId)}" title="Ký xác nhận EIP-712 bằng ví đang kết nối" class="text-ok hover:text-ok transition text-[11px] font-bold bg-ok-soft px-2 py-0.5 rounded border border-ok"><i class="fa-solid fa-pen-fancy mr-1"></i>Ký xác nhận</button>` : ''}
+                                <button data-act="seal" data-v="${esc(docId)}" title="Gộp các chữ ký đã nộp và đóng dấu lên chuỗi (ai cũng gọi được khi đủ ngưỡng)" class="text-violet hover:text-violet transition text-[11px] font-bold bg-violet-soft px-2 py-0.5 rounded border border-violet"><i class="fa-solid fa-stamp mr-1"></i>Nộp seal</button>` : ''}
                                 ${isOwnDoc(docId, uploader) ? `<button data-act="vis" data-v="${esc(docId)}" data-vis="${esc((fileMeta[docId] && fileMeta[docId].visibility) || 'private')}" title="Đổi chế độ Công khai / Riêng tư" class="text-info hover:text-info transition text-[11px]"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>Chế độ</button>` : ''}
                                 ${canRevoke ? `<button data-act="revoke" data-v="${esc(docId)}" class="text-err hover:text-err transition text-[11px]"><i class="fa-solid fa-ban mr-1"></i>Thu hồi</button>` : ''}
                             </span>

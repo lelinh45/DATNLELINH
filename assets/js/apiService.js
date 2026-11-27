@@ -251,6 +251,29 @@ export const ApiService = {
         } catch { return null; }
     },
 
+    // ---- Multi-sig (contract v2): nộp & tra chữ ký EIP-712 DocumentSeal ----
+    // Server verify chữ ký (ecrecover) trước khi lưu — chỉ nhận chữ ký của
+    // CHÍNH ví đang đăng nhập, mỗi signer 1 chữ ký / doc.
+    async submitDocumentSignature(docId, signature, signerAddress) {
+        const res = await fetch(`${CONFIG.API_BASE}/documents/${encodeURIComponent(docId)}/signature`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ signature, signerAddress })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Server từ chối chữ ký');
+        return data; // { count, threshold, reachedThreshold }
+    },
+
+    // Danh sách chữ ký đang chờ của doc — { count, threshold, signers, signatures }
+    async getDocumentSignatures(docId) {
+        try {
+            const res = await fetch(`${CONFIG.API_BASE}/documents/${encodeURIComponent(docId)}/signatures`, { headers: authHeaders() });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch { return null; }
+    },
+
     // Map docId -> orgName của tài liệu đối tác (server ký on-chain hộ) —
     // sổ cái hiện badge "ĐỐI TÁC" thay vì nhầm là doc của ví ADMIN
     async getPartnerDocs() {
