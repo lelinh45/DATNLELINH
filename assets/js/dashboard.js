@@ -201,7 +201,8 @@ function renderAdminRow() {
     // Ví hoạt động: địa chỉ distinct xuất hiện trong event đóng dấu/thu hồi on-chain
     const actors = new Set();
     if (!_errors.chain) {
-        for (const ev of _added) { const a = ev.args?.[3]; if (a) actors.add(String(a).toLowerCase()); }
+        // DocumentAddedV2: uploader ở args[7] (args[3] giờ là previousDocId)
+        for (const ev of _added) { const a = ev.args?.[7]; if (a) actors.add(String(a).toLowerCase()); }
         for (const ev of _revoked) { const a = ev.args?.[1]; if (a) actors.add(String(a).toLowerCase()); }
     }
     const cell = (v, l, s, onclick = '') => `<div class="stat${onclick ? ' clickable' : ''}"${onclick ? ` onclick="${onclick}"` : ''}><div class="stat-value">${esc(v)}</div><div class="stat-label">${esc(l)}</div><div class="stat-sub">${esc(s)}</div></div>`;
@@ -237,7 +238,7 @@ async function renderFeed() {
     const items = await Promise.all(merged.map(async ({ ev, kind }) => {
         const ts = await eventTs(ev);
         const docId = ev.args?.[0] || '';
-        const actor = kind === 'added' ? (ev.args?.[3] || '') : (ev.args?.[1] || '');
+        const actor = kind === 'added' ? (ev.args?.[7] || '') : (ev.args?.[1] || ''); // DocumentAddedV2: uploader=args[7]
         return { kind, docId, actor, ts, block: ev.blockNumber };
     }));
     const icon = (k) => k === 'added'

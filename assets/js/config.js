@@ -10,26 +10,724 @@ export const CONFIG = {
     RPC_URL: "https://rpc.sepolia.org", 
     CURRENCY: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
     
-    // Đây chính là ABI đã được trích xuất từ file .sol của bạn!
+    // ABI contract v2 — sinh từ artifacts/contracts/DataIntegrity.sol/DataIntegrity.json
+    // (npx hardhat compile). getDocument trả 11 fields; addDocument(s) cũ đã bị
+    // thay bằng addDocumentV2/addDocumentsV2 + sealDocument (EIP-712).
     CONTRACT_ABI: [
-        "constructor()",
-        "event DocumentAdded(string documentId, string fileHash, string ipfsURI, address uploader)",
-        "event DocumentRevoked(string documentId, address revokedBy, string reason)",
-        "event BatchAdded(string batchId, bytes32 merkleRoot, string ipfsURI, address uploader)",
-        "event RoleAssigned(address indexed admin, address indexed account, uint8 role)",
-        
-        "function addDocument(string _documentId, string _fileHash, string _ipfsURI)",
-        "function addDocuments(string[] _documentIds, string[] _fileHashes, string[] _ipfsURIs)",
-        "function addMerkleBatch(string _batchId, bytes32 _merkleRoot, string _ipfsURI)",
-        "function revokeDocument(string _documentId, string _reason)",
-        "function assignRole(address _account, uint8 _role)",
-        "function transferOwnership(address _newOwner)",
-        
-        "function userRoles(address) view returns (uint8)",
-        "function owner() view returns (address)",
-        "function uploaderHashToDocId(address,string) view returns (string)",
-        "function getDocIdByHash(address _uploader, string _hash) view returns (string)",
-        "function getMerkleBatch(string _batchId) view returns (bytes32 merkleRoot, string ipfsURI, uint256 timestamp, address uploader)",
-        "function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason)"
-    ]
+    {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+    },
+    {
+        "inputs": [],
+        "name": "ECDSAInvalidSignature",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "length",
+                "type": "uint256"
+            }
+        ],
+        "name": "ECDSAInvalidSignatureLength",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "s",
+                "type": "bytes32"
+            }
+        ],
+        "name": "ECDSAInvalidSignatureS",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvalidShortString",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "str",
+                "type": "string"
+            }
+        ],
+        "name": "StringTooLong",
+        "type": "error"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "batchId",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "merkleRoot",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "ipfsURI",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "uploader",
+                "type": "address"
+            }
+        ],
+        "name": "BatchAdded",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "documentId",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "fileHash",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "ipfsURI",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "previousDocId",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "expiresAt",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "address[]",
+                "name": "requiredSigners",
+                "type": "address[]"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint8",
+                "name": "requiredThreshold",
+                "type": "uint8"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "uploader",
+                "type": "address"
+            }
+        ],
+        "name": "DocumentAddedV2",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "documentId",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "revokedBy",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "reason",
+                "type": "string"
+            }
+        ],
+        "name": "DocumentRevoked",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "documentId",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "signerCount",
+                "type": "uint256"
+            }
+        ],
+        "name": "DocumentSealed",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [],
+        "name": "EIP712DomainChanged",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "admin",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint8",
+                "name": "role",
+                "type": "uint8"
+            }
+        ],
+        "name": "RoleAssigned",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "ROLE_ADMIN",
+        "outputs": [
+            {
+                "internalType": "uint8",
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "ROLE_ENTRY",
+        "outputs": [
+            {
+                "internalType": "uint8",
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "ROLE_MANAGER",
+        "outputs": [
+            {
+                "internalType": "uint8",
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "ROLE_NONE",
+        "outputs": [
+            {
+                "internalType": "uint8",
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "_documentId",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "_fileHash",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "_ipfsURI",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "_previousDocId",
+                "type": "string"
+            },
+            {
+                "internalType": "uint256",
+                "name": "_expiresAt",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address[]",
+                "name": "_requiredSigners",
+                "type": "address[]"
+            },
+            {
+                "internalType": "uint8",
+                "name": "_requiredThreshold",
+                "type": "uint8"
+            }
+        ],
+        "name": "addDocumentV2",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string[]",
+                "name": "_documentIds",
+                "type": "string[]"
+            },
+            {
+                "internalType": "string[]",
+                "name": "_fileHashes",
+                "type": "string[]"
+            },
+            {
+                "internalType": "string[]",
+                "name": "_ipfsURIs",
+                "type": "string[]"
+            },
+            {
+                "internalType": "string[]",
+                "name": "_previousDocIds",
+                "type": "string[]"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "_expiresAts",
+                "type": "uint256[]"
+            }
+        ],
+        "name": "addDocumentsV2",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "_batchId",
+                "type": "string"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "_merkleRoot",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "string",
+                "name": "_ipfsURI",
+                "type": "string"
+            }
+        ],
+        "name": "addMerkleBatch",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_account",
+                "type": "address"
+            },
+            {
+                "internalType": "uint8",
+                "name": "_role",
+                "type": "uint8"
+            }
+        ],
+        "name": "assignRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "eip712Domain",
+        "outputs": [
+            {
+                "internalType": "bytes1",
+                "name": "fields",
+                "type": "bytes1"
+            },
+            {
+                "internalType": "string",
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "version",
+                "type": "string"
+            },
+            {
+                "internalType": "uint256",
+                "name": "chainId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "verifyingContract",
+                "type": "address"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "salt",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "extensions",
+                "type": "uint256[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_uploader",
+                "type": "address"
+            },
+            {
+                "internalType": "string",
+                "name": "_hash",
+                "type": "string"
+            }
+        ],
+        "name": "getDocIdByHash",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "_documentId",
+                "type": "string"
+            }
+        ],
+        "name": "getDocument",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "fileHash",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "ipfsURI",
+                "type": "string"
+            },
+            {
+                "internalType": "uint256",
+                "name": "timestamp",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "uploader",
+                "type": "address"
+            },
+            {
+                "internalType": "bool",
+                "name": "isRevoked",
+                "type": "bool"
+            },
+            {
+                "internalType": "string",
+                "name": "revocationReason",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "previousDocId",
+                "type": "string"
+            },
+            {
+                "internalType": "uint256",
+                "name": "expiresAt",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address[]",
+                "name": "requiredSigners",
+                "type": "address[]"
+            },
+            {
+                "internalType": "uint8",
+                "name": "requiredThreshold",
+                "type": "uint8"
+            },
+            {
+                "internalType": "bool",
+                "name": "isSealed",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "_batchId",
+                "type": "string"
+            }
+        ],
+        "name": "getMerkleBatch",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "merkleRoot",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "string",
+                "name": "ipfsURI",
+                "type": "string"
+            },
+            {
+                "internalType": "uint256",
+                "name": "timestamp",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "uploader",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "_documentId",
+                "type": "string"
+            }
+        ],
+        "name": "getSuccessor",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            },
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "name": "hasSigned",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "owner",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "_documentId",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "_reason",
+                "type": "string"
+            }
+        ],
+        "name": "revokeDocument",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "_documentId",
+                "type": "string"
+            },
+            {
+                "internalType": "bytes[]",
+                "name": "_signatures",
+                "type": "bytes[]"
+            }
+        ],
+        "name": "sealDocument",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "name": "successorOf",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "transferOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            },
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "name": "uploaderHashToDocId",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "name": "userRoles",
+        "outputs": [
+            {
+                "internalType": "uint8",
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
 };

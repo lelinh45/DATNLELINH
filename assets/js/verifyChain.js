@@ -10,8 +10,11 @@ const RPC_FALLBACKS = [
     'https://rpc.sepolia.org'
 ].filter((v, i, a) => v && a.indexOf(v) === i);
 
+// ABI tối thiểu cho getDocument v2 — 11 fields theo thứ tự contract:
+// (fileHash, ipfsURI, timestamp, uploader, isRevoked, revocationReason,
+//  previousDocId, expiresAt, requiredSigners, requiredThreshold, isSealed)
 const ABI = [
-    'function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason)'
+    'function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason, string previousDocId, uint256 expiresAt, address[] requiredSigners, uint8 requiredThreshold, bool isSealed)'
 ];
 
 let cached = null; // { provider, contract, rpcUrl }
@@ -43,6 +46,10 @@ export async function verifyOnChain(docId) {
         uploader: String(d[3] || ''),
         isRevoked: !!d[4],
         revocationReason: String(d[5] || ''),
+        previousDocId: String(d[6] || ''),
+        expiresAt: d[7] != null ? d[7].toString() : '0',
+        requiredThreshold: Number(d[9] || 0),
+        sealed: !!d[10],
         rpcUsed: rpcUrl,
         contractAddress: CONFIG.CONTRACT_ADDRESS,
         chainId: 11155111
@@ -64,7 +71,10 @@ export function buildProofBundle(docId, localHash, chainDoc) {
             timestampISO: chainDoc.timestampISO,
             uploader: chainDoc.uploader,
             isRevoked: chainDoc.isRevoked,
-            revocationReason: chainDoc.revocationReason
+            revocationReason: chainDoc.revocationReason,
+            previousDocId: chainDoc.previousDocId,
+            expiresAt: chainDoc.expiresAt,
+            sealed: chainDoc.sealed
         },
         client: {
             localHash: localHash || null,

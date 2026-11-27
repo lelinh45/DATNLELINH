@@ -1502,16 +1502,18 @@ async function handleUpload() {
     try {
         if (!contract) throw new Error("Chưa kết nối ví");
 
-        // Bản đồ DocumentAdded events CỦA CHÍNH VÍ NÀY — bổ sung cho
+        // Bản đồ DocumentAddedV2 events CỦA CHÍNH VÍ NÀY — bổ sung cho
         // uploaderHashToDocId vì contract XÓA mapping khi revoke; nhờ vậy
         // tài liệu đã thu hồi vẫn vào bảng đỏ. Bản ghi của ví khác không
         // hiển thị (multi-tenant: mỗi ví một sổ chống trùng riêng).
+        // Event v2 args: [0]docId [1]fileHash [2]ipfsURI [3]prevDocId
+        // [4]expiresAt [5]signers [6]threshold [7]uploader
         const normHash = h => String(h || '').replace(/^0x/i, '').toLowerCase();
         const myAddr = String(web3.currentAccount || '').toLowerCase();
         const addedMap = {};
         try {
             for (const ev of (await web3.queryHistory() || [])) {
-                if (String(ev.args[3] || '').toLowerCase() !== myAddr) continue;
+                if (String(ev.args[7] || '').toLowerCase() !== myAddr) continue;
                 const h = normHash(ev.args[1]);
                 if (h && !addedMap[h]) addedMap[h] = ev.args[0];
             }
@@ -1714,7 +1716,7 @@ async function promptPasswordAndUpload() {
         const myAddr = String(web3.currentAccount || '').toLowerCase();
         const onChain = {};
         for (const ev of (await web3.queryHistory() || [])) {
-            if (String(ev.args[3] || '').toLowerCase() !== myAddr) continue;
+            if (String(ev.args[7] || '').toLowerCase() !== myAddr) continue; // DocumentAddedV2: uploader ở args[7]
             const h = norm(ev.args[1]);
             if (h) onChain[h] = ev.args[0];
         }
@@ -1991,10 +1993,15 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
 
         UI.updateProgress(85, "Đang chờ chữ ký MetaMask (Ký 1 lần duy nhất cho toàn bộ tệp)...", "SIGNING");
         // Ghi từng docId + fileHash + ipfsURI lên chain trong 1 giao dịch — để verify từng tài liệu hoạt động
+        // Contract v2: addDocumentsV2(ids, hashes, uris, prevIds, expiresAts).
+        // prevIds = docId phiên bản cũ file này thay thế ("" = bản gốc);
+        // expiresAts = 0 (chưa có UI hạn hiệu lực — field dành cho versioning sau).
         const txHash = await web3.addDocumentsOnChain(
             uploadedDocs.map(d => d.docId),
             uploadedDocs.map(d => d.fileHash),
-            uploadedDocs.map(d => `ipfs://${d.ipfsCID}`)
+            uploadedDocs.map(d => `ipfs://${d.ipfsCID}`),
+            uploadedDocs.map(d => d.replacesDocId || d._prevDocId || ''),
+            uploadedDocs.map(() => 0)
         );
         
         // LƯU DB MONGODB

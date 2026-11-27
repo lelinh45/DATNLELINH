@@ -174,11 +174,14 @@ app.use('/api/auth', authLimiter);
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 // Khai báo trực tiếp ABI để Server độc lập hoàn toàn, không phụ thuộc vào Hardhat
+// Contract v2: getDocument trả 11 fields; event DocumentAdded → DocumentAddedV2
+// (uploader chuyển từ args[3] sang args[7]).
 const abi = [
-    "function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason)",
+    "function getDocument(string _documentId) view returns (string fileHash, string ipfsURI, uint256 timestamp, address uploader, bool isRevoked, string revocationReason, string previousDocId, uint256 expiresAt, address[] requiredSigners, uint8 requiredThreshold, bool isSealed)",
     "function getDocIdByHash(address _uploader, string _fileHash) view returns (string)",
+    "function getSuccessor(string _documentId) view returns (string)",
     "function userRoles(address) view returns (uint8)",
-    "event DocumentAdded(string documentId, string fileHash, string ipfsURI, address uploader)"
+    "event DocumentAddedV2(string documentId, string fileHash, string ipfsURI, string previousDocId, uint256 expiresAt, address[] requiredSigners, uint8 requiredThreshold, address uploader)"
 ];
 
 // Contract khởi tạo lười — server vẫn boot được nếu chưa có CONTRACT_ADDRESS
@@ -432,7 +435,9 @@ app.post('/api/verify', verifyLimiter, uploadSingle('document'), async (req, res
         hash.update(currentBuffer);
         const currentFileHash = hash.digest('hex');
 
-        const [originalHash, ipfsURI, timestamp, uploader, isRevoked, revocationReason] = await getChainContract().getDocument(documentId);
+        // getDocument v2: 11 fields — 6 đầu giữ nguyên thứ tự cũ
+        const [originalHash, ipfsURI, timestamp, uploader, isRevoked, revocationReason,
+               previousDocId, expiresAt, requiredSigners, requiredThreshold, isSealed] = await getChainContract().getDocument(documentId);
 
         const isMatch = (currentFileHash === originalHash);
         
@@ -1053,7 +1058,7 @@ app.post('/api/batches', requireAuth, requireRole('NHẬP LIỆU'), async (req, 
 });
 
 // Tra cứu tài liệu theo hash nội dung / tên file — public (hash và docId vốn
-// đã public trong sự kiện DocumentAdded trên chuỗi). Phục vụ verify không cần
+// đã public trong sự kiện DocumentAddedV2 trên chuỗi). Phục vụ verify không cần
 // gõ mã: thả file → băm → tra → tự biết tài liệu nào đang được đối chiếu.
 app.get('/api/documents/lookup', async (req, res) => {
     try {
@@ -1226,7 +1231,9 @@ app.get('/api/documents/:docId/lineage', async (req, res) => {
 const AUDIT_CHECK_CAP = 300;  // giới hạn getDocument calls mỗi lần reconcile
 const AUDIT_REINDEX_CAP = 100;
 
-// Quét event DocumentAdded — chunk lớn, dừng êm khi RPC lỗi (trả complete=false)
+// Quét event DocumentAddedV2 — chunk lớn, dừng êm khi RPC lỗi (trả complete=false)
+// args v2: [0]docId [1]fileHash [2]ipfsURI [3]prevDocId [4]expiresAt
+//          [5]requiredSigners [6]requiredThreshold [7]uploader
 async function scanChainAddedEvents() {
     const contract = getChainContract();
     const latest = await provider.getBlockNumber();
@@ -1236,11 +1243,11 @@ async function scanChainAddedEvents() {
     for (let from = START; from <= latest; from += CHUNK) {
         const to = Math.min(from + CHUNK - 1, latest);
         try {
-            const chunk = await contract.queryFilter(contract.filters.DocumentAdded(), from, to);
+            const chunk = await contract.queryFilter(contract.filters.DocumentAddedV2(), from, to);
             for (const ev of chunk) {
                 events.push({
                     docId: ev.args[0], fileHash: String(ev.args[1] || '').toLowerCase(),
-                    ipfsURI: String(ev.args[2] || ''), uploader: String(ev.args[3] || '').toLowerCase(),
+                    ipfsURI: String(ev.args[2] || ''), uploader: String(ev.args[7] || '').toLowerCase(),
                     txHash: ev.transactionHash
                 });
             }
@@ -1655,8 +1662,10 @@ function getChainWriter() {
     if (!chainWriter) {
         if (!process.env.PRIVATE_KEY) throw new Error('Server chưa cấu hình PRIVATE_KEY — không ký được giao dịch');
         const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+        // Contract v2: addDocumentsV2(ids, hashes, uris, prevIds, expiresAts).
+        // Partner API chưa hỗ trợ versioning/hạn/multi-sig → prevIds rỗng, expiresAts=0.
         chainWriter = new ethers.Contract(CONTRACT_ADDRESS, [
-            "function addDocuments(string[] _documentIds, string[] _fileHashes, string[] _ipfsURIs)",
+            "function addDocumentsV2(string[] _documentIds, string[] _fileHashes, string[] _ipfsURIs, string[] _previousDocIds, uint256[] _expiresAts)",
             "function revokeDocument(string _documentId, string _reason)"
         ], signer);
     }
@@ -1779,7 +1788,9 @@ app.post('/api/v1/documents', requireApiKey, uploadSingle('document'), async (re
 
         let txHash = '';
         try {
-            const tx = await getChainWriter().addDocuments([documentId], [fileHash], [`ipfs://${ipfsCID}`]);
+            const tx = await getChainWriter().addDocumentsV2(
+                [documentId], [fileHash], [`ipfs://${ipfsCID}`], [''], [0]
+            );
             const receipt = await tx.wait();
             txHash = receipt.hash;
         } catch (chainErr) {
@@ -1820,7 +1831,9 @@ app.post('/api/v1/verify', requireApiKey, uploadSingle('document'), async (req, 
         } catch (chainErr) {
             return res.status(404).json({ success: false, message: 'documentId không tồn tại trên blockchain' });
         }
-        const [originalHash, ipfsURI, timestamp, uploader, isRevoked, revocationReason] = doc;
+        // getDocument v2: 11 fields — 6 đầu giữ nguyên thứ tự cũ
+        const [originalHash, ipfsURI, timestamp, uploader, isRevoked, revocationReason,
+               previousDocId, expiresAt, requiredSigners, requiredThreshold, isSealed] = doc;
         if (!originalHash) {
             return res.status(404).json({ success: false, message: 'documentId không tồn tại trên blockchain' });
         }

@@ -204,18 +204,104 @@ export class Web3Service {
         }
     }
 
-    async addDocumentOnChain(docId, fileHash, ipfsCID) {
+    // Contract v2: addDocumentV2(documentId, fileHash, ipfsURI, previousDocId,
+    // expiresAt, requiredSigners[], requiredThreshold). Doc thường: không
+    // versioning, không hạn, không multi-sig → sealed ngay.
+    async addDocumentV2OnChain(documentId, fileHash, ipfsURI, previousDocId = '', expiresAt = 0, requiredSigners = [], requiredThreshold = 0) {
         if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
-        const tx = await this.contract.addDocument(docId, fileHash, `ipfs://${ipfsCID}`);
+        const uri = String(ipfsURI || '');
+        const tx = await this.contract.addDocumentV2(
+            documentId, fileHash, uri.startsWith('ipfs://') ? uri : `ipfs://${uri}`,
+            previousDocId || '', Number(expiresAt) || 0,
+            requiredSigners || [], Number(requiredThreshold) || 0
+        );
         await tx.wait();
         return tx.hash;
     }
 
-    async addDocumentsOnChain(docIds, fileHashes, ipfsURIs) {
+    async addDocumentOnChain(docId, fileHash, ipfsCID) {
+        return this.addDocumentV2OnChain(docId, fileHash, `ipfs://${ipfsCID}`);
+    }
+
+    // Batch v2: addDocumentsV2(ids[], hashes[], uris[], prevIds[], expiresAts[])
+    // — mọi doc sealed ngay (threshold=0), successorOf gán trong cùng tx.
+    async addDocumentsOnChain(documentIds, fileHashes, ipfsURIs, previousDocIds = [], expiresAts = []) {
         if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
-        const tx = await this.contract.addDocuments(docIds, fileHashes, ipfsURIs);
+        const n = documentIds.length;
+        // Contract yêu cầu 5 mảng CÙNG độ dài — pad mảng versioning/hạn nếu caller bỏ trống
+        const pad = (arr, fill) => (arr && arr.length === n) ? arr : new Array(n).fill(fill);
+        const tx = await this.contract.addDocumentsV2(
+            documentIds, fileHashes, ipfsURIs,
+            pad(previousDocIds, ''), pad(expiresAts, 0)
+        );
         await tx.wait();
         return tx.hash;
+    }
+
+    // Đóng dấu đa chữ ký: 1 tx chứa toàn bộ chữ ký EIP-712 của các signer.
+    async sealDocumentOnChain(docId, signatures) {
+        if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
+        const tx = await this.contract.sealDocument(docId, signatures);
+        await tx.wait();
+        return tx.hash;
+    }
+
+    // Tra docId bản mới kế thừa doc này ("" = chưa có / không phải bản cũ)
+    async getSuccessor(docId) {
+        if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
+        return await this.contract.getSuccessor(docId);
+    }
+
+    // Ký EIP-712 DocumentSeal — khớp 100% recipe trong contract:
+    // domain {name:'DataIntegrity', version:'2', chainId, verifyingContract}
+    // docHash = keccak256(abi.encode(documentId, fileHash, ipfsURI, expiresAt, previousDocId))
+    // expiresAt/previousDocId PHẢI lấy từ giá trị doc đang lưu on-chain
+    // (dùng getDocumentV2) — sai 1 field là chữ ký vô hiệu.
+    async signDocumentSeal(documentId, fileHash, ipfsURI, expiresAt, previousDocId) {
+        if (!this.signer) throw new Error("Vui lòng kết nối ví trước!");
+        const network = await this.signer.provider.getNetwork();
+        const docHash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(
+            ['string', 'string', 'string', 'uint256', 'string'],
+            [documentId, fileHash, ipfsURI, BigInt(expiresAt || 0), previousDocId || '']
+        ));
+        const domain = {
+            name: 'DataIntegrity',
+            version: '2',
+            chainId: network.chainId,
+            verifyingContract: CONFIG.CONTRACT_ADDRESS
+        };
+        const types = {
+            DocumentSeal: [
+                { name: 'docHash', type: 'bytes32' },
+                { name: 'documentId', type: 'string' },
+                { name: 'fileHash', type: 'string' },
+                { name: 'ipfsURI', type: 'string' },
+                { name: 'expiresAt', type: 'uint256' },
+                { name: 'previousDocId', type: 'string' }
+            ]
+        };
+        return await this.signer.signTypedData(domain, types, {
+            docHash, documentId, fileHash, ipfsURI,
+            expiresAt: BigInt(expiresAt || 0), previousDocId: previousDocId || ''
+        });
+    }
+
+    // getDocument 11 fields → object đặt tên dễ đọc (giữ nguyên tuple qua getDocumentFromChain)
+    async getDocumentV2(docId) {
+        const d = await this.getDocumentFromChain(docId);
+        return {
+            fileHash: String(d[0] || ''),
+            ipfsURI: String(d[1] || ''),
+            timestamp: Number(d[2] || 0),
+            uploader: String(d[3] || ''),
+            isRevoked: !!d[4],
+            revocationReason: String(d[5] || ''),
+            previousDocId: String(d[6] || ''),
+            expiresAt: d[7] != null ? d[7].toString() : '0',
+            requiredSigners: Array.isArray(d[8]) ? d[8].map(String) : [],
+            requiredThreshold: Number(d[9] || 0),
+            sealed: !!d[10]
+        };
     }
 
     async addMerkleBatch(batchId, merkleRoot, ipfsURI) {
@@ -255,7 +341,7 @@ export class Web3Service {
 
     async queryHistory(onProgress) {
         if (!this.contract) throw new Error("Vui lòng kết nối ví trước!");
-        return await this.getEventsInChunks(this.contract.filters.DocumentAdded(), 'added_events', onProgress); 
+        return await this.getEventsInChunks(this.contract.filters.DocumentAddedV2(), 'added_events', onProgress); 
     }
 
     async queryRevokedHistory(onProgress) {
@@ -280,7 +366,7 @@ export class Web3Service {
         let issuerCount = 1;
         if (this.contract) {
             try {
-                const docEvents = await this.getEventsInChunks(this.contract.filters.DocumentAdded(), 'added_events');
+                const docEvents = await this.getEventsInChunks(this.contract.filters.DocumentAddedV2(), 'added_events');
                 for (let ev of docEvents) {
                     const docData = await this.contract.getDocument(ev.args[0]);
                     if (!docData[4]) activeDocCount++;
