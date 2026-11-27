@@ -2003,14 +2003,7 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         const merkleRoot = tree.getHexRoot();
         const batchId = `BATCH_${Date.now()}`;
         
-        // Manifest lên IPFS — lọc BỎ encKey (manifest là public, ai có CID đều đọc được)
-        const publicFiles = uploadedDocs.map(({ encKey, chunkHashes, ...rest }) => rest);
-        const manifestBlob = new Blob([JSON.stringify({ batchId, merkleRoot, timestamp: Date.now(), files: publicFiles })], { type: 'application/json' });
-        const manifestUpload = await ApiService.uploadFileWithProgress(new File([manifestBlob], `${batchId}_manifest.json`), (pct) => {
-            UI.updateProgress(Math.round(65 + Math.min(100, Math.max(0, pct)) / 100 * 10), "Đang lưu manifest lên IPFS...", "MERKLE TREE");
-        });
-
-        UI.updateProgress(80, "Đang kiểm tra quyền versioning on-chain...", "VERIFYING");
+        UI.updateProgress(70, "Đang kiểm tra quyền versioning on-chain...", "VERIFYING");
         // Contract _checkPreviousDoc revert TOÀN BỘ batch nếu 1 prevId sai —
         // lọc trước: chỉ gửi prevId mà doc tồn tại on-chain, chưa có successor,
         // và ví hiện tại có quyền kế thừa. Lỗi → gửi '' cho file đó (lineage
@@ -2018,6 +2011,29 @@ async function executeUploadCore(fileDataArray, secretKey, visibility = 'private
         const prevCandidates = uploadedDocs.map(d => d.replacesDocId || '');
         const validatedPrevIds = await web3.validatePreviousDocIds(prevCandidates);
         uploadedDocs.forEach((d, i) => { d.previousDocId = validatedPrevIds[i] || ''; });
+
+        // Chống trùng prevId TRONG CÙNG batch: contract gán successorOf[prevId]
+        // ngay trong vòng lặp addDocumentsV2 → file thứ 2 cùng prevId sẽ thấy
+        // "đã có bản mới" và revert cả tx. File đầu giữ prevId, các file sau → ''.
+        const seenPrev = new Set();
+        uploadedDocs.forEach((d) => {
+            if (d.previousDocId) {
+                if (seenPrev.has(d.previousDocId)) {
+                    console.warn(`[versioning] Bỏ qua previousDocId trùng trong batch cho ${d.docId}: ${d.previousDocId}`);
+                    d.previousDocId = '';
+                } else {
+                    seenPrev.add(d.previousDocId);
+                }
+            }
+        });
+
+        // Manifest lên IPFS SAU khi previousDocId cuối cùng đã chốt — manifest
+        // phải phản ánh đúng giá trị ghi on-chain/Mongo. Lọc BỎ encKey (public).
+        const publicFiles = uploadedDocs.map(({ encKey, chunkHashes, ...rest }) => rest);
+        const manifestBlob = new Blob([JSON.stringify({ batchId, merkleRoot, timestamp: Date.now(), files: publicFiles })], { type: 'application/json' });
+        const manifestUpload = await ApiService.uploadFileWithProgress(new File([manifestBlob], `${batchId}_manifest.json`), (pct) => {
+            UI.updateProgress(Math.round(75 + Math.min(100, Math.max(0, pct)) / 100 * 7), "Đang lưu manifest lên IPFS...", "MERKLE TREE");
+        });
 
         UI.updateProgress(85, "Đang chờ chữ ký MetaMask (Ký 1 lần duy nhất cho toàn bộ tệp)...", "SIGNING");
         // Ghi từng docId + fileHash + ipfsURI lên chain trong 1 giao dịch — để verify từng tài liệu hoạt động
